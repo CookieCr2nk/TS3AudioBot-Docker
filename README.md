@@ -1,13 +1,20 @@
 # ts3audiobot-dockerized
-[![Build Status](https://travis-ci.com/CookieCr2nk/ts3audiobot-dockerized.svg?branch=master)](https://travis-ci.com/CookieCr2nk/ts3audiobot-dockerized)
 
-This is the TS3AudioBot in a Docker Container based on CentOS7 Linux.      
+This is the TS3AudioBot in a Docker Container based on Ubuntu 18.04 Linux.
 
-# Usage
+improved version of zachary-duquette/TS3AudioBot-Docker
 
-For using this Dockerfile you need knowledge in Docker or you can contact me over Discord: CookieCr2nk#3230
+# Usage / Parameters
+
+* For using this Dockerfile you need knowledge in Docker or you can contact me over Discord: CookieCr2nk#3230
+
+* `-v /config` - Location that contains bot configuration files.
 
 
 # Ressources
 
-The Dockerfile uses minimal of Disk Space.
+The Dockerfile uses a lot of Disk Space.
+
+My Next Step is, to use Alpine Linux instead of Ubuntu 18.04
+
+
