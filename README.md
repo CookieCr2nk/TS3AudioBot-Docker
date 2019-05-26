@@ -1,5 +1,5 @@
 # ts3audiobot-dockerized
-ts3audiobot-dockerized
+https://travis-ci.com/CookieCr2nk/ts3audiobot-dockerized.svg?branch=master
 
 This is the TS3AudioBot in a Docker Container based on CentOS7 Linux.      
 
