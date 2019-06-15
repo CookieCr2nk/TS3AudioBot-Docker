@@ -11,6 +11,6 @@ RUN echo "deb http://download.mono-project.com/repo/debian stable-bionic main" >
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
 WORKDIR /app
-RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/master/download && 7z x TS3AudioBot.zip && rm -f TS3AudioBot.zip
+RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop/download && 7z x TS3AudioBot.zip && rm -f TS3AudioBot.zip
 
 CMD ["mono", "TS3AudioBot.exe", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
