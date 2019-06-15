@@ -6,10 +6,10 @@ RUN wget -q https://packages.microsoft.com/config/ubuntu/18.04/packages-microsof
 RUN dpkg -i packages-microsoft-prod.deb
 RUN apt-get install software-properties-common
 RUN add-apt-repository universe
-  && apt-get install apt-transport-https \
-  && apt-get update \
-  && apt-get install dotnet-sdk-2.2 \
-  && rm -rf /var/lib/apt/lists/* /tmp/*
+RUN apt-get install apt-transport-https
+RUN apt-get update
+RUN apt-get install dotnet-sdk-2.2
+RUN rm -rf /var/lib/apt/lists/* /tmp/*
 
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
