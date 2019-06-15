@@ -4,11 +4,11 @@ RUN apt-get update && apt-get install -y ffmpeg wget p7zip-full gpg libopus-dev 
 
 RUN wget -q https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb
 RUN dpkg -i packages-microsoft-prod.deb
-RUN apt-get install software-properties-common
+RUN apt-get install software-properties-common -y
 RUN add-apt-repository universe
-RUN apt-get install apt-transport-https
+RUN apt-get install apt-transport-https -y
 RUN apt-get update
-RUN apt-get install dotnet-sdk-2.2
+RUN apt-get install dotnet-sdk-2.2 -y
 RUN rm -rf /var/lib/apt/lists/* /tmp/*
 
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
