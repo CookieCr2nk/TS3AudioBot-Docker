@@ -18,6 +18,8 @@ RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube
 WORKDIR /ts3audiobot
 RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && 7z x TS3AudioBot.zip && rm -f TS3AudioBot.zip
 
-RUN mkdir /config ; chmod 777
+RUN mkdir /config \
+    chmod 777
 VOLUME /config
+
 CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
