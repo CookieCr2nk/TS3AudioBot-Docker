@@ -1,6 +1,6 @@
 FROM debian:stretch
 
-RUN apt-get update && apt-get install -y ffmpeg wget p7zip-full gpg libopus-dev python
+RUN apt-get update && apt-get install -y ffmpeg wget p7zip-full gpg libopus-dev python nano
 
 RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.asc.gpg
 RUN mv microsoft.asc.gpg /etc/apt/trusted.gpg.d/
