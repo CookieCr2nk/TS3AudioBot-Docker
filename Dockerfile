@@ -1,16 +1,36 @@
-FROM ubuntu:18.04
+FROM debian:stretch-slim
 
-RUN apt-get update && apt-get install -y ffmpeg wget p7zip-full gpg libopus-dev python
+# Install requires
+RUN apt-get update && apt-get install -y ffmpeg wget unzip gpg libopus-dev python nano
 
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
-RUN echo "deb http://download.mono-project.com/repo/debian stable-bionic main" > /etc/apt/sources.list.d/mono-official-stable.list \
-  && apt-get update \
-  && apt-get install -y mono-complete \
-  && rm -rf /var/lib/apt/lists/* /tmp/*
+#Register Microsoft key and feed
+RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.asc.gpg
+RUN mv microsoft.asc.gpg /etc/apt/trusted.gpg.d/
+RUN wget -q https://packages.microsoft.com/config/debian/9/prod.list
+RUN mv prod.list /etc/apt/sources.list.d/microsoft-prod.list
+RUN chown root:root /etc/apt/trusted.gpg.d/microsoft.asc.gpg
+RUN chown root:root /etc/apt/sources.list.d/microsoft-prod.list
 
+#.dotnet runtime 2.2 Installieren
+RUN apt-get install apt-transport-https -y
+RUN apt-get update
+RUN apt-get install aspnetcore-runtime-2.2 -y
+RUN rm -rf /var/lib/apt/lists/*
+
+#YT-DL Herunterladen
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
-WORKDIR /app
-RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/master/download && 7z x TS3AudioBot.zip && rm -f TS3AudioBot.zip
+# TS3Audiobot Instanz erstellen
+WORKDIR /ts3audiobot
+RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
 
-CMD ["mono", "TS3AudioBot.exe", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
+#Config Volume Erstellen
+RUN mkdir /config \
+    chmod 777
+VOLUME /config
+
+#Portfreigabe
+EXPOSE 58913
+
+#TS3Audiobot starten
+CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
