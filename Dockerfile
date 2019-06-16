@@ -11,7 +11,7 @@ RUN chown root:root /etc/apt/sources.list.d/microsoft-prod.list
 
 RUN apt-get install apt-transport-https -y
 RUN apt-get update
-RUN apt-get install dotnet-sdk-2.2 -y
+RUN apt-get install aspnetcore-runtime-2.2 -y
 RUN rm -rf /var/lib/apt/lists/*
 
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
