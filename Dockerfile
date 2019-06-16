@@ -1,6 +1,5 @@
 FROM debian:stretch-slim
 MAINTAINER CookieCr2nk<cookiecrafthd1@gmail.com>
-LABEL maintainer=Noa Joder <cookiecrafthd1@gmail.com> 
 LABEL description="TS3Audiobot Docker Image."
 # Install requires
 RUN apt-get update && apt-get install -y ffmpeg wget unzip gpg libopus-dev python nano
