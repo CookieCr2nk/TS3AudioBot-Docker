@@ -30,4 +30,4 @@ RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_c
 EXPOSE 58913
 
 #TS3Audiobot starten
-CMD ["dotnet", "/app/TS3AudioBot.dll", "--non-interactive"]
+CMD ["dotnet", "TS3AudioBot.dll", "-c", "/app/TS3AudioBot.config"]
