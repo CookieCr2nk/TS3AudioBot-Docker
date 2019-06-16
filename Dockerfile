@@ -29,8 +29,5 @@ RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_c
 #Portfreigabe
 EXPOSE 58913
 
-#Healthcheck
-HEALTHCHECK &{["CMD-SHELL" "curl -f http://localhost:5813/ || exit 1"] "1m0s" "5s" "0s" '\x00'} 
- 
 #TS3Audiobot starten
 CMD ["dotnet", "/app/TS3AudioBot.dll", "--non-interactive"]
