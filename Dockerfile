@@ -21,9 +21,6 @@ RUN rm -rf /var/lib/apt/lists/*
 #YT-DL Herunterladen
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
-# TS3Audiobot Instanz erstellen
-RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
-
 # TS3Audiobot installieren
 WORKDIR /app
 RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
