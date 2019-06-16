@@ -1,6 +1,6 @@
 FROM debian:stretch
 
-RUN apt-get update && apt-get install -y ffmpeg wget p7zip-full gpg libopus-dev python nano
+RUN apt-get update && apt-get install -y ffmpeg wget unzip gpg libopus-dev python nano
 
 RUN wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.asc.gpg
 RUN mv microsoft.asc.gpg /etc/apt/trusted.gpg.d/
@@ -16,7 +16,7 @@ RUN apt-get install dotnet-sdk-2.2 -y
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
 WORKDIR /ts3audiobot
-RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && 7z x TS3AudioBot.zip && rm -f TS3AudioBot.zip
+RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
 
 RUN mkdir /config \
     chmod 777
