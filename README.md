@@ -8,6 +8,10 @@ This is the TS3AudioBot in a Docker Container based on Debian Stretch minimal Li
 
 * `-v /config` - Location that contains bot configuration files.
 
+# Docker Repository
+
+https://hub.docker.com/r/noajoder/ts3audiobot
+
 # Ressources
 
 This Dockerfile uses minimal ressources.
