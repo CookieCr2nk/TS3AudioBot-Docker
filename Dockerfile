@@ -1,5 +1,7 @@
 FROM debian:stretch-slim
-
+MAINTAINER CookieCr2nk<cookiecrafthd1@gmail.com>
+LABEL maintainer=Noa Joder <cookiecrafthd1@gmail.com> 
+LABEL description="TS3Audiobot Docker Image."
 # Install requires
 RUN apt-get update && apt-get install -y ffmpeg wget unzip gpg libopus-dev python nano
 
@@ -21,16 +23,15 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
 # TS3Audiobot Instanz erstellen
-WORKDIR /ts3audiobot
+WORKDIR /app
+VOLUME /app
 RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
-
-#Config Volume Erstellen
-RUN mkdir /config \
-    chmod 777
-VOLUME /config
 
 #Portfreigabe
 EXPOSE 58913
 
+#Healthcheck
+HEALTHCHECK &{["CMD-SHELL" "curl -f http://localhost:5813/ || exit 1"] "1m0s" "5s" "0s" '\x00'} 
+ 
 #TS3Audiobot starten
-CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
+CMD ["dotnet", "/app/TS3AudioBot.dll", "--non-interactive"]
