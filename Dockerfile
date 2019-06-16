@@ -22,12 +22,16 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
 # TS3Audiobot Instanz erstellen
-WORKDIR /app
-VOLUME /app
 RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
+
+# TS3Audiobot installieren
+WORKDIR /app
+RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
+VOLUME /app
 
 #Portfreigabe
 EXPOSE 58913
 
 #TS3Audiobot starten
 CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive", "-c", "/app/TS3AudioBot.config"]
+
