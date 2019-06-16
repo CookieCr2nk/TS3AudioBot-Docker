@@ -15,7 +15,8 @@ RUN apt-get install dotnet-sdk-2.2 -y
 
 RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
-WORKDIR /app
+WORKDIR /ts3audiobot
 RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && 7z x TS3AudioBot.zip && rm -f TS3AudioBot.zip
 
+VOLUME /config
 CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
