@@ -1,8 +1,6 @@
 # ts3audiobot-dockerized
 
-This is the TS3AudioBot in a Docker Container based on Ubuntu 18.04 Linux.
-
-improved version of zachary-duquette/TS3AudioBot-Docker
+This is the TS3AudioBot in a Docker Container based on Debian Stretch minimal Linux.
 
 # Usage / Parameters
 
@@ -10,12 +8,7 @@ improved version of zachary-duquette/TS3AudioBot-Docker
 
 * `-v /config` - Location that contains bot configuration files.
 
-
-
 # Ressources
 
-The Dockerfile uses a lot of Disk Space.
-
-My Next Step is, to use Alpine Linux instead of Ubuntu 18.04
-
+This Dockerfile uses minimal ressources.
 
