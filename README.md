@@ -12,8 +12,9 @@ improved version of zachary-duquette/TS3AudioBot-Docker
 
 * Container First Start 
 
-`docker run -d -p 58913:58913 \
-           -v config:/config \`
+docker run -d -p 58913:58913 \
+           -v config:/config \
+           --name ts3audiobot noajoder/ts3audiobot
 
 
 # Ressources
