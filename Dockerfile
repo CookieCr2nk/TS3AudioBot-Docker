@@ -3,7 +3,7 @@ MAINTAINER CookieCr2nk<cookiecrafthd1@gmail.com>
 LABEL description="TS3Audiobot Docker Image."
 #Install requires
 #RUN apt-get update && apt-get install -y ffmpeg wget unzip gpg libopus-dev python
-RUN RUN apt-get update && \
+RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg wget unzip gpg libopus-dev python && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
