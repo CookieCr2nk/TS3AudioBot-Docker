@@ -6,8 +6,6 @@ This is the TS3AudioBot in a Docker Container based on Debian Stretch minimal Li
 
 * For using this Dockerfile you need knowledge in Docker or you can contact me over Discord: CookieCr2nk#3230
 
-* `-v /config` - Location that contains bot configuration files.
-
 # Docker Repository
 
 https://hub.docker.com/r/noajoder/ts3audiobot
