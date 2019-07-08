@@ -4,7 +4,7 @@ MAINTAINER CookieCr2nk<cookiecrafthd1@gmail.com>
 LABEL description="TS3Audiobot Docker Image."
 #Install requires
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl wget unzip gpg libopus-dev python && \
+    apt-get install -y --no-install-recommends ffmpeg curl wget unzip libopus-dev python && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
 # Install .NET Core
@@ -19,7 +19,7 @@ RUN curl -SL --output dotnet.tar.gz https://dotnetcli.blob.core.windows.net/dotn
 && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 #YT-DL Herunterladen
-RUN wget https://yt-dl.org/downloads/latest/youtube-dl -O /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
+RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl && chmod a+rx /usr/local/bin/youtube-dl
 
 # TS3Audiobot installieren
 WORKDIR /app
