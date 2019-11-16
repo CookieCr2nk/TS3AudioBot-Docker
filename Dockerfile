@@ -25,10 +25,10 @@ RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/yout
 WORKDIR /app
 RUN wget -O TS3AudioBot.zip https://splamy.de/api/nightly/ts3ab/develop_dotnet_core/download && unzip TS3AudioBot.zip && rm -f TS3AudioBot.zip
 VOLUME /app
-
+VOLUME /config
 #Portfreigabe
 EXPOSE 58913
 
 #TS3Audiobot starten
-CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive"]
+CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive", "-c", "/config/TS3AudioBot.config"]
 
