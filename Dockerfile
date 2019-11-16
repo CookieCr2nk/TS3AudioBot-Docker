@@ -1,7 +1,7 @@
 ARG REPO=mcr.microsoft.com/dotnet/core/runtime-deps
 FROM $REPO:2.2-stretch-slim
-MAINTAINER CookieCr2nk<cookiecrafthd1@gmail.com>
-LABEL description="TS3Audiobot Docker Image."
+MAINTAINER CookieCr2nk
+LABEL description="TS3Audiobot Dockerized"
 #Install requires
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg curl wget unzip libopus-dev python && \
