@@ -29,5 +29,5 @@ VOLUME /app
 EXPOSE 58913
 
 #TS3Audiobot starten
-CMD ["dotnet", "TS3AudioBot.dll", "--non-interactive"]
+CMD ["dotnet", "TS3AudioBot.dll"]
 
