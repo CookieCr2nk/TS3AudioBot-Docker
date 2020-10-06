@@ -15,7 +15,7 @@ on:
 
 env:
   # TODO: Change variable to your image's name.
-  IMAGE_NAME: TS3AudioBot-Docker
+  IMAGE_NAME: ts3audiobot
 
 jobs:
   # Run tests.
