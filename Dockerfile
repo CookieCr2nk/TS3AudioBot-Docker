@@ -7,17 +7,17 @@ RUN apt-get update && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
     
 #Set Environments
-ARG TS3_AUDIOBOT_RELEASE="0.11.0"
-ARG TS3_AUDIOBOT_FLAVOUR="TS3AudioBot_dotnet_core_3.1.zip"
+ARG TS3_AUDIOBOT_RELEASE="0.12.0-alpha.52"
+ARG TS3_AUDIOBOT_FLAVOUR="develop_linux_x64"
 
 #YT-DL
 RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl \
     && chmod a+rx /usr/local/bin/youtube-dl
 
-# TS3Audiobot installieren (https://github.com/Splamy/TS3AudioBot/releases/)
+# TS3Audiobot install (https://github.com/Splamy/TS3AudioBot/releases/)
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
-    && curl -L https://github.com/Splamy/TS3AudioBot/releases/download/${TS3_AUDIOBOT_RELEASE}/${TS3_AUDIOBOT_FLAVOUR} -o TS3AudioBot.zip \
+    && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_FLAVOUR} -o TS3AudioBot.zip \
     && unzip TS3AudioBot.zip
 
 #adduser
