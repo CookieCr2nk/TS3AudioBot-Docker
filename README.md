@@ -7,12 +7,9 @@ This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet
 # Usage / Parameters
 
 * For using this Dockerfile/Dockerimage you need knowledge in Docker. For Bugs please create an issue.
-* Docker Run: ```docker run -p 58913:58913 --name ts3bot -v ts3bot_data:/opt/TS3AudioBot -d noajoder/ts3audiobot```
+* Docker Run: ```docker run -p 58913:58913 --name ts3bot -v ts3bot_data:/opt/TS3AudioBot -d ghcr.io/cookiecr2nk/ts3audiobot:latest```
+
 * Docker Build:  ```docker build -f Dockerfile . ```
-
-# Docker Repository
-
-https://hub.docker.com/r/noajoder/ts3audiobot
 
 # Contribution
 
