@@ -3,7 +3,7 @@ LABEL description="TS3Audiobot Dockerized"
 
 #Install requires
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl unzip libopus-dev python && \
+    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl tar libopus-dev python && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
     
 #Set Environments
@@ -17,8 +17,8 @@ RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/yout
 # TS3Audiobot install (https://github.com/Splamy/TS3AudioBot/releases/)
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
-    && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_FLAVOUR} -o TS3AudioBot.zip \
-    && unzip TS3AudioBot.zip
+    && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_FLAVOUR}/download -o TS3AudioBot.tar.gz \
+    && tar -xvzf TS3AudioBot.tar.gz
 
 #adduser
 RUN useradd -ms /bin/bash -u 9999 ts3audiobot
