@@ -1,6 +1,6 @@
 # TS3AudioBot-Docker
 
-![Docker](https://github.com/CookieCr2nk/TS3AudioBot-Docker/workflows/Docker/badge.svg?branch=master)
+![Docker Image CI](https://github.com/CookieCr2nk/TS3AudioBot-Docker/workflows/Docker%20Image%20CI/badge.svg)
 
 This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet runtime 3.1
 
