@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/runtime
+FROM mcr.microsoft.com/dotnet/core/sdk
 LABEL description="TS3Audiobot Dockerized"
 
 #Install requires
