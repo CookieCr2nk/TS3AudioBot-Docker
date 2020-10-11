@@ -15,11 +15,11 @@ chown -R 9999:9999 /opt/ts3audiobot/data
 
 Run the initial setup to generate all the initial configuration files:
 
-```docker run --rm -v /opt/ts3audiobot/data:/data -it hcr.io/cookiecr2nk/ts3audiobot:latest```
+```docker run --rm -v /opt/ts3audiobot/data:/data -it noajoder/ts3audiobot:latest```
 
 After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Then run the actual container again as a daemon:
 
-```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data hcr.io/cookiecr2nk/ts3audiobot:latest```
+```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:latest```
 
 
 #Docker Image Building
