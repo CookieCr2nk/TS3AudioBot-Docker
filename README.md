@@ -1,6 +1,6 @@
 # TS3AudioBot-Docker
 
-![Docker Image CI](https://github.com/CookieCr2nk/TS3AudioBot-Docker/workflows/Docker%20Image%20CI/badge.svg)
+![Docker](https://github.com/CookieCr2nk/TS3AudioBot-Docker/workflows/Docker/badge.svg?branch=master)
 
 This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet runtime 3.1
 
@@ -22,7 +22,7 @@ After the initial configuration setup has finished, stop the server with CTRL-C 
 ```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:latest```
 
 
-#Docker Image Building
+# Docker Image Building
 
 * Docker Build:  ```docker build -f Dockerfile . ```
 
