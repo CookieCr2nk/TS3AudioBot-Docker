@@ -28,7 +28,7 @@ RUN mkdir -p /data
 RUN chown -R ts3audiobot:nogroup /data
 
 #Copy Config Template into Container
-COPY ./ts3audiobot_config /data/ts3audiobot_config
+COPY ./ts3audiobot_config /data
 
 USER ts3audiobot
 
