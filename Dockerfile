@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk
+FROM mcr.microsoft.com/dotnet/core/runtime:3.1
 LABEL description="TS3Audiobot Dockerized"
 
 #Install requires
@@ -7,8 +7,8 @@ RUN apt-get update && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
     
 #Set Environments
-ARG TS3_AUDIOBOT_RELEASE="0.12.0-alpha.52"
-ARG TS3_AUDIOBOT_FLAVOUR="develop_linux_x64"
+#Ver 0.11.3
+ARG TS3_AUDIOBOT_RELEASE="master_dotnet_core_3_1_preview"
 
 #YT-DL
 RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl \
@@ -17,7 +17,7 @@ RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/yout
 # TS3Audiobot install (https://github.com/Splamy/TS3AudioBot/releases/)
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
-    && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_FLAVOUR}/download -o TS3AudioBot.tar.gz \
+    && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.tar.gz \
     && tar -xvzf TS3AudioBot.tar.gz
 
 #adduser
