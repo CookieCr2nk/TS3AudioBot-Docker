@@ -55,7 +55,7 @@ jobs:
 
       - name: Push image to Docker Hub Container Registry
         run: |
-          IMAGE_ID=noajoder/ts3audiobot:$IMAGE_NAME
+          IMAGE_ID=noajoder/ts3audiobot
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
