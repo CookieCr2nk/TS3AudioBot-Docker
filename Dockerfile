@@ -20,21 +20,16 @@ RUN mkdir -p /opt/TS3AudioBot \
     && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.zip \
     && unzip TS3AudioBot.zip
 
-#adduser
+#create User and /data Path
 RUN useradd -ms /bin/bash -u 9999 ts3audiobot
-
-#/data for data persistents between restarts
 RUN mkdir -p /data
 RUN chown -R ts3audiobot:nogroup /data
 
-#Copy Config Template into Container
-COPY ./ts3audiobot_config/* /data/
 
-USER ts3audiobot
-
+#Final Steps
 WORKDIR /data
-
-#WebUI
+ADD --chown=9999:9999 ./config .
+VOLUME /data
+USER ts3audiobot
 EXPOSE 58913
-
-CMD ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive"]
+CMD ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]

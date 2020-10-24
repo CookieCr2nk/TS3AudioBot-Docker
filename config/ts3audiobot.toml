@@ -41,7 +41,7 @@ server_password = { pw = "", hashed = false, autohash = false }
 #The default channel password. Leave empty for none.
 channel_password = { pw = "", hashed = false, autohash = false }
 #Overrides the displayed version for the ts3 client. Leave empty for default.
-client_version = { build = "", platform = "", sign = "" }
+client_version = { build = "3.?.? [Build: 5680278000]", platform = "Linux", sign = "Hjd+N58Gv3ENhoKmGYy2bNRBsNNgm5kpiaQWxOj5HN2DXttG6REjymSwJtpJ8muC2gSwRuZi0R+8Laan5ts5CQ==" }
 #The address, ip or nickname (and port; default: 9987) of the TeamSpeak3 server
 address = ""
 #Default channel when connecting. Use a channel path or "/<id>".
