@@ -6,22 +6,19 @@ This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet
 
 # Usage / Parameters
 
-Setup the data directory
+Setup the Docker Volume
 
 ```
-mkdir -p /opt/ts3audiobot/data
-chown -R 9999:9999 /opt/ts3audiobot/data
+docker volume create ts3audiobot-data
 ```
 
 1. Run the initial setup to generate all the initial configuration files:
 
-```docker run --rm -v /opt/ts3audiobot/data:/data -it noajoder/ts3audiobot:latest```
+```docker run --rm -v ts3audiobot-data:/data -it noajoder/ts3audiobot:latest```
 
 2. After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Now you can copy the data in the Config folder in your Data Mount or create an own Config.
 
-3. When you copy additional Files in the Config Mount you have be sure that these files have the right Permissions.
-
-```chown -R 9999:9999 /opt/ts3audiobot/data```
+3. You can Modify the Data in the Docker Volume. The Docker volume is located at ```/var/lib/docker/volumes/ts3audiobot-data/_data```
 
 3. Then run the actual container again as a daemon:
 
@@ -30,7 +27,7 @@ chown -R 9999:9999 /opt/ts3audiobot/data
 
 # Docker Image Building
 
-* Docker Build:  ```docker build -f TS3AudioBot . ```
+* Docker Build:  ```docker build -f ts3audiobot:1.0 . ```
 
 # Contribution
 
