@@ -78,7 +78,7 @@ max_user_volume = 100.0
 #Specifies the bitrate (in kbps) for sending audio.
 #Values between 8 and 98 are supported, more or less can work but without guarantees.
 #Reference values: 16 - very poor (~3KiB/s), 24 - poor (~4KiB/s), 32 - okay (~5KiB/s), 48 - good (~7KiB/s), 64 - very good (~9KiB/s), 96 - deluxe (~13KiB/s)
-bitrate = 96
+bitrate = 64
 #How the bot should play music. Options are:
 # - whisper : Whispers to the channel where the request came from. Other users can join with '!subscribe'.
 # - voice : Sends via normal voice to the current channel. '!subscribe' will not work in this mode.
