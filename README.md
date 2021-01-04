@@ -18,9 +18,11 @@ docker volume create ts3audiobot-data
 
 2. After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Now you can copy the data in the Config folder in your Data Mount or create an own Config.
 
-3. You can Modify the Data in the Docker Volume. The Docker volume is located at ```/var/lib/docker/volumes/ts3audiobot-data/_data```
+3. Add your server address to address = "voice.teamspeak.com" in your bot.toml, that is located in: /var/lib/docker/volumes/ts3audiobot-data/_data/bots/default/bot.toml
 
-3. Then run the actual container again as a daemon:
+4. You can Modify the Data in the Docker Volume. The Docker volume is located at ```/var/lib/docker/volumes/ts3audiobot-data/_data```
+
+5. Then run the actual container again as a daemon:
 
 ```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:latest```
 
