@@ -11,20 +11,23 @@ Setup the Docker Volume
 ```
 docker volume create ts3audiobot-data
 ```
+1. First Pull the Container Image from Github Packages
 
-1. Run the initial setup to generate all the initial configuration files:
+```docker pull docker.pkg.github.com/cookiecr2nk/ts3audiobot-docker/latest:latest```
 
-```docker run --rm -v ts3audiobot-data:/data -it noajoder/ts3audiobot:latest```
+2. Run the initial setup to generate all the initial configuration files:
 
-2. After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Now you can copy the data in the Config folder in your Data Mount or create an own Config.
+```docker run --rm -v ts3audiobot-data:/data -it docker.pkg.github.com/cookiecr2nk/ts3audiobot-docker/latest:latest```
 
-3. Add your server address to address = "voice.teamspeak.com" in your bot.toml, that is located in: /var/lib/docker/volumes/ts3audiobot-data/_data/bots/default/bot.toml
+3. After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Now you can copy the data in the Config folder in your Data Mount or create an own Config.
 
-4. You can Modify the Data in the Docker Volume. The Docker volume is located at ```/var/lib/docker/volumes/ts3audiobot-data/_data```
+4. Add your server address to address = "voice.teamspeak.com" in your bot.toml, that is located in: /var/lib/docker/volumes/ts3audiobot-data/_data/bots/default/bot.toml
 
-5. Then run the actual container again as a daemon:
+5. You can Modify the Data in the Docker Volume. The Docker volume is located at ```/var/lib/docker/volumes/ts3audiobot-data/_data```
 
-```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:latest```
+6. Then run the actual container again as a daemon:
+
+```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data docker.pkg.github.com/cookiecr2nk/ts3audiobot-docker/latest:latest```
 
 
 # Docker Image Building
