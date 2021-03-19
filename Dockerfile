@@ -22,7 +22,7 @@ RUN mkdir -p /opt/TS3AudioBot \
 
 #create User ts3audiobot and create /data Path and modify rights
 RUN useradd -ms /bin/bash -u 9999 ts3audiobot
-    && mkdir -p /data
+RUN mkdir -p /data
     && chown -R ts3audiobot:nogroup /data
     
 #Final Steps
