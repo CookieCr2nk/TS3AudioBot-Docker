@@ -20,7 +20,7 @@ RUN mkdir -p /opt/TS3AudioBot \
     && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.zip \
     && unzip TS3AudioBot.zip
 
-#create User and /data Path
+#create User ts3audiobot and create /data Path and modify rights
 RUN useradd -ms /bin/bash -u 9999 ts3audiobot
 RUN mkdir -p /data
 RUN chown -R ts3audiobot:nogroup /data
