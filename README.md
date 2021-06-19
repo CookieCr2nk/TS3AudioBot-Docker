@@ -13,6 +13,7 @@ docker volume create ts3audiobot-data
 ```
 1. First Pull the Container Image from Github Packages
 
+```docker pull noajoder/ts3audiobot```
 ```docker pull docker.pkg.github.com/cookiecr2nk/ts3audiobot-docker/latest:latest```
 
 2. Run the initial setup to generate all the initial configuration files:
