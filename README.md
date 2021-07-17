@@ -32,7 +32,7 @@ docker volume create ts3audiobot-data
 
 # Docker Image Building
 
-* Docker Build:  ```docker build -f ts3audiobot:1.0 . ```
+* Docker Build:  ```docker build -f ts3audiobot:master . ```
 
 # Contribution
 
