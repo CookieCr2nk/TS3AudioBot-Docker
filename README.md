@@ -13,11 +13,11 @@ docker volume create ts3audiobot-data
 ```
 1. First Pull the Container Image from Github Packages
 
-```docker pull noajoder/ts3audiobot:latest```
+```docker pull noajoder/ts3audiobot:master```
 
 2. Run the initial setup to generate all the initial configuration files:
 
-```docker run --rm -v ts3audiobot-data:/data -it noajoder/ts3audiobot:latest```
+```docker run --rm -v ts3audiobot-data:/data -it noajoder/ts3audiobot:master```
 
 3. After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Now you can copy the data in the Config folder in your Data Mount or create an own Config.
 
@@ -27,7 +27,7 @@ docker volume create ts3audiobot-data
 
 6. Then run the actual container again as a daemon:
 
-```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:latest```
+```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:master```
 
 
 # Docker Image Building

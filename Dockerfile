@@ -1,12 +1,16 @@
 FROM mcr.microsoft.com/dotnet/core/runtime:3.1
 LABEL description="TS3Audiobot Dockerized"
-
+LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
+LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
+LABEL supportUrl="https://github.com/TS3Audiobot/TS3Audiobot/issues"
+LABEL os="Linux"
+LABEL arch="x64"
 
 #Installation Packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg openssl curl openssl tar libopus-dev python && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
- 
+
 #Set Environments
 #Ver 0.11.3
 ARG TS3_AUDIOBOT_RELEASE="master_linux_x64"
