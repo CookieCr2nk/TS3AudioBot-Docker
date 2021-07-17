@@ -19,7 +19,7 @@ RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/yout
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
     && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.tar.gz \
-    && tar -xf TS3AudioBot.zip
+    && tar -xzf TS3AudioBot.tar.gz
 
 #create User ts3audiobot and create /data Path and modify rights
 RUN useradd -ms /bin/bash -u 9999 ts3audiobot
