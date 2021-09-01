@@ -2,7 +2,7 @@
 
 ![Docker](https://github.com/CookieCr2nk/TS3AudioBot-Docker/workflows/Docker/badge.svg?branch=master)
 
-This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet runtime 3.1
+This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet runtime 3.1 and is using very few ressources.
 
 # Usage / Parameters
 
@@ -37,10 +37,6 @@ docker volume create ts3audiobot-data
 # Contribution
 
 Feel free to make an feature request or an pull request.
-
-# Ressources
-
-This Dockerfile uses minimal ressources.
 
 # TS3AudioBot Version
 
