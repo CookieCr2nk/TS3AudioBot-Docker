@@ -40,4 +40,4 @@ Feel free to make an feature request or an pull request.
 
 # TS3AudioBot Version
 
-This image was build on .Dotnet 3.1 with ts3audiobot version ```master_linux_x64 0.12.2```
+This image was build on .Dotnet 3.1 with ts3audiobot version ```master_linux_x64```
