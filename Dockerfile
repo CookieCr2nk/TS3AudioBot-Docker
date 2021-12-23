@@ -23,7 +23,6 @@ RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/yout
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
     && curl -L https://splamy.de/api/nightly/projects/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.tar.gz \
-    && curl -L https://splamy.de/api/nightly/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.tar.gz \
     && tar -xzf TS3AudioBot.tar.gz \
     && rm -rf TS3AudioBot.tar.gz
 
