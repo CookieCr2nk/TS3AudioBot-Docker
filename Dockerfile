@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/runtime:3.1
+FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim
 LABEL description="TS3Audiobot Dockerized"
 LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
@@ -37,4 +37,4 @@ ADD --chown=9999:9999 ./config .
 VOLUME /data
 USER ts3audiobot
 EXPOSE 58913
-CMD ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]
+ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]
