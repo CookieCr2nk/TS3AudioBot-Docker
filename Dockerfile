@@ -8,12 +8,12 @@ LABEL arch="x64"
 
 #Installation Packages
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl tar libopus-dev python && \
+    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl unzip libopus-dev python && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
 #Set Environments
 #Ver 0.11.3
-ARG TS3_AUDIOBOT_RELEASE="master_linux_x64"
+ARG TS3_AUDIOBOT_RELEASE="master"
 
 #YT-DL
 RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl \
@@ -22,7 +22,7 @@ RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/yout
 # TS3Audiobot (https://github.com/Splamy/TS3AudioBot/releases/)
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
-    && curl -L https://splamy.de/api/nightly/projects/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.tar.gz \
+    && curl -L https://splamy.de/api/nightly/projects/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.zip \
     && tar -xzf TS3AudioBot.tar.gz \
     && rm -rf TS3AudioBot.tar.gz
 
