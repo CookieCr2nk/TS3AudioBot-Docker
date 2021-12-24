@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/runtime:3.1-bullseye-slim
+FROM mcr.microsoft.com/dotnet/runtime:3.1
 LABEL description="TS3Audiobot Dockerized"
 LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
