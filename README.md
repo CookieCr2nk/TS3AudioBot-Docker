@@ -1,6 +1,6 @@
 # TS3AudioBot-Docker
 
-![Docker](https://github.com/CookieCr2nk/TS3AudioBot-Docker/workflows/Docker/badge.svg?branch=master)
+
 
 This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet runtime 3.1 and is using very few ressources.
 
@@ -13,11 +13,11 @@ docker volume create ts3audiobot-data
 ```
 1. First Pull the Container Image from Github Packages
 
-```docker pull noajoder/ts3audiobot:master```
+```docker pull ghcr.io/cookiecr2nk/ts3audiobot-docker:master```
 
 2. Run the initial setup to generate all the initial configuration files:
 
-```docker run --rm -v ts3audiobot-data:/data -it noajoder/ts3audiobot:master```
+```docker run --rm -v ts3audiobot-data:/data -it ghcr.io/cookiecr2nk/ts3audiobot-docker:master```
 
 3. After the initial configuration setup has finished, stop the server with CTRL-C and configure your bot in the configuration files accordingly. Now you can copy the data in the Config folder in your Data Mount or create an own Config.
 
@@ -27,7 +27,7 @@ docker volume create ts3audiobot-data
 
 6. Then run the actual container again as a daemon:
 
-```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data noajoder/ts3audiobot:master```
+```docker run --name ts3audiobot -d -p 58913:58913 -v /opt/ts3audiobot/data:/data ghcr.io/cookiecr2nk/ts3audiobot-docker:master```
 
 
 # Docker Image Building
