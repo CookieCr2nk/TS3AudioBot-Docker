@@ -1,10 +1,10 @@
-FROM mcr.microsoft.com/dotnet/aspnet:6.0.20-bullseye-slim-arm64v8
+FROM mcr.microsoft.com/dotnet/aspnet:6.0.20-bullseye-slim
 LABEL description="TS3Audiobot Dockerized"
 LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
 LABEL supportUrl="https://github.com/TS3Audiobot/TS3Audiobot/issues"
 LABEL os="Linux"
-LABEL arch="x64"
+LABEL arch="arm64"
 
 #Installation Packages
 RUN apt-get update && \
