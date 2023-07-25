@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim
+FROM mcr.microsoft.com/dotnet/aspnet:6.0.20-bookworm-slim-arm64v8
 LABEL description="TS3Audiobot Dockerized"
 LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
