@@ -4,7 +4,7 @@ LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
 LABEL supportUrl="https://github.com/TS3Audiobot/TS3Audiobot/issues"
 LABEL os="Linux"
-LABEL arch="arm64"
+LABEL arch="x64"
 
 #Installation Packages
 RUN apt-get update && \
