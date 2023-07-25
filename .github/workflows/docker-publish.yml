@@ -41,7 +41,7 @@ jobs:
       - name: downcase IMAGE_NAME
         run: |
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >>${GITHUB_ENV}
-          
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -102,6 +102,9 @@ jobs:
     needs:
       - build
     steps:
+      - name: downcase IMAGE_NAME
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME,,}" >>${GITHUB_ENV}
       - name: Download digests
         uses: actions/download-artifact@v3
         with:
