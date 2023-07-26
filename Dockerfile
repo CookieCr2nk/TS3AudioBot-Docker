@@ -15,8 +15,8 @@ RUN apt-get update && \
 #Ver 0.11.3
 ARG TS3_AUDIOBOT_RELEASE="master"
 
-#YT-DL
-RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl \
+#YT-DLP
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl \
     && chmod a+rx /usr/local/bin/youtube-dl
 
 # TS3Audiobot (https://github.com/Splamy/TS3AudioBot/releases/)
