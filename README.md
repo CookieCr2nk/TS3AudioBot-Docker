@@ -1,8 +1,6 @@
 # TS3AudioBot-Docker
 
-
-
-This is the TS3AudioBot in a Docker Container based on Debian Buster with dotnet runtime 3.1 and is using very few ressources.
+This is the TS3AudioBot in a Docker Container based on Debian Bullseye with dotnet runtime 6.0.20 and is using very few ressources.
 
 # Usage / Parameters
 

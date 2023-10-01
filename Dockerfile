@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim
+FROM mcr.microsoft.com/dotnet/aspnet:6.0.20-bullseye-slim
 LABEL description="TS3Audiobot Dockerized"
 LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
@@ -8,15 +8,15 @@ LABEL arch="x64"
 
 #Installation Packages
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl unzip libopus-dev python && \
+    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl unzip libopus-dev python pip && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
 #Set Environments
 #Ver 0.11.3
 ARG TS3_AUDIOBOT_RELEASE="master"
 
-#YT-DL
-RUN curl -L https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl \
+#YT-DLP
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl \
     && chmod a+rx /usr/local/bin/youtube-dl
 
 # TS3Audiobot (https://github.com/Splamy/TS3AudioBot/releases/)
