@@ -8,7 +8,7 @@ LABEL arch="x64"
 
 #Installation Packages
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg openssl curl openssl unzip libopus-dev python pip && \
+    apt-get install -y --no-install-recommends ffmpeg curl openssl unzip libopus-dev python pip && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
 #Set Environments
