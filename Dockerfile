@@ -11,15 +11,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg curl openssl unzip libopus-dev python pip && \
     rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
-#Set Environments
-#Ver 0.11.3
+#Set Environments (https://github.com/Splamy/TS3AudioBot/releases/) we will use "master" image for now
 ARG TS3_AUDIOBOT_RELEASE="master"
 
 #YT-DLP
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl \
     && chmod a+rx /usr/local/bin/youtube-dl
 
-# TS3Audiobot (https://github.com/Splamy/TS3AudioBot/releases/)
+# Downloaded compiled TS3AudioBot from Splamy.de and extract it
 RUN mkdir -p /opt/TS3AudioBot \
     && cd /opt/TS3AudioBot \
     && curl -L https://splamy.de/api/nightly/projects/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.zip \
