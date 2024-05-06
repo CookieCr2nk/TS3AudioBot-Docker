@@ -33,6 +33,7 @@ RUN chown -R ts3audiobot:nogroup /data
 #Final Steps
 WORKDIR /data
 ADD --chown=9999:9999 ./config .
+VOLUME /data
 USER ts3audiobot
 EXPOSE 58913
 ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]
