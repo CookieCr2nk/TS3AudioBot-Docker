@@ -121,7 +121,7 @@ bots_path = "bots"
 #We do NOT send/store any IPs, identifiable information or logs for this.
 #If you want to check how a stats packet looks like you can run the bot with 'TS3AudioBot --stats-example'.
 #To disable contributing without config you can run the bot with 'TS3AudioBot --stats-disabled'. This will ignore the config value.
-send_stats = true
+send_stats = false
 
 [db]
 #The path to the database file for persistent data.
