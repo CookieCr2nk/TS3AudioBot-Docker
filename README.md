@@ -15,6 +15,20 @@ A lightweight, highly secure Docker container for TS3AudioBot based on Debian 12
 
 ---
 
+## 📝 PCI-DSS Logging & Auditing (Requirement 10)
+To comply with PCI-DSS centralized logging requirements, all container output is natively streamlined to `STDOUT/STDERR`. You must configure your Docker Daemon or `docker-compose` to ship these logs to a dedicated SIEM or Log Aggregator (e.g., Splunk, ELK, or remote Syslog).
+
+Example config to add to your `docker-compose.yml`:
+```yaml
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://192.168.1.100:514"
+        tag: "ts3audiobot-audit"
+```
+
+---
+
 ## 🚀 Quick Start (Docker Compose - Recommended)
 
 For maximum security and easy management, we provide a standard `docker-compose.yml` that automatically enforces the required SOC 2 security policies:

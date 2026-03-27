@@ -6,7 +6,7 @@ ARG TS3_AUDIOBOT_RELEASE="master"
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl unzip && \
+    apt-get install -y --no-install-recommends ca-certificates curl unzip && \
     rm -rf /var/lib/apt/lists/*
 
 # YT-DLP Download
