@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.3-bookworm-slim
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-trixie-slim
 LABEL description="TS3Audiobot Dockerized"
 LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
@@ -26,13 +26,13 @@ RUN mkdir -p /opt/TS3AudioBot \
     && rm -rf TS3AudioBot.zip
 
 #create User ts3audiobot and create /data Path and modify rights
-RUN useradd -ms /bin/bash -u 9999 ts3audiobot
-RUN mkdir -p /data
-RUN chown -R ts3audiobot:nogroup /data
+RUN useradd -ms /bin/bash -u 9999 ts3audiobot \
+    && mkdir -p /data \
+    && chown -R ts3audiobot:nogroup /data
 
 #Final Steps
 WORKDIR /data
-ADD --chown=9999:9999 ./config .
+COPY --chown=9999:9999 ./config .
 VOLUME /data
 USER ts3audiobot
 EXPOSE 58913
