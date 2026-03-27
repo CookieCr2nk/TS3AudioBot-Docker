@@ -6,6 +6,7 @@ ARG TARGETARCH
 
 # Set Environments
 ARG BOT_BRANCH="master"
+ENV BOT_BRANCH=${BOT_BRANCH}
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
@@ -13,7 +14,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # YT-DLP Download
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl && \
+RUN curl -fL --retry 3 --retry-delay 5 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl && \
     chmod 755 /usr/local/bin/youtube-dl
 
 # TS3AudioBot Download directly correlating to the matching Architecture
@@ -23,7 +24,7 @@ RUN mkdir -p /opt/TS3AudioBot && \
     elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
     elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
     else BOT_ARCH="x64"; fi && \
-    curl -L "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.zip && \
+    curl -fL --retry 3 --retry-delay 5 "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.zip && \
     unzip TS3AudioBot.zip && \
     rm -f TS3AudioBot.zip
 
