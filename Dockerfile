@@ -10,7 +10,7 @@ ENV BOT_BRANCH=${BOT_BRANCH}
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl unzip && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
 # YT-DLP Download
@@ -24,9 +24,9 @@ RUN mkdir -p /opt/TS3AudioBot && \
     elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
     elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
     else BOT_ARCH="x64"; fi && \
-    curl -fL --retry 3 --retry-delay 5 "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.zip && \
-    unzip TS3AudioBot.zip && \
-    rm -f TS3AudioBot.zip
+    curl -fL --retry 3 --retry-delay 5 "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.tar.gz && \
+    tar -xzf TS3AudioBot.tar.gz && \
+    rm -f TS3AudioBot.tar.gz
 
 # Create secure structure
 RUN chmod -R 755 /opt/TS3AudioBot
