@@ -1,10 +1,10 @@
 # TS3AudioBot-Docker 🔒
 
-![Debian Trixie](https://img.shields.io/badge/Debian-13%20Trixie-A81D33?style=for-the-badge&logo=debian)
+![Debian Bookworm](https://img.shields.io/badge/Debian-12%20Bookworm-A81D33?style=for-the-badge&logo=debian)
 ![.NET 9.0](https://img.shields.io/badge/.NET-9.0-5C2D91?style=for-the-badge&logo=dotnet)
 ![SOC2 Hardened](https://img.shields.io/badge/Security-SOC2%20Ready-brightgreen?style=for-the-badge&logo=security)
 
-A lightweight, highly secure Docker container for TS3AudioBot based on Debian 13 (Trixie) and .NET 9.0. This image has been specifically hardened following industry best practices to meet SOC 2 security requirements.
+A lightweight, highly secure Docker container for TS3AudioBot based on Debian 12 (Bookworm) and .NET 9.0. This image has been specifically hardened following industry best practices to meet SOC 2 security requirements.
 
 ## 🛡️ Security Features
 - **Rootless Execution & No-Login Shell**: The bot runs entirely as the unprivileged `ts3audiobot` user without shell access (`/usr/sbin/nologin`).
@@ -71,6 +71,6 @@ docker build -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
 Feel free to open an issue or pull request!
 
 ## Version Information
-- Base: **Debian 13 (Trixie Slim)**
+- Base: **Debian 12 (Bookworm Slim)**
 - Runtime: **.NET 9.0**
 - TS3AudioBot: **master** (latest nightly)
