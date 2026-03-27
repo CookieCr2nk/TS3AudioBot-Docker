@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  ts3audiobot:
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
+    container_name: ts3audiobot
+    restart: unless-stopped
+    ports:
+      - "58913:58913"
+    volumes:
+      - ts3audiobot-data:/data
+    # SOC2 Security Hardenings
+    read_only: true         # Prevent writes to root filesystem
+    cap_drop:
+      - ALL                 # Drop all Linux capabilities to prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true # Ensure child processes cannot gain new privileges
+
+volumes:
+  ts3audiobot-data:
