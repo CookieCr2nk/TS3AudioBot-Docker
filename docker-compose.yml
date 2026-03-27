@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ts3audiobot:
     image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
@@ -9,12 +7,28 @@ services:
       - "58913:58913"
     volumes:
       - ts3audiobot-data:/data
-    # SOC2 Security Hardenings
+    # Writable tmpfs for the application's temporary files while keeping the
+    # root filesystem read-only (PCI-DSS / SOC2 hardening).
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=64m
+    # SOC2 / PCI-DSS Security Hardenings
     read_only: true         # Prevent writes to root filesystem
     cap_drop:
       - ALL                 # Drop all Linux capabilities to prevent privilege escalation
     security_opt:
       - no-new-privileges:true # Ensure child processes cannot gain new privileges
+    # Resource limits – prevents a compromised container from exhausting host resources
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    networks:
+      - ts3audiobot-net
 
 volumes:
   ts3audiobot-data:
+
+networks:
+  ts3audiobot-net:
+    driver: bridge

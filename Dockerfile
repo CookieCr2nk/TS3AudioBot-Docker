@@ -1,5 +1,7 @@
 # --- Builder Stage ---
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS builder
+# Use a minimal Debian image – we only need curl/ca-certificates here,
+# not the full .NET runtime, which keeps the build layer lean.
+FROM debian:bookworm-slim AS builder
 
 # Expose buildx variables for architecture detection
 ARG TARGETARCH
@@ -7,10 +9,9 @@ ARG TARGETARCH
 # Set Environments
 ARG BOT_BRANCH="master"
 ENV BOT_BRANCH=${BOT_BRANCH}
-ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
 # YT-DLP Download
@@ -34,17 +35,18 @@ RUN chmod -R 755 /opt/TS3AudioBot
 
 # --- Final Production Stage ---
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim
-LABEL description="TS3Audiobot Dockerized"
-LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
-LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
-LABEL supportUrl="https://github.com/TS3Audiobot/TS3Audiobot/issues"
-LABEL os="Linux"
-LABEL arch="x64"
 
-ENV DEBIAN_FRONTEND=noninteractive
+# OCI-standard image labels
+LABEL org.opencontainers.image.title="TS3AudioBot-Docker"
+LABEL org.opencontainers.image.description="TS3Audiobot running in a hardened, minimal Docker container"
+LABEL org.opencontainers.image.url="https://github.com/TS3Audiobot/TS3Audiobot"
+LABEL org.opencontainers.image.source="https://github.com/CookieCr2nk/TS3AudioBot-Docker"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.documentation="https://github.com/TS3Audiobot/TS3Audiobot/issues"
 
 # Install Runtime Dependencies & Mitigate SUID
-RUN apt-get update && \
+# DEBIAN_FRONTEND is scoped to this RUN only – it must not pollute the runtime env.
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg curl libopus0 && \
     find / -xdev -perm /6000 -type f -exec chmod a-s {} \; || true && \
     apt-get clean && \
@@ -69,8 +71,8 @@ VOLUME /data
 USER ts3audiobot
 EXPOSE 58913
 
-# Validate via local endpoint
-HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+# Validate via local endpoint; allow extra startup time before first check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -sS http://127.0.0.1:58913/ || exit 1
 
 ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]

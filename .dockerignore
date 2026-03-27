@@ -1,0 +1,22 @@
+# Version control
+.git
+.gitignore
+
+# CI/CD and GitHub metadata
+.github
+
+# Documentation
+README.md
+CODE_OF_CONDUCT.md
+LICENSE
+
+# Runtime artifacts – must never be baked into the image
+config/ts3audiobot.log
+config/ts3audiobot.db
+
+# Temporary and editor files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

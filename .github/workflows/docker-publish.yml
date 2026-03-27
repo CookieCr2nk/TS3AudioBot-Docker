@@ -73,7 +73,7 @@ jobs:
             type=raw,value=${{ matrix.docker_tag }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v7
@@ -82,14 +82,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BOT_BRANCH=${{ matrix.bot_branch }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner (PCI-DSS Validation)
-        if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: 'table'
-          exit-code: '1'
+          exit-code: ${{ github.event_name != 'pull_request' && '1' || '0' }}
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
