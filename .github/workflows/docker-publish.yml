@@ -9,11 +9,11 @@ on:
 #  schedule:
 #    - cron: '29 8 * * *'
   push:
-    branches: [ "master" ]
+    branches: [ "develop" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "develop" ]
   workflow_dispatch:
 
 env:
@@ -26,6 +26,13 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - bot_branch: "master"
+            docker_tag: "master"
+          - bot_branch: "develop"
+            docker_tag: "develop"
     permissions:
       contents: read
       packages: write
@@ -60,19 +67,23 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.docker_tag }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BOT_BRANCH=${{ matrix.bot_branch }}
 
       - name: Run Trivy vulnerability scanner (PCI-DSS Validation)
         if: github.event_name != 'pull_request'
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: 'table'

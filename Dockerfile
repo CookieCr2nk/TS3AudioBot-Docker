@@ -1,8 +1,11 @@
 # --- Builder Stage ---
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS builder
 
+# Expose buildx variables for architecture detection
+ARG TARGETARCH
+
 # Set Environments
-ARG TS3_AUDIOBOT_RELEASE="master"
+ARG BOT_BRANCH="master"
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
@@ -13,10 +16,14 @@ RUN apt-get update && \
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl && \
     chmod 755 /usr/local/bin/youtube-dl
 
-# TS3AudioBot Download
+# TS3AudioBot Download directly correlating to the matching Architecture
 RUN mkdir -p /opt/TS3AudioBot && \
     cd /opt/TS3AudioBot && \
-    curl -L https://splamy.de/api/nightly/projects/ts3ab/${TS3_AUDIOBOT_RELEASE}/download -o TS3AudioBot.zip && \
+    if [ "$TARGETARCH" = "amd64" ]; then BOT_ARCH="x64"; \
+    elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
+    elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
+    else BOT_ARCH="x64"; fi && \
+    curl -L "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.zip && \
     unzip TS3AudioBot.zip && \
     rm -f TS3AudioBot.zip
 
