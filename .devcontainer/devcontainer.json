@@ -1,0 +1,32 @@
+{
+  "name": "TS3AudioBot Dev Environment",
+  "image": "mcr.microsoft.com/devcontainers/base:debian-12",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "forwardPorts": [58913],
+  "portsAttributes": {
+    "58913": {
+      "label": "TS3AudioBot Web Interface",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode-remote.remote-ssh",
+        "ms-vscode.remote-explorer",
+        "ms-azuretools.vscode-docker",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "docker.showExplorer": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  "postCreateCommand": "apt-get update && apt-get install -y docker.io docker-compose curl wget ffmpeg libopus0 && usermod -aG docker vscode",
+  "remoteUser": "vscode"
+}

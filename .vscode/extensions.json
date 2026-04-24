@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-vscode-remote.remote-ssh",
+    "ms-vscode.remote-explorer",
+    "ms-azuretools.vscode-docker",
+    "GitHub.copilot",
+    "ms-azuretools.vscode-docker",
+    "shellformat.shell-format"
+  ]
+}
