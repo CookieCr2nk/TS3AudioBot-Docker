@@ -24,7 +24,13 @@ RUN mkdir -p /opt/TS3AudioBot && \
     elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
     elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
     else BOT_ARCH="x64"; fi && \
-    curl -fL --retry 3 --retry-delay 5 "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.tar.gz && \
+    curl -fL --retry 5 --retry-delay 10 "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.tar.gz && \
+    if [ ! -s TS3AudioBot.tar.gz ] || ! file TS3AudioBot.tar.gz | grep -q "gzip compressed"; then \
+      echo "Download failed or invalid archive, retrying..."; \
+      rm -f TS3AudioBot.tar.gz; \
+      sleep 30; \
+      curl -fL --retry 5 --retry-delay 10 "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" -o TS3AudioBot.tar.gz; \
+    fi && \
     tar -xzf TS3AudioBot.tar.gz && \
     rm -f TS3AudioBot.tar.gz
 
