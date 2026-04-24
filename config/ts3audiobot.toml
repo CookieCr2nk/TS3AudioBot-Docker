@@ -133,7 +133,7 @@ media = { path = "" }
 
 [tools]
 #Path to the youtube-dl binary or local git repository.
-youtube-dl = { path = "/usr/local/bin/youtube-dl" }
+youtube-dl = { path = "/usr/local/bin/yt-dlp" }
 
 #The path to ffmpeg.
 [tools.ffmpeg]
