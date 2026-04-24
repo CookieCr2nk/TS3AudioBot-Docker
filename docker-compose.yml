@@ -15,6 +15,19 @@ services:
       - ALL                 # Drop all Linux capabilities to prevent privilege escalation
     security_opt:
       - no-new-privileges:true # Ensure child processes cannot gain new privileges
+    # PCI-DSS Logging (Requirement 10) - Configure your SIEM/log aggregator address
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=ts3audiobot"
+    # Uncomment to use syslog for centralized logging:
+    # logging:
+    #   driver: syslog
+    #   options:
+    #     syslog-address: "tcp://192.168.1.100:514"
+    #     tag: "ts3audiobot-audit"
 
 volumes:
   ts3audiobot-data:

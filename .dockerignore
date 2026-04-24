@@ -1,0 +1,8 @@
+.git
+.github
+.gitignore
+*.md
+.dockerignore
+docker-compose.yml
+CODE_OF_CONDUCT.md
+LICENSE

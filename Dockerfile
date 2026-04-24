@@ -14,8 +14,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # YT-DLP Download
-RUN curl -fL --retry 3 --retry-delay 5 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/youtube-dl && \
-    chmod 755 /usr/local/bin/youtube-dl
+RUN curl -fL --retry 3 --retry-delay 5 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+    chmod 755 /usr/local/bin/yt-dlp
 
 # TS3AudioBot Download directly correlating to the matching Architecture
 RUN mkdir -p /opt/TS3AudioBot && \
@@ -39,7 +39,8 @@ LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE
 LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
 LABEL supportUrl="https://github.com/TS3Audiobot/TS3Audiobot/issues"
 LABEL os="Linux"
-LABEL arch="x64"
+ARG TARGETARCH
+LABEL arch="${TARGETARCH}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -57,7 +58,7 @@ RUN groupadd -g 9999 ts3audiobot && \
     chown -R ts3audiobot:ts3audiobot /data
 
 # Copy pre-built binaries from Builder Stage, ensuring they remain Root-owned (Immutability W^X)
-COPY --from=builder --chown=root:root /usr/local/bin/youtube-dl /usr/local/bin/youtube-dl
+COPY --from=builder --chown=root:root /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
 COPY --from=builder --chown=root:root /opt/TS3AudioBot /opt/TS3AudioBot
 
 # Set Final Working Directory
