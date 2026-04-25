@@ -61,6 +61,7 @@ LABEL security.soc2="ready"
 LABEL security.pci-dss="ready"
 
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install runtime dependencies for audio processing and health checks
 # - ffmpeg: Audio codec support and processing
