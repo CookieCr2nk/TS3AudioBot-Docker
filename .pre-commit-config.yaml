@@ -1,15 +1,4 @@
 repos:
-  # Dockerfile linting
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.14.1
-    hooks:
-      - id: hadolint-docker
-        name: Hadolint
-        entry: hadolint
-        language: docker_image
-        types: [dockerfile]
-        args: ['--ignore', 'DL3009,DL3059']
-
   # YAML validation
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0

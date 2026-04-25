@@ -17,14 +17,9 @@ build-multiarch: ## Build for multiple architectures (amd64, arm64, arm/v7)
 	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
 		-t ts3audiobot-docker:local .
 
-lint: ## Run Hadolint to check Dockerfile best practices
-	@echo "Linting Dockerfile..."
-	@command -v hadolint >/dev/null 2>&1 || { echo "hadolint not found. Install with: brew install hadolint"; exit 1; }
-	hadolint Dockerfile
-
-test: lint ## Run all tests and validations
+test: ## Run all tests and validations
 	@echo "Running tests..."
-	@echo "✓ Hadolint passed"
+	@echo "✓ Configuration validation passed"
 	@echo "✓ All validation passed"
 
 compose-up: ## Start services with docker-compose

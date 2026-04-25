@@ -137,7 +137,7 @@ pip install pre-commit
 pre-commit install
 ```
 
-This will run Hadolint on Dockerfile changes automatically.
+This will run YAML validation, secret detection, and trailing whitespace cleanup automatically.
 
 ---
 

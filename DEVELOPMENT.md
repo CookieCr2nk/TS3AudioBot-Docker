@@ -60,9 +60,6 @@ make build-multiarch
 # Run all tests
 make test
 
-# Just Hadolint
-make lint
-
 # Validate configuration
 make validate-config
 ```
