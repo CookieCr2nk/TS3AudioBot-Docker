@@ -23,22 +23,25 @@ RUN curl -fL --retry 3 --retry-delay 5 \
     chmod 755 /usr/local/bin/yt-dlp && \
     yt-dlp --version
 
-# Download and extract TS3AudioBot binary (nightly build from splamy)
+# Download and extract TS3AudioBot binary from GitHub releases
 # Architecture-specific binary selection for optimal performance
+# Fetches from: https://github.com/Splamy/TS3AudioBot/releases
 WORKDIR /opt/TS3AudioBot
 RUN if [ "$TARGETARCH" = "amd64" ]; then BOT_ARCH="x64"; \
     elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
     elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
     else BOT_ARCH="x64"; fi && \
+    RELEASE_URL="https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_BRANCH}/TS3AudioBot_linux_${BOT_ARCH}.tar.gz" && \
+    echo "Downloading from: $RELEASE_URL" && \
     curl -fL --retry 5 --retry-delay 10 \
-      "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" \
+      "$RELEASE_URL" \
       -o TS3AudioBot.tar.gz && \
     if [ ! -s TS3AudioBot.tar.gz ] || ! file TS3AudioBot.tar.gz | grep -q "gzip compressed"; then \
-      echo "Download failed or invalid archive, retrying..."; \
+      echo "Download failed or invalid archive, retrying in 30s..."; \
       rm -f TS3AudioBot.tar.gz; \
       sleep 30; \
       curl -fL --retry 5 --retry-delay 10 \
-        "https://splamy.de/api/nightly/projects/ts3ab/${BOT_BRANCH}_linux_${BOT_ARCH}/download" \
+        "$RELEASE_URL" \
         -o TS3AudioBot.tar.gz; \
     fi && \
     tar -xzf TS3AudioBot.tar.gz && \
