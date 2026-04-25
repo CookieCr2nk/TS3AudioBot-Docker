@@ -1,0 +1,3 @@
+# Runtime data — never commit these
+config/*.db
+config/*.log

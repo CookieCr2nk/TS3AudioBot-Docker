@@ -11,7 +11,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     htop \
     jq \
     shellcheck \
-    && rm -rf /var/lib/apt/lists/*
-
-# Cleanup
-RUN apt-get clean && rm -rf /tmp/*
+    && rm -rf /var/lib/apt/lists/* /tmp/*

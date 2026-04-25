@@ -40,13 +40,12 @@ RUN chmod -R 755 /opt/TS3AudioBot
 
 # --- Final Production Stage ---
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim
-LABEL description="TS3Audiobot Dockerized"
-LABEL licenseUrl="https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE"
-LABEL url="https://github.com/TS3Audiobot/TS3Audiobot"
-LABEL supportUrl="https://github.com/TS3Audiobot/TS3Audiobot/issues"
-LABEL os="Linux"
 ARG TARGETARCH
-LABEL arch="${TARGETARCH}"
+LABEL org.opencontainers.image.description="TS3AudioBot Dockerized"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.url="https://github.com/TS3Audiobot/TS3Audiobot"
+LABEL org.opencontainers.image.source="https://github.com/CookieCr2nk/TS3AudioBot-Docker"
+LABEL org.opencontainers.image.base.name="mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -77,7 +76,7 @@ USER ts3audiobot
 EXPOSE 58913
 
 # Validate via local endpoint
-HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -sS http://127.0.0.1:58913/ || exit 1
 
 ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]

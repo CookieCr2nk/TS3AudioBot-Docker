@@ -1,6 +1,8 @@
 {
   "name": "TS3AudioBot Dev Environment",
-  "image": "mcr.microsoft.com/devcontainers/base:debian-12",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
     "ghcr.io/devcontainers/features/git:1": {}
@@ -27,6 +29,6 @@
       }
     }
   },
-  "postCreateCommand": "apt-get update && apt-get install -y docker.io docker-compose curl wget ffmpeg libopus0 && usermod -aG docker vscode",
+  "postCreateCommand": "apt-get update && apt-get install -y --no-install-recommends docker.io curl wget ffmpeg libopus0 && rm -rf /var/lib/apt/lists/* && usermod -aG docker vscode",
   "remoteUser": "vscode"
 }
