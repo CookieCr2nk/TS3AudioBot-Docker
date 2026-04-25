@@ -13,13 +13,26 @@ RUN apt-get update && \
       ca-certificates \
       curl \
       file && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    which curl || (echo "curl installation failed"; exit 1)
 
 # Download yt-dlp binary (audio downloader) - separated layer for better cache efficiency
 # This layer invalidates independently from bot version changes
-RUN curl -fL --retry 3 --retry-delay 5 \
-      https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-      -o /usr/local/bin/yt-dlp && \
+RUN if command -v curl &> /dev/null; then \
+      curl -fL --retry 3 --retry-delay 5 \
+        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+        -o /usr/local/bin/yt-dlp; \
+    elif command -v wget &> /dev/null; then \
+      wget -q --retry-connrefused --waitretry=5 --tries=3 \
+        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+        -O /usr/local/bin/yt-dlp; \
+    else \
+      echo "Neither curl nor wget available - installing curl"; \
+      apt-get update && apt-get install -y --no-install-recommends curl && \
+      curl -fL --retry 3 --retry-delay 5 \
+        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+        -o /usr/local/bin/yt-dlp; \
+    fi && \
     chmod 755 /usr/local/bin/yt-dlp && \
     yt-dlp --version
 
