@@ -5,13 +5,14 @@ ARG TARGETARCH
 ARG BOT_BRANCH="master"
 
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install build dependencies (ca-certificates for HTTPS, curl for downloads, file for validation)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ca-certificates \
-      curl \
-      file && \
+      ca-certificates=20230311 \
+      curl=7.88.1-10+deb12u4 \
+      file=1:5.44-3 && \
     rm -rf /var/lib/apt/lists/*
 
 # Download yt-dlp binary (audio downloader) - separated layer for better cache efficiency
@@ -24,9 +25,8 @@ RUN curl -fL --retry 3 --retry-delay 5 \
 
 # Download and extract TS3AudioBot binary (nightly build from splamy)
 # Architecture-specific binary selection for optimal performance
-RUN mkdir -p /opt/TS3AudioBot && \
-    cd /opt/TS3AudioBot && \
-    if [ "$TARGETARCH" = "amd64" ]; then BOT_ARCH="x64"; \
+WORKDIR /opt/TS3AudioBot
+RUN if [ "$TARGETARCH" = "amd64" ]; then BOT_ARCH="x64"; \
     elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
     elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
     else BOT_ARCH="x64"; fi && \
@@ -43,7 +43,7 @@ RUN mkdir -p /opt/TS3AudioBot && \
     fi && \
     tar -xzf TS3AudioBot.tar.gz && \
     rm -f TS3AudioBot.tar.gz && \
-    chmod -R 755 /opt/TS3AudioBot
+    chmod -R 755 .
 
 
 # --- Final Production Stage ---
@@ -68,12 +68,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 # - curl: Health check and diagnostics
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ffmpeg \
-      curl \
-      libopus0 && \
+      ffmpeg=7:5.1.2-1~deb12u1 \
+      curl=7.88.1-10+deb12u4 \
+      libopus0=1.3.1-3 && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    # Remove all SUID/SGID binaries (security hardening)
-    find / -xdev -perm /6000 -type f -exec chmod a-s {} \; || true
+    find / -xdev -perm /6000 -type f -print0 | xargs -0 -r chmod a-s
 
 # Create unprivileged user for rootless execution
 # UID/GID 9999: Arbitrary high number, unlikely to conflict with host users
