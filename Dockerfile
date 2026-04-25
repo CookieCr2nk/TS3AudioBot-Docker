@@ -10,9 +10,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Install build dependencies (ca-certificates for HTTPS, curl for downloads, file for validation)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ca-certificates=20230311 \
-      curl=7.88.1-10+deb12u4 \
-      file=1:5.44-3 && \
+      ca-certificates \
+      curl \
+      file && \
     rm -rf /var/lib/apt/lists/*
 
 # Download yt-dlp binary (audio downloader) - separated layer for better cache efficiency
@@ -69,9 +69,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # - curl: Health check and diagnostics
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ffmpeg=7:5.1.2-1~deb12u1 \
-      curl=7.88.1-10+deb12u4 \
-      libopus0=1.3.1-3 && \
+      ffmpeg \
+      curl \
+      libopus0 && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     find / -xdev -perm /6000 -type f -print0 | xargs -0 -r chmod a-s
 

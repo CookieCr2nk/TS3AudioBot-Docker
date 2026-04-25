@@ -53,6 +53,8 @@ jobs:
       # This is used to complete the identity challenge
       # with sigstore/fulcio when running outside of PRs.
       id-token: write
+      # Required for SARIF upload to GitHub Security
+      security-events: write
 
     steps:
       - name: Checkout repository
@@ -109,11 +111,12 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy-${{ matrix.docker_tag }}'
+          wait_for_processing: true
 
       - name: Fail on CRITICAL vulnerabilities
         if: github.event_name != 'pull_request'
