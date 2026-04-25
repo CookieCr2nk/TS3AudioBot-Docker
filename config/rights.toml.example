@@ -1,0 +1,21 @@
+# TS3AudioBot Rights Configuration Template
+#
+# This file defines user permissions and access levels for the bot.
+# For a detailed guide, see CONFIG.md
+#
+# On first run, this file will be auto-generated. Copy this to rights.toml
+# and customize permissions as needed.
+
+# Default permissions for users not explicitly defined
+[rights]
+# Permission levels:
+# 0 - Guest (no special permissions)
+# 1 - User
+# 2 - Power user
+# 3 - Administrator
+general = 0
+
+# Example: Grant admin to a specific user
+# Get the user ID from TeamSpeak (Info -> IDs)
+# [user.YOUR_USER_ID_HERE]
+# admin = true

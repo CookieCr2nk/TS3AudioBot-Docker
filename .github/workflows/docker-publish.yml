@@ -1,4 +1,4 @@
-name: Docker
+name: Docker Build & Security
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -25,8 +25,20 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          ignore: DL3009,DL3059
+
+  build:
+    needs: lint
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,7 +60,7 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        
+
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v3
 
@@ -85,14 +97,56 @@ jobs:
             BOT_BRANCH=${{ matrix.bot_branch }}
           cache-from: type=gha,scope=${{ matrix.docker_tag }}
           cache-to: type=gha,mode=max,scope=${{ matrix.docker_tag }}
+          provenance: ${{ github.event_name != 'pull_request' }}
+          outputs: type=image,push=${{ github.event_name != 'pull_request' }}
 
-      - name: Run Trivy vulnerability scanner (PCI-DSS Validation)
-        if: github.event_name != 'pull_request'
+      - name: Run Trivy vulnerability scanner (All branches)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-${{ matrix.docker_tag }}'
+
+      - name: Fail on CRITICAL vulnerabilities
+        if: github.event_name != 'pull_request'
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL \
+            ${{ fromJSON(steps.meta.outputs.json).tags[0] }} || true
+
+      # Install cosign for image signing
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      # Sign the published Docker image
+      - name: Sign Docker image with cosign
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_EXPERIMENTAL: true
+        run: |
+          cosign sign --yes ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+
+      # Generate SBOM using syft
+      - name: Generate SBOM (CycloneDX format)
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: cyclonedx-json
+          output-file: sbom-${{ matrix.docker_tag }}.json
+
+      - name: Upload SBOM as artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.docker_tag }}
+          path: sbom-${{ matrix.docker_tag }}.json
+          retention-days: 30

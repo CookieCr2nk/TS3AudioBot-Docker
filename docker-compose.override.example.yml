@@ -1,0 +1,35 @@
+# docker-compose.override.yml
+#
+# This file is for LOCAL DEVELOPMENT ONLY and is gitignored.
+# Copy to docker-compose.override.yml to customize behavior for your machine.
+#
+# Common overrides:
+# - Mount local config directory for quick testing
+# - Change port mappings
+# - Add environment variables
+# - Enable extra logging
+# - Mount source code for live editing
+
+version: '3.8'
+
+services:
+  ts3audiobot:
+    # Example: Mount local config directory for testing changes
+    # volumes:
+    #   - ./config:/data
+    #   - ts3audiobot-data:/data  # Comment out if mounting ./config
+
+    # Example: Enable debug logging
+    # environment:
+    #   - TS3_LOG_LEVEL=debug
+
+    # Example: Forward additional ports for debugging
+    # ports:
+    #   - "58913:58913"
+    #   - "9999:9999"  # Custom debug port
+
+    # Example: Run with less strict security for development
+    # (NOT recommended for production)
+    # read_only: false
+    # cap_add:
+    #   - NET_ADMIN

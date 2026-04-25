@@ -1,0 +1,39 @@
+apiVersion: 'container-structure-test'
+schemaVersion: '2.0'
+
+fileExistenceTests:
+  - name: 'dotnet'
+    path: '/usr/bin/dotnet'
+    shouldExist: true
+  - name: 'ffmpeg'
+    path: '/usr/bin/ffmpeg'
+    shouldExist: true
+  - name: 'yt-dlp'
+    path: '/usr/local/bin/yt-dlp'
+    shouldExist: true
+  - name: 'bot executable'
+    path: '/opt/TS3AudioBot/TS3AudioBot.dll'
+    shouldExist: true
+
+fileContentTests:
+  - name: 'yt-dlp is executable'
+    path: '/usr/local/bin/yt-dlp'
+    excludedOutput: ['rwx']
+
+metadataTest:
+  labels:
+    - key: 'org.opencontainers.image.description'
+      value: 'TS3AudioBot Dockerized'
+    - key: 'org.opencontainers.image.licenses'
+      value: 'MIT'
+  user: 'ts3audiobot'
+  workdir: '/data'
+  exposedPorts: ['58913']
+
+commandTests:
+  - name: 'bot help'
+    setup: []
+    command: 'dotnet'
+    args: ['/opt/TS3AudioBot/TS3AudioBot.dll', '--help']
+    excludedOutput: ['error', 'Error']
+    exitCode: 0

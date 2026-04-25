@@ -1,34 +1,74 @@
+# TS3AudioBot Docker Compose Configuration
+# See README.md and CONFIG.md for detailed documentation
+#
+# For local customizations, create docker-compose.override.yml
+# Example: cp docker-compose.override.example.yml docker-compose.override.yml
+
+version: '3.8'
+
 services:
   ts3audiobot:
     image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
     container_name: ts3audiobot
     restart: unless-stopped
+
+    # Port mappings
     ports:
-      - "58913:58913"
+      - "58913:58913"  # Bot web interface and stats endpoint
+
+    # Data persistence
     volumes:
-      - ts3audiobot-data:/data
+      - ts3audiobot-data:/data  # Configuration, database, and cache
+
+    # Temporary file system (isolated from persistent storage)
     tmpfs:
-      - /tmp:mode=1777,size=64m
-    # SOC2 Security Hardenings
-    read_only: true         # Prevent writes to root filesystem
+      - /tmp:mode=1777,size=64m  # Temporary cache during playback
+
+    # === SOC2 Security Hardening ===
+    # All security settings are enforced by default
+    # DO NOT modify these unless you understand the security implications
+
+    # Read-only root filesystem - prevents tampering
+    read_only: true
+
+    # Drop all Linux capabilities - minimal privilege model
     cap_drop:
-      - ALL                 # Drop all Linux capabilities to prevent privilege escalation
+      - ALL
+
+    # Prevent privilege escalation in child processes
     security_opt:
-      - no-new-privileges:true # Ensure child processes cannot gain new privileges
+      - no-new-privileges:true
+
+    # Limit maximum concurrent processes (prevents fork bombs)
     pids_limit: 100
-    # PCI-DSS Logging (Requirement 10) - Configure your SIEM/log aggregator address
+
+    # === Logging Configuration ===
+    # PCI-DSS Requirement 10: Centralized audit logging
+    # Default: Local JSON logging (rotate after 10MB, keep 3 files)
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=ts3audiobot"
-    # Uncomment to use syslog for centralized logging:
+        labels: "service=ts3audiobot,version=1.0"
+
+    # === Alternative: Centralized Syslog Logging ===
+    # Uncomment the section below and update the syslog-address
+    # for PCI-DSS compliance with centralized audit trails
+    #
     # logging:
     #   driver: syslog
     #   options:
-    #     syslog-address: "tcp://192.168.1.100:514"
-    #     tag: "ts3audiobot-audit"
+    #     syslog-address: "tcp://192.168.1.100:514"  # Update with your SIEM address
+    #     syslog-facility: "local0"
+    #     tag: "ts3audiobot"
+    #     labels: "service=ts3audiobot"
 
+# Named volume for persistent data
 volumes:
   ts3audiobot-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data  # Change to your desired host path if needed

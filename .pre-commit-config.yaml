@@ -1,0 +1,46 @@
+repos:
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.1
+    hooks:
+      - id: hadolint-docker
+        name: Hadolint
+        entry: hadolint
+        language: docker_image
+        types: [dockerfile]
+        args: ['--ignore', 'DL3009,DL3059']
+
+  # YAML validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+        name: Check YAML
+        args: ['--unsafe']
+      - id: check-toml
+        name: Check TOML
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: end-of-file-fixer
+        name: Fix end of file
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+
+  # Check for secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        args: ['--baseline', '.secrets.baseline', '--allow-missing-credentials']
+
+  # CHANGELOG check
+  - repo: local
+    hooks:
+      - id: changelog-updated
+        name: Check CHANGELOG updated
+        entry: bash -c '! git diff --cached --name-only | grep -v CHANGELOG.md'
+        language: system
+        stages: [commit]
+        pass_filenames: false
+        always_run: true
