@@ -12,29 +12,17 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
+      wget \
       file && \
-    rm -rf /var/lib/apt/lists/* && \
-    which curl || (echo "curl installation failed"; exit 1)
+    rm -rf /var/lib/apt/lists/*
 
 # Download yt-dlp binary (audio downloader) - separated layer for better cache efficiency
 # This layer invalidates independently from bot version changes
-RUN if command -v curl &> /dev/null; then \
-      curl -fL --retry 3 --retry-delay 5 \
-        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-        -o /usr/local/bin/yt-dlp; \
-    elif command -v wget &> /dev/null; then \
-      wget -q --retry-connrefused --waitretry=5 --tries=3 \
-        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-        -O /usr/local/bin/yt-dlp; \
-    else \
-      echo "Neither curl nor wget available - installing curl"; \
-      apt-get update && apt-get install -y --no-install-recommends curl && \
-      curl -fL --retry 3 --retry-delay 5 \
-        https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-        -o /usr/local/bin/yt-dlp; \
-    fi && \
+RUN wget -q --retry-connrefused --waitretry=5 --tries=3 \
+      https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+      -O /usr/local/bin/yt-dlp && \
     chmod 755 /usr/local/bin/yt-dlp && \
-    yt-dlp --version
+    /usr/local/bin/yt-dlp --version
 
 # Download and extract TS3AudioBot binary from GitHub releases
 # Architecture-specific binary selection for optimal performance
