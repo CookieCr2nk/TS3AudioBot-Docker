@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Docker build no longer downloads from non-existent `master`/`develop` release
+  tags; pinned to upstream release `0.12.0` via the `BOT_RELEASE` build arg
+- Container entrypoint now runs the self-contained `TS3AudioBot` binary instead
+  of the non-existent `TS3AudioBot.dll`
+- yt-dlp now installs the self-contained per-arch binary (`yt-dlp_linux` /
+  `yt-dlp_linux_aarch64`) so it works without a `python3` interpreter
+- Pull request CI no longer fails on the Trivy scan (image is now loaded locally)
+- Replaced the no-op `trivy` CLI step with a real failing severity gate
+- Stopped tracking/baking runtime artifacts (`ts3audiobot.db`, `ts3audiobot.log`)
+- Fixed the inverted CHANGELOG pre-commit hook that blocked all commits
+
+### Changed
+- Dropped 32-bit `linux/arm/v7` builds (no self-contained armv7 yt-dlp binary
+  exists); images are now `linux/amd64` and `linux/arm64`
+
 ### Added
 - SBOM (Software Bill of Materials) generation in CI/CD
 - Image signing with cosign for supply chain security

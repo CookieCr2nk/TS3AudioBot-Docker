@@ -103,7 +103,7 @@ docker build --build-arg BOT_RELEASE=0.11.0 -t ts3audiobot-docker:0.11.0 .
 
 ### Multi-Architecture Build (requires buildx)
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
+docker buildx build --platform linux/amd64,linux/arm64 \
   -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
 ```
 
@@ -195,7 +195,9 @@ For reporting security vulnerabilities, **please do not open a public issue**. I
 ### Multi-Architecture Support
 - `linux/amd64` - Intel/AMD 64-bit
 - `linux/arm64` - ARM 64-bit (Raspberry Pi 4+, Apple Silicon)
-- `linux/arm/v7` - 32-bit ARM (older Raspberry Pi)
+
+> Note: 32-bit `linux/arm/v7` is not built — yt-dlp ships no self-contained
+> armv7 binary, so it cannot run without a separate Python runtime.
 
 ### Layer Structure
 ```

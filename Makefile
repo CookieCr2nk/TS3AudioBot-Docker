@@ -12,9 +12,9 @@ build: ## Build Docker image locally
 	@echo "Building Docker image..."
 	docker build -t ts3audiobot-docker:local .
 
-build-multiarch: ## Build for multiple architectures (amd64, arm64, arm/v7)
+build-multiarch: ## Build for multiple architectures (amd64, arm64)
 	@echo "Building multi-architecture images..."
-	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
+	docker buildx build --platform linux/amd64,linux/arm64 \
 		-t ts3audiobot-docker:local .
 
 test: ## Run all tests and validations

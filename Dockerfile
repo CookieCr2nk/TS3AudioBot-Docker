@@ -19,9 +19,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Download yt-dlp binary (audio downloader) - separated layer for better cache efficiency
-# This layer invalidates independently from bot version changes
-RUN wget -q --retry-connrefused --waitretry=5 --tries=3 \
-      https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+# This layer invalidates independently from bot version changes.
+# The generic "yt-dlp" asset is a Python zipapp that needs a python3 interpreter
+# (not present in this slim image), so we use the self-contained PyInstaller
+# binaries which embed their own runtime. There is no armv7 build upstream.
+RUN if [ "$TARGETARCH" = "arm64" ]; then YTDLP_ASSET="yt-dlp_linux_aarch64"; \
+    else YTDLP_ASSET="yt-dlp_linux"; fi && \
+    wget -q --retry-connrefused --waitretry=5 --tries=3 \
+      "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${YTDLP_ASSET}" \
       -O /usr/local/bin/yt-dlp && \
     chmod 755 /usr/local/bin/yt-dlp && \
     /usr/local/bin/yt-dlp --version
