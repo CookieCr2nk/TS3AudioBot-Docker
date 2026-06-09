@@ -4,5 +4,26 @@
 *.md
 .dockerignore
 docker-compose.yml
+docker-compose.override.yml
+docker-compose.override.example.yml
 CODE_OF_CONDUCT.md
 LICENSE
+
+# Runtime artifacts must never be baked into the image
+config/*.db
+config/*.log
+config/logs/
+config/plugins/
+
+# Templates are documentation only; the real configs are copied instead
+config/*.example
+
+# Dev / CI tooling not needed in the image
+.devcontainer
+.vscode
+.pre-commit-config.yaml
+.secrets.baseline
+container-structure-test.yml
+renovate.json
+scripts
+Makefile

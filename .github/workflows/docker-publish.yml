@@ -21,19 +21,15 @@ env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
+  # Upstream TS3AudioBot release tag to install. Must be a real GitHub release
+  # of Splamy/TS3AudioBot (branch names like "master"/"develop" are NOT releases).
+  BOT_RELEASE: "0.12.0"
   # Fix Node.js 20 deprecation warnings
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - bot_branch: "master"
-            docker_tag: "master"
-          - bot_branch: "develop"
-            docker_tag: "develop"
     permissions:
       contents: read
       packages: write
@@ -71,45 +67,52 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ matrix.docker_tag }}
+            type=raw,value=master,enable={{is_default_branch}}
+            type=raw,value=${{ env.BOT_RELEASE }}
+            type=sha,format=short
 
-      - name: Build and push Docker image
+      # On pull requests we build a single-arch image and load it locally so it
+      # can be scanned without pushing. On master we build all platforms and push.
+      - name: Build Docker image
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64,linux/arm/v7' }}
+          load: ${{ github.event_name == 'pull_request' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BOT_BRANCH=${{ matrix.bot_branch }}
-          cache-from: type=gha,scope=${{ matrix.docker_tag }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.docker_tag }}
+            BOT_RELEASE=${{ env.BOT_RELEASE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: ${{ github.event_name != 'pull_request' }}
-          outputs: type=image,push=${{ github.event_name != 'pull_request' }}
 
-      - name: Run Trivy vulnerability scanner (All branches)
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
-          category: 'trivy-${{ matrix.docker_tag }}'
-          wait_for_processing: true
+          category: 'trivy'
 
       - name: Fail on CRITICAL vulnerabilities
-        if: github.event_name != 'pull_request'
-        run: |
-          trivy image --exit-code 1 --severity CRITICAL \
-            ${{ fromJSON(steps.meta.outputs.json).tags[0] }} || true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: 'table'
+          severity: 'CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
 
       # Install cosign for image signing
       - name: Install cosign
@@ -131,12 +134,12 @@ jobs:
         with:
           image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: cyclonedx-json
-          output-file: sbom-${{ matrix.docker_tag }}.json
+          output-file: sbom-${{ env.BOT_RELEASE }}.json
 
       - name: Upload SBOM as artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ matrix.docker_tag }}
-          path: sbom-${{ matrix.docker_tag }}.json
+          name: sbom-${{ env.BOT_RELEASE }}
+          path: sbom-${{ env.BOT_RELEASE }}.json
           retention-days: 30

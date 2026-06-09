@@ -1,18 +1,16 @@
 # Runtime data — never commit these
 config/*.db
 config/*.log
-config/bots/
 config/plugins/
 config/logs/
+# Ignore user-created bot instances but keep the shipped default
+config/bots/*
+!config/bots/default/
 
 # Local configuration overrides
 docker-compose.override.yml
 .env
 .env.local
-
-# Generated files
-config/rights.toml
-config/ts3audiobot.toml
 
 # Editor files
 .DS_Store

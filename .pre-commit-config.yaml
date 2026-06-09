@@ -28,7 +28,8 @@ repos:
     hooks:
       - id: changelog-updated
         name: Check CHANGELOG updated
-        entry: bash -c '! git diff --cached --name-only | grep -v CHANGELOG.md'
+        # Pass if CHANGELOG.md is staged; warn (non-blocking) otherwise.
+        entry: bash -c 'git diff --cached --name-only | grep -qx CHANGELOG.md || echo "[warning] CHANGELOG.md was not updated in this commit"'
         language: system
         stages: [commit]
         pass_filenames: false

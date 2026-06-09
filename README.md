@@ -93,9 +93,12 @@ docker run --name ts3audiobot -d \
 docker build -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
 ```
 
-### Build Specific Branch
+### Build a Specific Upstream Release
+`BOT_RELEASE` must be an existing release tag of
+[Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot/releases)
+(e.g. `0.12.0`, `0.11.0`) — branch names like `master`/`develop` are not releases.
 ```bash
-docker build --build-arg BOT_BRANCH=develop -t ts3audiobot-docker:develop .
+docker build --build-arg BOT_RELEASE=0.11.0 -t ts3audiobot-docker:0.11.0 .
 ```
 
 ### Multi-Architecture Build (requires buildx)

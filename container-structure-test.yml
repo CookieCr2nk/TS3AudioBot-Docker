@@ -12,7 +12,7 @@ fileExistenceTests:
     path: '/usr/local/bin/yt-dlp'
     shouldExist: true
   - name: 'bot executable'
-    path: '/opt/TS3AudioBot/TS3AudioBot.dll'
+    path: '/opt/TS3AudioBot/TS3AudioBot'
     shouldExist: true
 
 fileContentTests:
@@ -33,7 +33,7 @@ metadataTest:
 commandTests:
   - name: 'bot help'
     setup: []
-    command: 'dotnet'
-    args: ['/opt/TS3AudioBot/TS3AudioBot.dll', '--help']
+    command: '/opt/TS3AudioBot/TS3AudioBot'
+    args: ['--help']
     excludedOutput: ['error', 'Error']
     exitCode: 0

@@ -2,7 +2,9 @@
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim AS builder
 
 ARG TARGETARCH
-ARG BOT_BRANCH="master"
+# Upstream TS3AudioBot release tag to install (must be an existing GitHub release,
+# e.g. "0.12.0"). Branch names like "master"/"develop" are NOT valid release tags.
+ARG BOT_RELEASE="0.12.0"
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -32,7 +34,7 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then BOT_ARCH="x64"; \
     elif [ "$TARGETARCH" = "arm" ]; then BOT_ARCH="arm"; \
     elif [ "$TARGETARCH" = "arm64" ]; then BOT_ARCH="arm64"; \
     else BOT_ARCH="x64"; fi && \
-    RELEASE_URL="https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_BRANCH}/TS3AudioBot_linux_${BOT_ARCH}.tar.gz" && \
+    RELEASE_URL="https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_RELEASE}/TS3AudioBot_linux_${BOT_ARCH}.tar.gz" && \
     echo "Downloading from: $RELEASE_URL" && \
     curl -fL --retry 5 --retry-delay 10 \
       "$RELEASE_URL" \
@@ -65,6 +67,12 @@ LABEL security.soc2="ready"
 LABEL security.pci-dss="ready"
 
 ENV DEBIAN_FRONTEND=noninteractive
+# Self-contained single-file .NET apps may extract native libraries at startup.
+# Point that (and caches) at /tmp so the bot also runs under a read-only root
+# filesystem (see docker-compose.yml) where only the tmpfs /tmp is writable.
+ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
+    XDG_CACHE_HOME=/tmp/.cache \
+    HOME=/tmp
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install runtime dependencies for audio processing and health checks
@@ -113,5 +121,8 @@ HEALTHCHECK \
   --retries=3 \
   CMD curl -sS http://127.0.0.1:58913/ > /dev/null || exit 1
 
-# Start bot with non-interactive mode and stats disabled
-ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]
+# Start bot with non-interactive mode and stats disabled.
+# Upstream GitHub releases ship a self-contained native executable named
+# "TS3AudioBot" (not a framework-dependent "TS3AudioBot.dll"), so it is run
+# directly rather than via `dotnet`.
+ENTRYPOINT ["/opt/TS3AudioBot/TS3AudioBot", "--non-interactive", "--stats-disabled"]
