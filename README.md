@@ -1,260 +1,105 @@
-# TS3AudioBot-Docker 🔒
+# TS3AudioBot-Docker
 
-![Debian Bookworm](https://img.shields.io/badge/Debian-12%20Bookworm-A81D33?style=for-the-badge&logo=debian)
-![.NET 9.0](https://img.shields.io/badge/.NET-9.0-5C2D91?style=for-the-badge&logo=dotnet)
-![SOC2 Hardened](https://img.shields.io/badge/Security-SOC2%20Ready-brightgreen?style=for-the-badge&logo=security)
+Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) on Debian 12 (Bookworm) with .NET 9.
 
-A lightweight, highly secure Docker container for TS3AudioBot based on Debian 12 (Bookworm) and .NET 9.0. This image has been specifically hardened following industry best practices to meet SOC 2 security requirements.
+Published images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master`
 
-## 🛡️ Security Features
-- **Rootless Execution & No-Login Shell**: The bot runs entirely as the unprivileged `ts3audiobot` user without shell access (`/usr/sbin/nologin`).
-- **Binary Immutability**: The bot executable and dependencies (`yt-dlp`) are owned by `root` and only readable/executable by the bot, preventing self-tampering (W^X principle).
-- **SUID/SGID Stripped**: All privilege escalation vectors via SUID/SGID bits in the base system are removed.
-- **Docker Healthcheck**: Includes a built-in healthcheck to monitor the TS3AudioBot process state.
-- **Ready for Read-Only FS**: Designed to run securely with the Docker `--read-only` and `--cap-drop=ALL` flags.
+## Quick start
 
----
-
-## 📝 PCI-DSS Logging & Auditing (Requirement 10)
-To comply with PCI-DSS centralized logging requirements, all container output is natively streamlined to `STDOUT/STDERR`. You must configure your Docker Daemon or `docker-compose` to ship these logs to a dedicated SIEM or Log Aggregator (e.g., Splunk, ELK, or remote Syslog).
-
-Example config to add to your `docker-compose.yml`:
-```yaml
-    logging:
-      driver: syslog
-      options:
-        syslog-address: "tcp://192.168.1.100:514"
-        tag: "ts3audiobot-audit"
+```bash
+git clone https://github.com/CookieCr2nk/TS3AudioBot-Docker.git
+cd TS3AudioBot-Docker
+make init-data
+docker compose run --rm ts3audiobot
 ```
 
----
+Stop the container with `Ctrl+C` once the config files are written, then edit `data/bots/default/bot.toml` (TeamSpeak address, identity, password). Start the bot in the background:
 
-## 🚀 Quick Start (Docker Compose - Recommended)
+```bash
+docker compose up -d
+```
 
-For maximum security and easy management, we provide a standard `docker-compose.yml` that automatically enforces the required SOC 2 security policies:
+Logs: `docker compose logs -f ts3audiobot`
 
-1. Download the `docker-compose.yml` file.
-2. Run the initialization if this is your first time (this creates the config files):
-   ```bash
-   docker-compose run --rm ts3audiobot
-   ```
-3. Stop the process with `CTRL+C` once the configurations have been generated, and adapt them to your TeamSpeak server.
-4. Start the service in the background:
-   ```bash
-   docker-compose up -d
-   ```
+## Configuration
 
----
+Config lives in the `./data` volume (mounted at `/data` in the container):
 
-## 🐳 Manual Docker Run
+| File | Purpose |
+|------|---------|
+| `data/bots/default/bot.toml` | Connection settings for the default bot |
+| `data/ts3audiobot.toml` | Global bot defaults and tool paths |
+| `data/rights.toml` | Command permissions |
 
-If you prefer using the CLI or need to do the initial setup manually:
+On first run the bot generates an identity key. Add it to your TeamSpeak server's identity whitelist before connecting.
 
-### 1. Create Volume
+Full option reference: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
+
+## Security
+
+The image and `docker-compose.yml` run the bot as an unprivileged user with a read-only root filesystem, dropped capabilities, and no new privileges. See [SECURITY.md](SECURITY.md) for details and how to report vulnerabilities.
+
+## Manual `docker run`
+
 ```bash
 docker volume create ts3audiobot-data
-```
 
-### 2. Initial Setup
-Run the initial setup to generate all configuration files into your volume:
-```bash
+# First run — generates config, then stop with Ctrl+C
 docker run --rm -it -v ts3audiobot-data:/data ghcr.io/cookiecr2nk/ts3audiobot-docker:master
-```
-*Stop the server with `CTRL-C` once generation is complete, and edit your config located in `/var/lib/docker/volumes/ts3audiobot-data/_data/bots/default/bot.toml`.*
 
-### 3. Run Secure Daemon
-Run the container using secure flags (`--read-only` and `--cap-drop=ALL`):
-```bash
-docker run --name ts3audiobot -d \
+docker run -d --name ts3audiobot \
   -p 58913:58913 \
   -v ts3audiobot-data:/data \
   --read-only \
+  --tmpfs /tmp:mode=1777,size=64m \
   --cap-drop=ALL \
   --security-opt no-new-privileges:true \
   ghcr.io/cookiecr2nk/ts3audiobot-docker:master
 ```
 
----
+## Building
 
----
+Default build (TS3AudioBot `0.12.0`):
 
-## 📖 Documentation
-
-- **[Configuration Guide](CONFIG.md)** - Complete configuration reference for `ts3audiobot.toml` and `rights.toml`
-- **[Security Policy](SECURITY.md)** - Security features, best practices, and vulnerability reporting
-- **[Changelog](CHANGELOG.md)** - Version history and notable changes
-
----
-
-## 🛠️ Building the Image
-
-### Standard Build
 ```bash
-docker build -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
+docker build -t ts3audiobot-docker:local .
 ```
 
-### Build a Specific Upstream Release
-`BOT_RELEASE` must be an existing release tag of
-[Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot/releases)
-(e.g. `0.12.0`, `0.11.0`) — branch names like `master`/`develop` are not releases.
+Another upstream release:
+
 ```bash
 docker build --build-arg BOT_RELEASE=0.11.0 -t ts3audiobot-docker:0.11.0 .
 ```
 
-### Multi-Architecture Build (requires buildx)
+`BOT_RELEASE` must be a real [GitHub release tag](https://github.com/Splamy/TS3AudioBot/releases), not a branch name.
+
+Multi-arch (needs buildx):
+
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
+docker buildx build --platform linux/amd64,linux/arm64 -t ts3audiobot-docker:local .
 ```
 
----
+## Development
 
-## 🚀 Development
-
-### Using Make
 ```bash
-make help          # Show available commands
-make build         # Build Docker image locally
-make test          # Run tests and validation
-make compose-up    # Start with docker-compose
-make compose-down  # Stop and remove containers
-make logs          # View container logs
+make help            # list targets
+make build           # local image
+make validate-config # check bot.toml before starting
+make compose-up      # start stack
+make compose-logs    # follow logs
 ```
 
-### Local Testing
-```bash
-# Create docker-compose.override.yml for local testing
-cp docker-compose.override.example.yml docker-compose.override.yml
+Optional pre-commit hooks:
 
-# Edit as needed (e.g., mount local config)
-nano docker-compose.override.yml
-
-# Test changes
-docker-compose up
-```
-
-### Pre-commit Hooks
-Install pre-commit hooks to validate changes before committing:
 ```bash
 pip install pre-commit
 pre-commit install
 ```
 
-This will run YAML validation, secret detection, and trailing whitespace cleanup automatically.
+## CI
 
----
+Pushes to `master` build `linux/amd64` and `linux/arm64` images, run Trivy scans, and publish SBOM artifacts. Images are signed with cosign (keyless via GitHub OIDC).
 
-## 🔧 Troubleshooting
+## License
 
-### Bot won't start
-1. **Check logs**: `docker-compose logs ts3audiobot`
-2. **Verify TeamSpeak server**: Ensure server is running and accessible
-3. **Check identity**: Confirm identity is added to TeamSpeak whitelist
-4. **Validate config**: Review `CONFIG.md` for required settings
-
-### No audio output
-- Verify audio plugin is enabled in `ts3audiobot.toml`
-- Check TeamSpeak user permissions for the bot
-- Test with `make logs` to see audio subsystem output
-
-### Permission errors
-- Ensure volume is created: `docker volume ls | grep ts3audiobot`
-- Verify config file ownership: `docker exec ts3audiobot ls -la /data`
-- Recreate volume if corrupted: `docker volume rm ts3audiobot-data`
-
-### Web interface not responding
-- Verify port mapping: `docker port ts3audiobot`
-- Check firewall: `telnet localhost 58913`
-- Verify service is running: `docker-compose ps`
-
-For more help, see [Troubleshooting in CONFIG.md](CONFIG.md#troubleshooting)
-
----
-
-## 📦 Image Verification
-
-Published images include:
-- **SBOM**: Software Bill of Materials for transparency
-- **Image Signatures**: Signed with cosign - verify with:
-  ```bash
-  cosign verify --key cosign.pub ghcr.io/cookiecr2nk/ts3audiobot-docker:master
-  ```
-- **Provenance**: SLSA L3 provenance attestation
-- **Vulnerability Reports**: Trivy vulnerability scan results
-
----
-
-## 🔐 Security Disclosure
-
-For reporting security vulnerabilities, **please do not open a public issue**. Instead, see [SECURITY.md](SECURITY.md#reporting-a-vulnerability).
-
----
-
-## 🛠️ Architecture
-
-### Multi-Architecture Support
-- `linux/amd64` - Intel/AMD 64-bit
-- `linux/arm64` - ARM 64-bit (Raspberry Pi 4+, Apple Silicon)
-
-> Note: 32-bit `linux/arm/v7` is not built — yt-dlp ships no self-contained
-> armv7 binary, so it cannot run without a separate Python runtime.
-
-### Layer Structure
-```
-Base Image (mcr.microsoft.com/dotnet/aspnet:9.0-bookworm-slim)
-  ↓
-Runtime Dependencies (ffmpeg, libopus0)
-  ↓
-TS3AudioBot Binary
-  ↓
-Configuration & Entry Point
-```
-
----
-
-## 📊 Performance
-
-- **Minimal footprint**: ~400MB image size
-- **Fast startup**: <10 seconds typical startup time
-- **Low memory**: ~100MB base memory usage
-- **Configurable limits**: Set PID limit, memory limit, CPU quota in docker-compose
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Before submitting, ensure:
-- `make test` passes
-- Pre-commit hooks run without errors
-- Configuration validation works
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
-
-TS3AudioBot is licensed under GPLv3 - see https://github.com/TS3Audiobot/TS3Audiobot/blob/master/LICENSE
-
----
-
-## 🔗 Related Projects
-
-- [TS3AudioBot](https://github.com/TS3Audiobot/TS3Audiobot) - The underlying bot
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Audio downloader
-- [.NET 9.0](https://dotnet.microsoft.com/) - Runtime
-
----
-
-## Version Information
-- Base: **Debian 12 (Bookworm Slim)**
-- Runtime: **.NET 9.0**
-- TS3AudioBot: **master** (latest nightly)
-- Last Updated: **2026-04-25**
+MIT — see [LICENSE](LICENSE). TS3AudioBot itself is GPLv3.

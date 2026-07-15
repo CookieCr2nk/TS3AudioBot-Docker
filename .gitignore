@@ -1,21 +1,21 @@
-# Runtime data — never commit these
+# Runtime data
+data/
 config/*.db
 config/*.log
 config/plugins/
 config/logs/
-# Ignore user-created bot instances but keep the shipped default
 config/bots/*
 !config/bots/default/
 
-# Local configuration overrides
-docker-compose.override.yml
+# Local overrides
 .env
 .env.local
 
-# Editor files
+# Editor / tooling
 .DS_Store
 *.swp
 *.swo
 *~
 .idea/
 .vscode/launch.json
+.claude/

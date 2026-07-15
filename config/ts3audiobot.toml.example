@@ -1,10 +1,5 @@
-# TS3AudioBot Configuration Template
-#
-# This is a template file showing all available configuration options.
-# For a detailed guide, see CONFIG.md
-#
-# On first run, the bot will generate a working configuration.
-# Copy this file to ts3audiobot.toml and customize for your setup.
+# Copy to ts3audiobot.toml and adjust. Option reference:
+# https://github.com/Splamy/TS3AudioBot/wiki
 
 #! IMPORTANT !
 #All config tables here starting with 'bot.*' will only be used as default values for each bot.
