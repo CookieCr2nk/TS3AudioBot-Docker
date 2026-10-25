@@ -3,11 +3,11 @@
   <div>
     <h1><%= bot.name %></h1>
     <p class="muted">
-      <% if (bot.instanceMode === "none") { %>Ohne Instanzkontext<% } %>
-      <% if (bot.instanceMode === "template") { %>Template <%= bot.instanceRef %><% } %>
-      <% if (bot.instanceMode === "id") { %>Instanz-ID <%= bot.instanceRef %><% } %>
-      <% if (!access.canControl) { %> · nur lesen<% } %>
-      <% if (!bot.enabled) { %> · deaktiviert<% } %>
+      <% if (bot.instanceMode === "none") { %><%= t("No instance context") %><% } %>
+      <% if (bot.instanceMode === "template") { %><%= t("Template {name}", { name: bot.instanceRef }) %><% } %>
+      <% if (bot.instanceMode === "id") { %><%= t("Instance ID {name}", { name: bot.instanceRef }) %><% } %>
+      <% if (!access.canControl) { %> · <%= t("read only") %><% } %>
+      <% if (!bot.enabled) { %> · <%= t("disabled") %><% } %>
     </p>
   </div>
 </header>
@@ -26,9 +26,9 @@
 
 <section class="card now" data-player="<%= bot.id %>">
   <div class="row">
-    <h2 data-now="title"><%= song ? song.title : "Gerade läuft nichts." %></h2>
+    <h2 data-now="title"><%= song ? song.title : t("Nothing is playing.") %></h2>
     <span class="pill" data-now="state">
-      <% if (song && song.paused) { %>Pausiert<% } else if (song) { %>Läuft<% } else { %>Leer<% } %>
+      <% if (song && song.paused) { %><%= t("Paused") %><% } else if (song) { %><%= t("Playing") %><% } else { %><%= t("Empty") %><% } %>
     </span>
   </div>
   <p class="muted">
@@ -43,27 +43,27 @@
       <form method="post" action="/bots/<%= bot.id %>/action">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="previous">
-        <button class="btn" type="submit">Zurück</button>
+        <button class="btn" type="submit"><%= t("Previous") %></button>
       </form>
       <form method="post" action="/bots/<%= bot.id %>/action" data-toggle-play>
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="<%= song && !song.paused ? "pause" : "resume" %>">
-        <button class="btn btn-primary" type="submit"><%= song && !song.paused ? "Pause" : "Fortsetzen" %></button>
+        <button class="btn btn-primary" type="submit"><%= song && !song.paused ? t("Pause") : t("Resume") %></button>
       </form>
       <form method="post" action="/bots/<%= bot.id %>/action">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="next">
-        <button class="btn" type="submit">Überspringen</button>
+        <button class="btn" type="submit"><%= t("Skip") %></button>
       </form>
-      <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="Wiedergabe stoppen?">
+      <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="<%= t("Stop playback?") %>">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="stop">
-        <button class="btn" type="submit">Stopp</button>
+        <button class="btn" type="submit"><%= t("Stop") %></button>
       </form>
-      <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="Warteschlange leeren?">
+      <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="<%= t("Clear the queue?") %>">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="clear">
-        <button class="btn btn-danger" type="submit">Leeren</button>
+        <button class="btn btn-danger" type="submit"><%= t("Clear") %></button>
       </form>
     </div>
     <div class="transport">
@@ -80,12 +80,12 @@
       <form method="post" action="/bots/<%= bot.id %>/action" class="inline" id="volume-form">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="volume">
-        <label>Lautstärke
+        <label><%= t("Volume") %>
           <input name="volume" type="number" min="0" max="100" required value="<%= status && status.volume != null ? status.volume : 50 %>" data-volume-number>
         </label>
-        <button class="btn" type="submit">Setzen</button>
+        <button class="btn" type="submit"><%= t("Set") %></button>
       </form>
-      <label class="grow">Schieberegler
+      <label class="grow"><%= t("Slider") %>
         <input type="range" min="0" max="100" value="<%= status && status.volume != null ? status.volume : 50 %>" data-volume>
       </label>
     </div>
@@ -93,61 +93,61 @@
       <form method="post" action="/bots/<%= bot.id %>/action" class="inline">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="repeat">
-        <label>Wiederholen
+        <label><%= t("Repeat") %>
           <select name="mode">
-            <option value="off" <%= status && status.repeat === "off" ? "selected" : "" %>>Aus</option>
-            <option value="one" <%= status && status.repeat === "one" ? "selected" : "" %>>Titel</option>
-            <option value="all" <%= status && status.repeat === "all" ? "selected" : "" %>>Alle</option>
+            <option value="off" <%= status && status.repeat === "off" ? "selected" : "" %>><%= t("Off") %></option>
+            <option value="one" <%= status && status.repeat === "one" ? "selected" : "" %>><%= t("One") %></option>
+            <option value="all" <%= status && status.repeat === "all" ? "selected" : "" %>><%= t("All") %></option>
           </select>
         </label>
-        <button class="btn" type="submit">Setzen</button>
+        <button class="btn" type="submit"><%= t("Set") %></button>
       </form>
       <form method="post" action="/bots/<%= bot.id %>/action" class="inline">
         <%- include("partials/csrf") %>
         <input type="hidden" name="op" value="random">
-        <label>Zufall
+        <label><%= t("Shuffle") %>
           <select name="mode">
-            <option value="off" <%= status && status.shuffle === false ? "selected" : "" %>>Aus</option>
-            <option value="on" <%= status && status.shuffle === true ? "selected" : "" %>>An</option>
+            <option value="off" <%= status && status.shuffle === false ? "selected" : "" %>><%= t("Off") %></option>
+            <option value="on" <%= status && status.shuffle === true ? "selected" : "" %>><%= t("On") %></option>
           </select>
         </label>
-        <button class="btn" type="submit">Setzen</button>
+        <button class="btn" type="submit"><%= t("Set") %></button>
       </form>
     </div>
   <% } else if (status && status.volume != null) { %>
-    <p class="muted">Lautstärke <%= status.volume %></p>
+    <p class="muted"><%= t("Volume {volume}", { volume: status.volume }) %></p>
   <% } %>
 </section>
 
 <% if (access.canControl) { %>
   <section class="card">
-    <h2>Abspielen</h2>
+    <h2><%= t("Play now") %></h2>
     <form method="post" action="/bots/<%= bot.id %>/action" class="stack">
       <%- include("partials/csrf") %>
-      <label>Link oder Ressource
-        <input name="resource" required placeholder="https://… oder media/datei.mp3" maxlength="2000">
+      <label><%= t("Link or resource") %>
+        <input name="resource" required placeholder="<%= t("https://… or media/file.mp3") %>" maxlength="2000">
       </label>
       <div class="row">
-        <button class="btn btn-primary" type="submit" name="op" value="play">Sofort spielen</button>
-        <button class="btn" type="submit" name="op" value="add">An Warteschlange</button>
+        <button class="btn btn-primary" type="submit" name="op" value="play"><%= t("Play immediately") %></button>
+        <button class="btn" type="submit" name="op" value="add"><%= t("Add to queue") %></button>
       </div>
     </form>
   </section>
 
   <section class="card">
-    <h2>Suche</h2>
+    <h2><%= t("Search") %></h2>
     <form method="get" action="/bots/<%= bot.id %>" class="split">
-      <label class="grow">Suchbegriff
+      <label class="grow"><%= t("Search term") %>
         <input name="search" value="<%= query %>" maxlength="200" required>
       </label>
-      <label>Quelle
+      <label><%= t("Source") %>
         <select name="factory">
           <% ["youtube", "soundcloud", "twitch", "media"].forEach(function (name) { %>
             <option value="<%= name %>" <%= factory === name ? "selected" : "" %>><%= name %></option>
           <% }) %>
         </select>
       </label>
-      <button class="btn" type="submit">Suchen</button>
+      <button class="btn" type="submit"><%= t("Search") %></button>
     </form>
     <% if (searchError) { %><p class="flash flash-error" role="alert"><%= searchError %></p><% } %>
     <% if (results.length) { %>
@@ -158,8 +158,8 @@
             <form method="post" action="/bots/<%= bot.id %>/action">
               <%- include("partials/csrf") %>
               <input type="hidden" name="index" value="<%= item.index %>">
-              <button class="btn btn-primary" type="submit" name="op" value="search-play">Spielen</button>
-              <button class="btn" type="submit" name="op" value="search-add">Anhängen</button>
+              <button class="btn btn-primary" type="submit" name="op" value="search-play"><%= t("Play") %></button>
+              <button class="btn" type="submit" name="op" value="search-add"><%= t("Append") %></button>
             </form>
           </li>
         <% }) %>
@@ -180,7 +180,7 @@
               <%- include("partials/csrf") %>
               <input type="hidden" name="op" value="jump">
               <input type="hidden" name="index" value="<%= item.index %>">
-              <button class="btn btn-ghost" type="submit">Springen</button>
+              <button class="btn btn-ghost" type="submit"><%= t("Jump") %></button>
             </form>
           <% } %>
         </li>

@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { ping, setFlash } from "./db.js";
 import { Ts3ApiError } from "./errors.js";
 import { csrfProtect, loadSession, requireAdmin, requireUser, safeReferrer, wantsJson, wrap } from "./http.js";
+import { clientJson, errorText, languageFromHeader, translator } from "./i18n.js";
 import { formatTime, safeHttpUrl } from "./present.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
@@ -43,12 +44,20 @@ export function createApp() {
   app.use(express.json({ limit: "32kb" }));
   app.use(cookieParser());
   app.use((req, res, next) => {
+    const lang = languageFromHeader(req.get("accept-language"));
+    const t = translator(lang);
+    req.lang = lang;
+    req.t = t;
+    res.set("Vary", "Accept-Language");
+    res.locals.lang = lang;
+    res.locals.t = t;
+    res.locals.clientJson = clientJson(lang);
     res.locals.plain = false;
     res.locals.title = "TS3 Panel";
     res.locals.active = "";
     res.locals.tab = "";
     res.locals.encode = encodeURIComponent;
-    res.locals.formatTime = formatTime;
+    res.locals.formatTime = (value) => formatTime(value, lang);
     res.locals.safeHttpUrl = safeHttpUrl;
     next();
   });
@@ -76,7 +85,8 @@ export function createApp() {
   app.use("/admin", requireAdmin, adminRouter);
 
   app.use((req, res) => {
-    res.status(404).render("error", { title: "Nicht gefunden", message: "Die Seite gibt es nicht." });
+    const say = req.t || ((message) => message);
+    res.status(404).render("error", { title: say("Not found"), message: say("That page does not exist.") });
   });
 
   app.use((err, req, res, next) => {
@@ -109,7 +119,8 @@ async function renderError(err, req, res) {
   if (res.headersSent) return;
   const status = err.status || 500;
   const safe = (err.status && err.status < 500) || err instanceof Ts3ApiError;
-  const message = safe ? err.message : "Interner Fehler";
+  const say = typeof req.t === "function" ? req.t : (message) => message;
+  const message = safe ? errorText(err, say) : say("Internal error");
   if (!safe) console.error(err);
   else if (status >= 500) console.error(`[panel] ${err.message}`);
 
@@ -122,7 +133,7 @@ async function renderError(err, req, res) {
     res.redirect(safeReferrer(req));
     return;
   }
-  res.status(status).render("error", { title: "Fehler", message }, (renderErr, html) => {
+  res.status(status).render("error", { title: say("Error"), message }, (renderErr, html) => {
     if (renderErr || !html) {
       res.status(status).type("text").send(message);
       return;

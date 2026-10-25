@@ -32,7 +32,7 @@ export function runtimeWarnings() {
   const key = tokenKey();
   if (key.startsWith("dev-only") || key.length < 16) {
     warnings.push(
-      "TOKEN_KEY ist unsicher. Er wird nur gebraucht, wenn du einen optionalen API-Token speicherst. Ein späterer Wechsel macht gespeicherte Tokens unlesbar.",
+      "TOKEN_KEY is weak. It is only needed when an optional API token is stored. Changing it later makes stored tokens unreadable.",
     );
   }
   return warnings;

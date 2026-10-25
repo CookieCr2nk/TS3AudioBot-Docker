@@ -8,14 +8,14 @@ try {
   await migrate();
   const created = await ensureAdmin();
   if (created.created) {
-    console.warn(`[panel] Admin-Zugang angelegt. Benutzer: ${created.username}`);
+    console.warn(`[panel] Created admin account. User: ${created.username}`);
     if (created.generatedPassword) {
-      console.warn(`[panel] Passwort: ${created.generatedPassword}`);
-      console.warn("[panel] Bitte nach dem Login unter Konto ändern.");
+      console.warn(`[panel] Password: ${created.generatedPassword}`);
+      console.warn("[panel] Change it under Account after signing in.");
     }
   }
 } catch (err) {
-  console.error("[panel] Start fehlgeschlagen:", err.message);
+  console.error("[panel] Startup failed:", err.message);
   process.exit(1);
 }
 

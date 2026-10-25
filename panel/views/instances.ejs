@@ -1,10 +1,9 @@
 <header class="page-head">
   <div>
-    <h1>Instanzen</h1>
+    <h1><%= t("Instances") %></h1>
     <p class="muted">
-      Vorlagen in diesem TS3AudioBot-Prozess.
-      Steuerung der Wiedergabe:
-      <% if (bot.instanceMode === "none") { %>kein Kontext<% } else { %><%= bot.instanceMode %> <span class="mono"><%= bot.instanceRef %></span><% } %>
+      <%= t("Templates in this TS3AudioBot process. Playback is controlled by:") %>
+      <% if (bot.instanceMode === "none") { %><%= t("no context") %><% } else { %><%= bot.instanceMode %> <span class="mono"><%= bot.instanceRef %></span><% } %>
     </p>
   </div>
 </header>
@@ -18,27 +17,27 @@
 <form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
   <%- include("partials/csrf") %>
   <input type="hidden" name="op" value="template-create">
-  <h2>Vorlage anlegen</h2>
+  <h2><%= t("Create template") %></h2>
   <div class="split">
-    <label class="grow">Name
+    <label class="grow"><%= t("Name") %>
       <input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="lobby">
     </label>
-    <button class="btn btn-primary" type="submit">Anlegen</button>
+    <button class="btn btn-primary" type="submit"><%= t("Create") %></button>
   </div>
-  <p class="muted">Identität und Passwort bleiben in <code>data/bots/&lt;name&gt;/bot.toml</code>.</p>
+  <p class="muted"><%= t("Identity and password stay in data/bots/<name>/bot.toml.") %></p>
 </form>
 
 <% if (instances.length) { %>
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>ID</th><th>Name</th><th>Server</th><th>Status</th><th></th></tr>
+        <tr><th><%= t("ID") %></th><th><%= t("Name") %></th><th><%= t("Server") %></th><th><%= t("Status") %></th><th></th></tr>
       </thead>
       <tbody>
         <% instances.forEach(function (item) { %>
           <tr>
             <td class="mono"><%= item.id == null ? "—" : item.id %></td>
-            <td><%= item.name || "—" %><% if (item.current) { %> <span class="pill pill-ok">Aktiv</span><% } %></td>
+            <td><%= item.name || "—" %><% if (item.current) { %> <span class="pill pill-ok"><%= t("Active") %></span><% } %></td>
             <td>
               <% if (item.name && item.status === "offline") { %>
                 <form method="post" action="/bots/<%= bot.id %>/action" class="inline">
@@ -46,7 +45,7 @@
                   <input type="hidden" name="op" value="template-address">
                   <input type="hidden" name="name" value="<%= item.name %>">
                   <input name="address" value="<%= item.server %>" placeholder="ts.example.com" maxlength="200" required>
-                  <button class="btn btn-ghost" type="submit">Speichern</button>
+                  <button class="btn btn-ghost" type="submit"><%= t("Save") %></button>
                 </form>
               <% } else { %><%= item.server || "—" %><% } %>
             </td>
@@ -57,15 +56,15 @@
                   <%- include("partials/csrf") %>
                   <input type="hidden" name="op" value="connect">
                   <input type="hidden" name="name" value="<%= item.name %>">
-                  <button class="btn" type="submit">Starten</button>
+                  <button class="btn" type="submit"><%= t("Start") %></button>
                 </form>
               <% } %>
               <% if (item.id != null) { %>
-                <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="Instanz trennen?">
+                <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="<%= t("Disconnect this instance?") %>">
                   <%- include("partials/csrf") %>
                   <input type="hidden" name="op" value="disconnect">
                   <input type="hidden" name="instanceId" value="<%= item.id %>">
-                  <button class="btn btn-danger" type="submit">Trennen</button>
+                  <button class="btn btn-danger" type="submit"><%= t("Disconnect") %></button>
                 </form>
               <% } %>
               <% if (item.name || item.id != null) { %>
@@ -74,7 +73,7 @@
                   <input type="hidden" name="op" value="use-instance">
                   <input type="hidden" name="name" value="<%= item.name %>">
                   <input type="hidden" name="instanceId" value="<%= item.id == null ? "" : item.id %>">
-                  <button class="btn btn-ghost" type="submit">Steuern</button>
+                  <button class="btn btn-ghost" type="submit"><%= t("Use for playback") %></button>
                 </form>
               <% } %>
             </td>
@@ -88,24 +87,24 @@
 <form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
   <%- include("partials/csrf") %>
   <input type="hidden" name="op" value="move">
-  <h2>Channel</h2>
+  <h2><%= t("Channel") %></h2>
   <div class="split">
-    <label class="grow">Channel-Pfad oder /ID
-      <input name="channel" required maxlength="200" placeholder="/5 oder Home/Lobby">
+    <label class="grow"><%= t("Channel path or /ID") %>
+      <input name="channel" required maxlength="200" placeholder="<%= t("/5 or Home/Lobby") %>">
     </label>
-    <button class="btn" type="submit">Verschieben</button>
+    <button class="btn" type="submit"><%= t("Move") %></button>
   </div>
-  <p class="muted">Gilt für die Instanz, die oben als Steuerung gesetzt ist.</p>
+  <p class="muted"><%= t("Applies to the instance selected as the playback control above.") %></p>
 </form>
 
 <form method="post" action="/bots/<%= bot.id %>/action" class="card stack danger-zone">
   <%- include("partials/csrf") %>
   <input type="hidden" name="op" value="template-delete">
-  <h2>Vorlage löschen</h2>
-  <p class="muted">Löscht die Bot-Konfiguration im TS3AudioBot. Die Eingabe muss dem Namen entsprechen.</p>
+  <h2><%= t("Delete template") %></h2>
+  <p class="muted"><%= t("Deletes the bot configuration inside TS3AudioBot. The confirmation must match the name.") %></p>
   <div class="split">
-    <label>Name<input name="name" required maxlength="64"></label>
-    <label>Bestätigung<input name="confirm" required maxlength="64"></label>
-    <button class="btn btn-danger" type="submit">Löschen</button>
+    <label><%= t("Name") %><input name="name" required maxlength="64"></label>
+    <label><%= t("Confirmation") %><input name="confirm" required maxlength="64"></label>
+    <button class="btn btn-danger" type="submit"><%= t("Delete") %></button>
   </div>
 </form>

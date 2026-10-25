@@ -1,3 +1,21 @@
+function phrases() {
+  const meta = document.querySelector('meta[name="i18n"]');
+  const node = document.getElementById("i18n");
+  const raw = meta?.content || node?.textContent || "";
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+const text = phrases();
+
+function say(key) {
+  return Object.prototype.hasOwnProperty.call(text, key) ? text[key] : key;
+}
+
 function showToast(message, ok) {
   const toast = document.querySelector("#toast");
   if (!toast) return;
@@ -46,7 +64,7 @@ function startPlayer(root) {
       body,
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.ok) throw new Error(data.error || "Aktion fehlgeschlagen");
+    if (!response.ok || !data.ok) throw new Error(data.error || say("Action failed"));
   }
 
   function apply(status) {
@@ -58,8 +76,8 @@ function startPlayer(root) {
     const bar = root.querySelector("[data-now=bar]");
     const link = root.querySelector("[data-now=source-link]");
     const text = root.querySelector("[data-now=source-text]");
-    if (title) title.textContent = song?.title || "Gerade läuft nichts.";
-    if (state) state.textContent = song ? (song.paused ? "Pausiert" : "Läuft") : "Leer";
+    if (title) title.textContent = song?.title || say("Nothing is playing.");
+    if (state) state.textContent = song ? (song.paused ? say("Paused") : say("Playing")) : say("Empty");
     if (position) position.textContent = song?.positionLabel || "0:00";
     if (length) length.textContent = song?.lengthLabel || "--:--";
     if (bar) bar.style.width = `${Math.max(0, Math.min(100, Number(song?.progress) || 0))}%`;
@@ -85,7 +103,7 @@ function startPlayer(root) {
       const button = toggle.querySelector("button");
       if (op && button) {
         op.value = song.paused ? "resume" : "pause";
-        button.textContent = song.paused ? "Fortsetzen" : "Pause";
+        button.textContent = song.paused ? say("Resume") : say("Pause");
       }
     }
     const number = document.querySelector("[data-volume-number]");
@@ -102,18 +120,18 @@ function startPlayer(root) {
     try {
       const response = await fetch(`/bots/${botId}/status`, { headers: { Accept: "application/json" } });
       if (response.status === 401) {
-        showToast("Sitzung abgelaufen", false);
+        showToast(say("Session expired"), false);
         window.clearInterval(timer);
         return;
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) {
-        showToast(data.error || "Status nicht verfügbar", false);
+        showToast(data.error || say("Status unavailable"), false);
         return;
       }
       apply(data.status);
     } catch {
-      showToast("Status nicht erreichbar", false);
+      showToast(say("Status unreachable"), false);
     } finally {
       busy = false;
     }

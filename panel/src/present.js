@@ -1,3 +1,5 @@
+import { applyParams } from "./i18n.js";
+
 const REPEAT = new Map([
   ["0", "off"],
   ["1", "one"],
@@ -18,8 +20,8 @@ const BOT_STATUS = {
 
 const STATUS_LABEL = {
   offline: "Offline",
-  connecting: "Verbindet",
-  connected: "Verbunden",
+  connecting: "Connecting",
+  connected: "Connected",
 };
 
 export function isApiError(value) {
@@ -60,11 +62,11 @@ export function formatSeconds(value) {
   return `${minutes}:${sec}`;
 }
 
-export function formatTime(value) {
+export function formatTime(value, lang = "en") {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const formatted = new Intl.DateTimeFormat("de-DE", {
+  const formatted = new Intl.DateTimeFormat(lang === "de" ? "de-DE" : "en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
@@ -82,8 +84,8 @@ export function safeHttpUrl(value) {
   return null;
 }
 
-function slot(value) {
-  if (isApiError(value)) return { error: value.ErrorMessage || value.ErrorName || "Fehler", value: null };
+function slot(value, t) {
+  if (isApiError(value)) return { error: value.ErrorMessage || value.ErrorName || t("Error"), value: null };
   return { error: null, value: unwrap(value) };
 }
 
@@ -99,13 +101,13 @@ function presentBool(value) {
   return null;
 }
 
-function presentSong(value) {
+function presentSong(value, t) {
   if (!value || typeof value !== "object" || isApiError(value)) return null;
   const length = Number(value.Length);
   const position = Number(value.Position);
   const hasLength = Number.isFinite(length) && length > 0;
   return {
-    title: value.Title || "Unbekannter Titel",
+    title: value.Title || t("Unknown title"),
     source: value.Source || value.Link || "",
     sourceHref: safeHttpUrl(value.Source || value.Link || ""),
     position: Number.isFinite(position) ? position : null,
@@ -117,23 +119,23 @@ function presentSong(value) {
   };
 }
 
-function presentQueue(value) {
+function presentQueue(value, t) {
   if (!value || typeof value !== "object" || isApiError(value) || !Array.isArray(value.Items)) return null;
   const offset = Number(value.DisplayOffset) || 0;
   return {
-    title: value.Title || "Warteschlange",
+    title: value.Title || t("Queue"),
     index: Number.isFinite(Number(value.PlaybackIndex)) ? Number(value.PlaybackIndex) : null,
     count: Number.isFinite(Number(value.SongCount)) ? Number(value.SongCount) : value.Items.length,
     items: value.Items.slice(0, 40).map((item, index) => ({
       index: offset + index,
-      title: item.Title || item.Link || "Ohne Titel",
+      title: item.Title || item.Link || t("Untitled"),
       link: item.Link || "",
       audioType: item.AudioType || "",
     })),
   };
 }
 
-export function presentStatus(data) {
+export function presentStatus(data, t = applyParams) {
   const empty = {
     song: null,
     volume: null,
@@ -143,22 +145,22 @@ export function presentStatus(data) {
     problems: [],
   };
   if (!Array.isArray(data)) {
-    empty.problems.push("Die Bot-API hat keinen Status geliefert.");
+    empty.problems.push(t("The bot API did not return a status."));
     return empty;
   }
-  const slots = data.map(slot);
-  const labels = ["Titel", "Lautstärke", "Wiederholen", "Zufall", "Warteschlange"];
+  const slots = data.map((value) => slot(value, t));
+  const labels = ["Title", "Volume", "Repeat", "Shuffle", "Queue"];
   const problems = [];
   slots.forEach((item, index) => {
-    if (item.error && labels[index]) problems.push(`${labels[index]}: ${item.error}`);
+    if (item.error && labels[index]) problems.push(t("{label}: {error}", { label: labels[index], error: item.error }));
   });
   const volume = Number(slots[1]?.value);
   return {
-    song: presentSong(slots[0]?.value),
+    song: presentSong(slots[0]?.value, t),
     volume: Number.isFinite(volume) ? Math.max(0, Math.min(100, Math.round(volume))) : null,
     repeat: presentRepeat(slots[2]?.value),
     shuffle: presentBool(slots[3]?.value),
-    queue: presentQueue(slots[4]?.value),
+    queue: presentQueue(slots[4]?.value, t),
     problems,
   };
 }
@@ -169,9 +171,9 @@ export function presentVersion(data) {
   return data.Version || data.version || null;
 }
 
-export function presentHistory(data) {
+export function presentHistory(data, t = applyParams) {
   if (typeof data === "string") {
-    return presentSearch(data).map((item) => ({ id: item.index, title: item.title, meta: "" }));
+    return presentSearch(data, t).map((item) => ({ id: item.index, title: item.title, meta: "" }));
   }
   const list = asList(data) || [];
   return list.map((item, index) => {
@@ -181,7 +183,7 @@ export function presentHistory(data) {
       .join(" · ");
     return {
       id: item.Id ?? item.id ?? null,
-      title: item.Title || item.ResourceTitle || item.Name || `Eintrag ${index + 1}`,
+      title: item.Title || item.ResourceTitle || item.Name || t("Entry {n}", { n: index + 1 }),
       meta,
     };
   });
@@ -203,7 +205,7 @@ export function presentPlaylists(data) {
     .filter(Boolean);
 }
 
-export function presentPlaylist(data) {
+export function presentPlaylist(data, t = applyParams) {
   if (!data || typeof data !== "object" || isApiError(data)) return null;
   const offset = Number(data.DisplayOffset) || 0;
   const items = Array.isArray(data.Items) ? data.Items : [];
@@ -214,14 +216,14 @@ export function presentPlaylist(data) {
     offset,
     items: items.map((item, index) => ({
       index: offset + index,
-      title: item.Title || item.Link || "Ohne Titel",
+      title: item.Title || item.Link || t("Untitled"),
       link: item.Link || "",
       audioType: item.AudioType || "",
     })),
   };
 }
 
-export function presentSearch(data) {
+export function presentSearch(data, t = applyParams) {
   if (typeof data === "string") {
     return data
       .split(/\r?\n/)
@@ -238,13 +240,13 @@ export function presentSearch(data) {
     if (typeof item === "string") return { index, title: item, link: "" };
     return {
       index: item.Index ?? item.index ?? index,
-      title: item.Title || item.ResourceTitle || item.Link || `Treffer ${index}`,
+      title: item.Title || item.ResourceTitle || item.Link || t("Result {index}", { index }),
       link: item.Link || item.Source || "",
     };
   });
 }
 
-export function presentBotList(data) {
+export function presentBotList(data, t = applyParams) {
   const list = asList(data) || [];
   return list.map((item) => {
     const status = BOT_STATUS[item.Status] || "unknown";
@@ -253,7 +255,7 @@ export function presentBotList(data) {
       name: item.Name || "",
       server: item.Server || "",
       status,
-      statusLabel: STATUS_LABEL[status] || "Unbekannt",
+      statusLabel: t(STATUS_LABEL[status] || "Unknown"),
     };
   });
 }

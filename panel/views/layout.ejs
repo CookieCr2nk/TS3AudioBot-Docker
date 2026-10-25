@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<%= lang %>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +7,12 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/app.css">
   <% if (csrf) { %><meta name="csrf-token" content="<%= csrf %>"><% } %>
+  <meta name="i18n" content="<%= clientJson %>">
 </head>
 <body class="<%= plain ? "plain" : "" %>">
-  <a class="skip" href="#inhalt">Zum Inhalt</a>
+  <a class="skip" href="#content"><%= t("Skip to content") %></a>
   <% if (plain) { %>
-    <main id="inhalt" class="login-wrap">
+    <main id="content" class="login-wrap">
       <% if (flash && flash.message) { %><p class="flash flash-<%= flash.type || "info" %>" role="status"><%= flash.message %></p><% } %>
       <%- body %>
     </main>
@@ -20,33 +21,34 @@
       <aside class="sidebar">
         <a class="brand" href="/">TS3 <span>Panel</span></a>
         <% if (user) { %>
-          <nav class="nav" aria-label="Hauptnavigation">
-            <a href="/" <%= active === "dash" ? 'aria-current="page"' : "" %>>Übersicht</a>
+          <nav class="nav" aria-label="<%= t("Main") %>">
+            <a href="/" <%= active === "dash" ? 'aria-current="page"' : "" %>><%= t("Overview") %></a>
             <% if (user.role === "admin") { %>
-              <a href="/admin/bots" <%= active === "bots" ? 'aria-current="page"' : "" %>>Bots</a>
-              <a href="/admin/users" <%= active === "users" ? 'aria-current="page"' : "" %>>Benutzer</a>
-              <a href="/admin/audit" <%= active === "audit" ? 'aria-current="page"' : "" %>>Protokoll</a>
+              <a href="/admin/bots" <%= active === "bots" ? 'aria-current="page"' : "" %>><%= t("Bots") %></a>
+              <a href="/admin/users" <%= active === "users" ? 'aria-current="page"' : "" %>><%= t("Users") %></a>
+              <a href="/admin/audit" <%= active === "audit" ? 'aria-current="page"' : "" %>><%= t("Audit") %></a>
             <% } %>
-            <a href="/account" <%= active === "account" ? 'aria-current="page"' : "" %>>Konto</a>
+            <a href="/account" <%= active === "account" ? 'aria-current="page"' : "" %>><%= t("Account") %></a>
           </nav>
           <form method="post" action="/logout" class="logout">
             <%- include("partials/csrf") %>
             <p class="who"><%= user.username %></p>
-            <button type="submit" class="btn btn-ghost">Abmelden</button>
+            <button type="submit" class="btn btn-ghost"><%= t("Sign out") %></button>
           </form>
         <% } else { %>
-          <nav class="nav" aria-label="Hauptnavigation">
-            <a href="/login">Anmelden</a>
+          <nav class="nav" aria-label="<%= t("Main") %>">
+            <a href="/login"><%= t("Sign in") %></a>
           </nav>
         <% } %>
       </aside>
-      <main id="inhalt" class="content">
+      <main id="content" class="content">
         <% if (flash && flash.message) { %><p class="flash flash-<%= flash.type || "info" %>" role="status"><%= flash.message %></p><% } %>
         <%- body %>
       </main>
     </div>
   <% } %>
   <div id="toast" class="toast" hidden></div>
+  <script type="application/json" id="i18n"><%- clientJson %></script>
   <script src="/app.js"></script>
 </body>
 </html>

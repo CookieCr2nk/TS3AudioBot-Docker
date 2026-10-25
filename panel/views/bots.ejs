@@ -1,29 +1,29 @@
 <header class="page-head">
   <div>
-    <h1>Bots</h1>
-    <p class="muted">Jeder Eintrag ist ein TS3AudioBot mit eigener Web-API.</p>
+    <h1><%= t("Bots") %></h1>
+    <p class="muted"><%= t("Each entry is a TS3AudioBot with its own web API.") %></p>
   </div>
-  <a class="btn btn-primary" href="/admin/bots/new">Bot anlegen</a>
+  <a class="btn btn-primary" href="/admin/bots/new"><%= t("Add bot") %></a>
 </header>
 
-<% if (!bots.length) { %><p class="muted">Noch kein Bot angelegt.</p><% } %>
+<% if (!bots.length) { %><p class="muted"><%= t("No bot has been added yet.") %></p><% } %>
 
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>Name</th><th>API</th><th>Instanz</th><th>Benutzer</th><th></th></tr>
+      <tr><th><%= t("Name") %></th><th><%= t("API") %></th><th><%= t("Instance") %></th><th><%= t("Users") %></th><th></th></tr>
     </thead>
     <tbody>
       <% bots.forEach(function (item) { %>
         <tr>
           <td>
             <%= item.name %>
-            <% if (!item.enabled) { %><span class="pill pill-bad">Aus</span><% } %>
+            <% if (!item.enabled) { %><span class="pill pill-bad"><%= t("Off") %></span><% } %>
           </td>
           <td class="mono"><%= item.baseUrl %></td>
           <td class="mono"><%= item.instanceMode %><% if (item.instanceRef) { %> / <%= item.instanceRef %><% } %></td>
           <td><%= item.grantCount %></td>
-          <td><a class="btn btn-ghost" href="/admin/bots/<%= item.id %>">Bearbeiten</a></td>
+          <td><a class="btn btn-ghost" href="/admin/bots/<%= item.id %>"><%= t("Edit") %></a></td>
         </tr>
       <% }) %>
     </tbody>

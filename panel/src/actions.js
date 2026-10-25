@@ -16,7 +16,7 @@ const SLOW = 90000;
 
 function choice(value, allowed, label) {
   const text = String(value ?? "").trim().toLowerCase();
-  if (!allowed.includes(text)) throw new ValidationError(`${label} ist ungültig`);
+  if (!allowed.includes(text)) throw new ValidationError("{label} is invalid", { label });
   return text;
 }
 
@@ -27,35 +27,35 @@ function listTarget(input) {
 }
 
 export const actions = {
-  pause: { control: true, audit: true, success: "Wiedergabe pausiert", build: () => ["pause"] },
-  resume: { control: true, audit: true, success: "Wiedergabe fortgesetzt", build: () => ["play"] },
-  stop: { control: true, audit: true, success: "Wiedergabe gestoppt", build: () => ["stop"] },
-  next: { control: true, audit: true, success: "Nächster Titel", timeoutMs: SLOW, build: () => ["next"] },
-  previous: { control: true, audit: true, success: "Vorheriger Titel", timeoutMs: SLOW, build: () => ["previous"] },
-  clear: { control: true, audit: true, success: "Warteschlange geleert", build: () => ["clear"] },
+  pause: { control: true, audit: true, success: "Playback paused", build: () => ["pause"] },
+  resume: { control: true, audit: true, success: "Playback resumed", build: () => ["play"] },
+  stop: { control: true, audit: true, success: "Playback stopped", build: () => ["stop"] },
+  next: { control: true, audit: true, success: "Next track", timeoutMs: SLOW, build: () => ["next"] },
+  previous: { control: true, audit: true, success: "Previous track", timeoutMs: SLOW, build: () => ["previous"] },
+  clear: { control: true, audit: true, success: "Queue cleared", build: () => ["clear"] },
   volume: {
     control: true,
     audit: true,
-    success: "Lautstärke gesetzt",
+    success: "Volume set",
     parse: (input) => ({ volume: parseVolume(input.volume) }),
     build: (args) => ["volume", String(args.volume)],
-    detail: (args) => `Lautstärke ${args.volume}`,
+    detail: (args) => ({ key: "Volume {volume}", params: { volume: args.volume } }),
   },
   seek: {
     control: true,
     audit: true,
-    success: "Position gesetzt",
+    success: "Position set",
     parse: (input) => ({ seconds: parseIndex(input.seconds, "Position", 86400) }),
     build: (args) => ["seek", String(args.seconds)],
-    detail: (args) => `Position ${args.seconds}s`,
+    detail: (args) => ({ key: "Position {seconds}s", params: { seconds: args.seconds } }),
   },
   nudge: {
     control: true,
     audit: true,
-    success: "Position gesetzt",
+    success: "Position set",
     parse: (input) => {
       const delta = Number(input.delta);
-      if (![-30, -10, 10, 30].includes(delta)) throw new ValidationError("Der Sprung ist ungültig");
+      if (![-30, -10, 10, 30].includes(delta)) throw new ValidationError("That seek is invalid");
       return { delta };
     },
     async run(bot, args, call) {
@@ -65,28 +65,28 @@ export const actions = {
       await call(scope(bot, ["seek", String(seconds)]), 15000);
       return { seconds };
     },
-    detail: (args) => `Sprung ${args.delta}s`,
+    detail: (args) => ({ key: "Seek {delta}s", params: { delta: args.delta } }),
   },
   repeat: {
     control: true,
     audit: true,
-    success: "Wiederholung gesetzt",
-    parse: (input) => ({ mode: choice(input.mode, ["off", "one", "all"], "Wiederholung") }),
+    success: "Repeat set",
+    parse: (input) => ({ mode: choice(input.mode, ["off", "one", "all"], "Repeat") }),
     build: (args) => ["repeat", args.mode],
-    detail: (args) => `Wiederholung ${args.mode}`,
+    detail: (args) => ({ key: "Repeat {mode}", params: { mode: args.mode } }),
   },
   random: {
     control: true,
     audit: true,
-    success: "Zufall gesetzt",
-    parse: (input) => ({ mode: choice(input.mode, ["on", "off"], "Zufall") }),
+    success: "Shuffle set",
+    parse: (input) => ({ mode: choice(input.mode, ["on", "off"], "Shuffle") }),
     build: (args) => ["random", args.mode],
-    detail: (args) => `Zufall ${args.mode}`,
+    detail: (args) => ({ key: "Shuffle {mode}", params: { mode: args.mode } }),
   },
   play: {
     control: true,
     audit: true,
-    success: "Wiedergabe gestartet",
+    success: "Playback started",
     timeoutMs: SLOW,
     parse: (input) => ({ resource: parseResource(input.resource) }),
     build: (args) => ["play", args.resource],
@@ -95,7 +95,7 @@ export const actions = {
   add: {
     control: true,
     audit: true,
-    success: "Zur Warteschlange hinzugefügt",
+    success: "Added to the queue",
     timeoutMs: SLOW,
     parse: (input) => ({ resource: parseResource(input.resource) }),
     build: (args) => ["add", args.resource],
@@ -104,7 +104,7 @@ export const actions = {
   jump: {
     control: true,
     audit: true,
-    success: "In der Warteschlange gesprungen",
+    success: "Jumped in the queue",
     timeoutMs: SLOW,
     parse: (input) => ({ index: parseIndex(input.index, "Position", 100000) }),
     build: (args) => ["jump", String(args.index)],
@@ -113,7 +113,7 @@ export const actions = {
   move: {
     admin: true,
     audit: true,
-    success: "Bot verschoben",
+    success: "Bot moved",
     parse: (input) => ({ channel: parseChannel(input.channel) }),
     build: (args) => ["bot", "move", args.channel],
     detail: (args) => args.channel,
@@ -129,17 +129,17 @@ export const actions = {
   "history-play": {
     control: true,
     audit: true,
-    success: "Aus dem Verlauf gestartet",
+    success: "Started from history",
     timeoutMs: SLOW,
-    parse: (input) => ({ id: parseIndex(input.historyId, "Verlaufs-ID", 1_000_000_000) }),
+    parse: (input) => ({ id: parseIndex(input.historyId, "History ID", 1_000_000_000) }),
     build: (args) => ["history", "play", String(args.id)],
-    detail: (args) => `Verlauf ${args.id}`,
+    detail: (args) => ({ key: "History {id}", params: { id: args.id } }),
   },
   search: {
     control: true,
     timeoutMs: SLOW,
     parse: (input) => ({
-      factory: choice(input.factory || "youtube", ["youtube", "soundcloud", "twitch", "media"], "Quelle"),
+      factory: choice(input.factory || "youtube", ["youtube", "soundcloud", "twitch", "media"], "Source"),
       query: parseSearchQuery(input.query),
     }),
     build: (args) => ["search", "from", args.factory, args.query],
@@ -147,20 +147,20 @@ export const actions = {
   "search-play": {
     control: true,
     audit: true,
-    success: "Treffer wird abgespielt",
+    success: "Playing search result",
     timeoutMs: SLOW,
-    parse: (input) => ({ index: parseIndex(input.index, "Treffer", 1000) }),
+    parse: (input) => ({ index: parseIndex(input.index, "Result", 1000) }),
     build: (args) => ["search", "play", String(args.index)],
-    detail: (args) => `Treffer ${args.index}`,
+    detail: (args) => ({ key: "Result {index}", params: { index: args.index } }),
   },
   "search-add": {
     control: true,
     audit: true,
-    success: "Treffer zur Warteschlange hinzugefügt",
+    success: "Search result added to the queue",
     timeoutMs: SLOW,
-    parse: (input) => ({ index: parseIndex(input.index, "Treffer", 1000) }),
+    parse: (input) => ({ index: parseIndex(input.index, "Result", 1000) }),
     build: (args) => ["search", "add", String(args.index)],
-    detail: (args) => `Treffer ${args.index}`,
+    detail: (args) => ({ key: "Result {index}", params: { index: args.index } }),
   },
   "list-list": {
     build: () => ["list", "list"],
@@ -169,14 +169,14 @@ export const actions = {
     parse: (input) => ({
       id: parseListId(input.listId),
       offset: parseIndex(input.offset ?? 0, "Offset", 1_000_000),
-      count: parseIndex(input.count ?? 50, "Anzahl", 100),
+      count: parseIndex(input.count ?? 50, "Count", 100),
     }),
     build: (args) => ["list", "show", args.id, String(args.offset), String(args.count)],
   },
   "list-create": {
     control: true,
     audit: true,
-    success: "Playlist angelegt",
+    success: "Playlist created",
     parse: (input) => ({ id: parseListId(input.listId), title: parseTitle(input.title) }),
     build: (args) => ["list", "create", args.id, args.title],
     detail: (args) => args.id,
@@ -184,7 +184,7 @@ export const actions = {
   "list-rename": {
     control: true,
     audit: true,
-    success: "Playlist umbenannt",
+    success: "Playlist renamed",
     parse: (input) => ({ id: parseListId(input.listId), title: parseTitle(input.title) }),
     build: (args) => ["list", "name", args.id, args.title],
     detail: (args) => `${args.id} → ${args.title}`,
@@ -192,9 +192,9 @@ export const actions = {
   "list-delete": {
     control: true,
     audit: true,
-    success: "Playlist gelöscht",
+    success: "Playlist deleted",
     parse: (input) => {
-      if (input.confirm !== "on") throw new ValidationError("Löschen muss bestätigt werden");
+      if (input.confirm !== "on") throw new ValidationError("Delete must be confirmed");
       return { id: parseListId(input.listId) };
     },
     build: (args) => ["list", "delete", args.id],
@@ -203,7 +203,7 @@ export const actions = {
   "list-add": {
     control: true,
     audit: true,
-    success: "Titel zur Playlist hinzugefügt",
+    success: "Track added to the playlist",
     timeoutMs: SLOW,
     parse: (input) => ({ id: parseListId(input.listId), resource: parseResource(input.resource) }),
     build: (args) => ["list", "add", args.id, args.resource],
@@ -212,7 +212,7 @@ export const actions = {
   "list-import": {
     control: true,
     audit: true,
-    success: "Playlist importiert",
+    success: "Playlist imported",
     timeoutMs: SLOW,
     parse: (input) => ({ id: parseListId(input.listId), resource: parseResource(input.resource) }),
     build: (args) => ["list", "import", args.id, args.resource],
@@ -221,16 +221,16 @@ export const actions = {
   "list-play": {
     control: true,
     audit: true,
-    success: "Playlist gestartet",
+    success: "Playlist started",
     timeoutMs: SLOW,
     parse: listTarget,
     build: (args) => (args.index === null ? ["list", "play", args.id] : ["list", "play", args.id, String(args.index)]),
-    detail: (args) => (args.index === null ? args.id : `${args.id} ab ${args.index}`),
+    detail: (args) => (args.index === null ? args.id : { key: "{id} from {index}", params: { id: args.id, index: args.index } }),
   },
   "list-queue": {
     control: true,
     audit: true,
-    success: "Playlist an die Warteschlange gehängt",
+    success: "Playlist appended to the queue",
     timeoutMs: SLOW,
     parse: (input) => ({ id: parseListId(input.listId) }),
     build: (args) => ["list", "queue", args.id],
@@ -239,7 +239,7 @@ export const actions = {
   "list-item-delete": {
     control: true,
     audit: true,
-    success: "Titel aus der Playlist entfernt",
+    success: "Track removed from the playlist",
     parse: (input) => ({ id: parseListId(input.listId), index: parseIndex(input.index, "Position", 100000) }),
     build: (args) => ["list", "item", "delete", args.id, String(args.index)],
     detail: (args) => `${args.id} #${args.index}`,
@@ -253,7 +253,7 @@ export const actions = {
     admin: true,
     audit: true,
     scoped: false,
-    success: "Instanz wird gestartet",
+    success: "Instance is starting",
     timeoutMs: 30000,
     parse: (input) => ({ name: parseTemplateName(input.name) }),
     build: (args) => ["bot", "connect", "template", args.name],
@@ -263,9 +263,9 @@ export const actions = {
     admin: true,
     audit: true,
     scoped: false,
-    success: "Instanz wird getrennt",
+    success: "Instance is disconnecting",
     timeoutMs: 20000,
-    parse: (input) => ({ instanceId: String(parseIndex(input.instanceId, "Instanz-ID", 1_000_000)) }),
+    parse: (input) => ({ instanceId: String(parseIndex(input.instanceId, "Instance ID", 1_000_000)) }),
     build: (args) => ["bot", "use", args.instanceId, ["bot", "disconnect"]],
     detail: (args) => `ID ${args.instanceId}`,
   },
@@ -273,7 +273,7 @@ export const actions = {
     admin: true,
     audit: true,
     scoped: false,
-    success: "Instanzvorlage angelegt",
+    success: "Template created",
     parse: (input) => ({ name: parseTemplateName(input.name) }),
     build: (args) => ["settings", "create", args.name],
     detail: (args) => args.name,
@@ -282,11 +282,11 @@ export const actions = {
     admin: true,
     audit: true,
     scoped: false,
-    success: "Instanzvorlage gelöscht",
+    success: "Template deleted",
     parse: (input) => {
       const name = parseTemplateName(input.name);
       if (String(input.confirm ?? "").trim() !== name) {
-        throw new ValidationError("Zur Bestätigung den Instanznamen exakt eingeben");
+        throw new ValidationError("Type the instance name exactly to confirm");
       }
       return { name };
     },
@@ -297,7 +297,7 @@ export const actions = {
     admin: true,
     audit: true,
     scoped: false,
-    success: "Serveradresse gespeichert",
+    success: "Server address saved",
     parse: (input) => ({ name: parseTemplateName(input.name), address: parseTsAddress(input.address) }),
     build: (args) => ["settings", "bot", "set", args.name, "connect.address", args.address],
     detail: (args) => `${args.name} → ${args.address}`,
@@ -306,9 +306,9 @@ export const actions = {
 
 export function buildActionRequest(bot, name, input, auth) {
   const action = actions[name];
-  if (!action) throw new ValidationError("Unbekannte Aktion");
-  if (action.admin && auth.role !== "admin") throw new HttpError("Nur für Administratoren", 403);
-  if (action.control && !auth.canControl) throw new HttpError("Keine Steuerrechte für diesen Bot", 403);
+  if (!action) throw new ValidationError("Unknown action");
+  if (action.admin && auth.role !== "admin") throw new HttpError("Administrators only", 403);
+  if (action.control && !auth.canControl) throw new HttpError("No control rights for this bot", 403);
   const args = action.parse ? action.parse(input || {}) : {};
   const parts = action.build ? (action.scoped === false ? action.build(args) : scope(bot, action.build(args))) : null;
   return { action, args, parts };

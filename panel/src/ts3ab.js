@@ -8,7 +8,7 @@ export function buildApiPath(parts) {
       continue;
     }
     if (part === null || part === undefined || String(part) === "") {
-      throw new Ts3ApiError("Leeres API-Segment");
+      throw new Ts3ApiError("Empty API segment");
     }
     out += `/${encodeURIComponent(String(part)).replaceAll("(", "%28").replaceAll(")", "%29")}`;
   }
@@ -17,7 +17,7 @@ export function buildApiPath(parts) {
 
 export function scope(bot, parts) {
   if (!bot.useInstance || bot.instanceMode === "none") return parts;
-  if (!bot.instanceRef) throw new ValidationError("Für diesen Bot ist keine Instanz gesetzt");
+  if (!bot.instanceRef) throw new ValidationError("This bot has no instance set");
   const command = bot.instanceMode === "id" ? "use" : "template";
   return ["bot", command, bot.instanceRef, parts];
 }
@@ -41,7 +41,7 @@ export function apiHeaders(bot) {
 
 async function readLimited(response, limit) {
   const declared = Number(response.headers.get("content-length") || 0);
-  if (declared > limit) throw new Ts3ApiError("Antwort des Bots ist zu groß");
+  if (declared > limit) throw new Ts3ApiError("Bot response is too large");
   if (!response.body) return "";
   const reader = response.body.getReader();
   const chunks = [];
@@ -52,7 +52,7 @@ async function readLimited(response, limit) {
     size += value.byteLength;
     if (size > limit) {
       await reader.cancel();
-      throw new Ts3ApiError("Antwort des Bots ist zu groß");
+      throw new Ts3ApiError("Bot response is too large");
     }
     chunks.push(Buffer.from(value));
   }
@@ -79,19 +79,19 @@ function isTopLevelError(data) {
   );
 }
 
-function messageFrom(data, status) {
+function failureFrom(data, status) {
   if (data && typeof data === "object" && !Array.isArray(data)) {
-    if (data.ErrorMessage) return String(data.ErrorMessage).slice(0, 400);
-    if (data.ErrorName) return String(data.ErrorName).slice(0, 400);
+    if (data.ErrorMessage) return new Ts3ApiError(String(data.ErrorMessage).slice(0, 400));
+    if (data.ErrorName) return new Ts3ApiError(String(data.ErrorName).slice(0, 400));
   }
-  if (typeof data === "string" && data.trim()) return data.trim().slice(0, 300);
-  return `Bot-API antwortet mit Status ${status}`;
+  if (typeof data === "string" && data.trim()) return new Ts3ApiError(data.trim().slice(0, 300));
+  return new Ts3ApiError("Bot API returned status {status}", { status });
 }
 
 export async function callBot(bot, parts, { timeoutMs = 15000 } = {}) {
   const base = new URL(bot.baseUrl);
   const target = new URL(`/api${buildApiPath(parts)}`, base);
-  if (target.origin !== base.origin) throw new Ts3ApiError("Zieladresse abgelehnt");
+  if (target.origin !== base.origin) throw new Ts3ApiError("Target address was rejected");
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -103,15 +103,15 @@ export async function callBot(bot, parts, { timeoutMs = 15000 } = {}) {
       headers: apiHeaders(bot),
     });
     if (response.status >= 300 && response.status < 400) {
-      throw new Ts3ApiError("Weiterleitung der Bot-API wurde abgelehnt");
+      throw new Ts3ApiError("Bot API redirect was rejected");
     }
     const data = parseBody(await readLimited(response, 2_000_000));
-    if (!response.ok || isTopLevelError(data)) throw new Ts3ApiError(messageFrom(data, response.status));
+    if (!response.ok || isTopLevelError(data)) throw failureFrom(data, response.status);
     return data;
   } catch (err) {
     if (err instanceof Ts3ApiError) throw err;
-    if (err.name === "AbortError") throw new Ts3ApiError("Zeitüberschreitung bei der Bot-API");
-    if (err instanceof TypeError) throw new Ts3ApiError("Bot-API nicht erreichbar");
+    if (err.name === "AbortError") throw new Ts3ApiError("Bot API timed out");
+    if (err instanceof TypeError) throw new Ts3ApiError("Bot API is unreachable");
     throw err;
   } finally {
     clearTimeout(timer);

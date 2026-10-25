@@ -97,13 +97,14 @@ export const loadSession = wrap(async (req, res, next) => {
 
 export function requireUser(req, res, next) {
   if (req.user) return next();
-  if (wantsJson(req)) return res.status(401).json({ ok: false, error: "Nicht angemeldet" });
+  const say = req.t || ((message) => message);
+  if (wantsJson(req)) return res.status(401).json({ ok: false, error: say("Not signed in") });
   return res.redirect(`/login?next=${encodeURIComponent(safeNext(req.originalUrl))}`);
 }
 
 export function requireAdmin(req, res, next) {
   if (req.user?.role === "admin") return next();
-  next(new HttpError("Nur für Administratoren", 403));
+  next(new HttpError("Administrators only", 403));
 }
 
 export function csrfProtect(req, res, next) {
@@ -111,7 +112,7 @@ export function csrfProtect(req, res, next) {
   if (req.path === "/login") return next();
   const sent = req.get("x-csrf-token") || req.body?.csrf || "";
   if (!req.csrf || !tokensEqual(sent, req.csrf)) {
-    next(new HttpError("Ungültiges Formular. Bitte die Seite neu laden.", 403));
+    next(new HttpError("Reload the page. The form is no longer valid.", 403));
     return;
   }
   next();

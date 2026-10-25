@@ -1,14 +1,14 @@
 <header class="page-head">
   <div>
-    <h1>Protokoll</h1>
-    <p class="muted">Die letzten 200 Aktionen. API-Tokens stehen hier nicht.</p>
+    <h1><%= t("Audit") %></h1>
+    <p class="muted"><%= t("The last 200 actions. API tokens are not listed here.") %></p>
   </div>
 </header>
 
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>Zeit</th><th>Benutzer</th><th>Bot</th><th>Aktion</th><th>Detail</th></tr>
+      <tr><th><%= t("Time") %></th><th><%= t("User") %></th><th>Bot</th><th><%= t("Action") %></th><th><%= t("Detail") %></th></tr>
     </thead>
     <tbody>
       <% rows.forEach(function (row) { %>
@@ -23,4 +23,4 @@
     </tbody>
   </table>
 </div>
-<% if (!rows.length) { %><p class="muted">Noch keine Einträge.</p><% } %>
+<% if (!rows.length) { %><p class="muted"><%= t("No entries yet.") %></p><% } %>

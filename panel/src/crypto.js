@@ -22,7 +22,7 @@ export function encrypt(plain) {
 
 export function decrypt(payload) {
   const [ivPart, tagPart, dataPart] = String(payload || "").split(".");
-  if (!ivPart || !tagPart || !dataPart) throw new Error("Tokenformat ist ungültig");
+  if (!ivPart || !tagPart || !dataPart) throw new Error("Invalid token format");
   const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(ivPart, "base64"));
   decipher.setAuthTag(Buffer.from(tagPart, "base64"));
   return Buffer.concat([

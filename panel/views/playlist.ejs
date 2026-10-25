@@ -1,7 +1,7 @@
 <header class="page-head">
   <div>
     <h1><%= playlist ? playlist.title : listId %></h1>
-    <p class="muted mono"><%= listId %><% if (playlist) { %> · <%= playlist.count %> Titel<% } %></p>
+    <p class="muted mono"><%= listId %><% if (playlist) { %> · <%= playlist.count %> <%= t("tracks") %><% } %></p>
   </div>
 </header>
 <%- include("partials/botnav") %>
@@ -14,13 +14,13 @@
       <%- include("partials/csrf") %>
       <input type="hidden" name="op" value="list-play">
       <input type="hidden" name="listId" value="<%= listId %>">
-      <button class="btn btn-primary" type="submit">Playlist spielen</button>
+      <button class="btn btn-primary" type="submit"><%= t("Play playlist") %></button>
     </form>
     <form method="post" action="/bots/<%= bot.id %>/action">
       <%- include("partials/csrf") %>
       <input type="hidden" name="op" value="list-queue">
       <input type="hidden" name="listId" value="<%= listId %>">
-      <button class="btn" type="submit">An Warteschlange</button>
+      <button class="btn" type="submit"><%= t("Add to queue") %></button>
     </form>
   </div>
 
@@ -28,27 +28,27 @@
     <%- include("partials/csrf") %>
     <input type="hidden" name="op" value="list-rename">
     <input type="hidden" name="listId" value="<%= listId %>">
-    <label>Titel
+    <label><%= t("Title") %>
       <input name="title" required maxlength="120" value="<%= playlist.title %>">
     </label>
-    <button class="btn" type="submit">Umbenennen</button>
+    <button class="btn" type="submit"><%= t("Rename") %></button>
   </form>
 
   <form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
     <%- include("partials/csrf") %>
     <input type="hidden" name="listId" value="<%= listId %>">
-    <label>Link
+    <label><%= t("Link") %>
       <input name="resource" required maxlength="2000" placeholder="https://…">
     </label>
     <div class="row">
-      <button class="btn btn-primary" type="submit" name="op" value="list-add">Hinzufügen</button>
-      <button class="btn" type="submit" name="op" value="list-import">Importieren</button>
+      <button class="btn btn-primary" type="submit" name="op" value="list-add"><%= t("Add") %></button>
+      <button class="btn" type="submit" name="op" value="list-import"><%= t("Import") %></button>
     </div>
   </form>
 <% } %>
 
 <% if (playlist) { %>
-  <% if (!playlist.items.length) { %><p class="muted">Diese Seite ist leer.</p><% } %>
+  <% if (!playlist.items.length) { %><p class="muted"><%= t("This page is empty.") %></p><% } %>
   <ol class="queue" start="<%= playlist.offset + 1 %>">
     <% playlist.items.forEach(function (item) { %>
       <li>
@@ -56,7 +56,7 @@
           <%= item.title %>
           <% if (item.audioType) { %><em class="muted"><%= item.audioType %></em><% } %>
           <% const href = safeHttpUrl(item.link); %>
-          <% if (href) { %><a href="<%= href %>" rel="noopener noreferrer" target="_blank">Quelle</a><% } %>
+          <% if (href) { %><a href="<%= href %>" rel="noopener noreferrer" target="_blank"><%= t("Source") %></a><% } %>
         </span>
         <% if (access.canControl) { %>
           <span class="row">
@@ -65,14 +65,14 @@
               <input type="hidden" name="op" value="list-play">
               <input type="hidden" name="listId" value="<%= listId %>">
               <input type="hidden" name="index" value="<%= item.index %>">
-              <button class="btn btn-ghost" type="submit">Ab hier</button>
+              <button class="btn btn-ghost" type="submit"><%= t("Play from here") %></button>
             </form>
-            <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="Titel aus der Playlist entfernen?">
+            <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="<%= t("Remove this track from the playlist?") %>">
               <%- include("partials/csrf") %>
               <input type="hidden" name="op" value="list-item-delete">
               <input type="hidden" name="listId" value="<%= listId %>">
               <input type="hidden" name="index" value="<%= item.index %>">
-              <button class="btn btn-danger" type="submit">Entfernen</button>
+              <button class="btn btn-danger" type="submit"><%= t("Remove") %></button>
             </form>
           </span>
         <% } %>
@@ -81,10 +81,10 @@
   </ol>
   <div class="row">
     <% if (page > 1) { %>
-      <a class="btn btn-ghost" href="/bots/<%= bot.id %>/playlists/<%= encode(listId) %>?page=<%= page - 1 %>">Vorherige Seite</a>
+      <a class="btn btn-ghost" href="/bots/<%= bot.id %>/playlists/<%= encode(listId) %>?page=<%= page - 1 %>"><%= t("Previous page") %></a>
     <% } %>
     <% if (playlist.count > page * perPage) { %>
-      <a class="btn btn-ghost" href="/bots/<%= bot.id %>/playlists/<%= encode(listId) %>?page=<%= page + 1 %>">Nächste Seite</a>
+      <a class="btn btn-ghost" href="/bots/<%= bot.id %>/playlists/<%= encode(listId) %>?page=<%= page + 1 %>"><%= t("Next page") %></a>
     <% } %>
   </div>
 <% } %>
@@ -94,8 +94,8 @@
     <%- include("partials/csrf") %>
     <input type="hidden" name="op" value="list-delete">
     <input type="hidden" name="listId" value="<%= listId %>">
-    <h2>Playlist löschen</h2>
-    <label class="check"><input type="checkbox" name="confirm" value="on" required> Löschen bestätigen</label>
-    <button class="btn btn-danger" type="submit">Playlist löschen</button>
+    <h2><%= t("Delete playlist") %></h2>
+    <label class="check"><input type="checkbox" name="confirm" value="on" required> <%= t("Confirm delete") %></label>
+    <button class="btn btn-danger" type="submit"><%= t("Delete playlist") %></button>
   </form>
 <% } %>

@@ -34,6 +34,8 @@ make compose-panel-up
 
 Öffne http://localhost:8080 und melde dich an. Lege einen Bot an. Die API-Adresse im Compose-Netz ist `http://ts3audiobot:58913`. UID und Token leer lassen.
 
+Die Oberfläche ist Englisch. Bevorzugt der Browser Deutsch, verwendet das Panel die Übersetzung in `panel/src/locales/de.js`.
+
 TeamSpeak trägst du in `data/bots/default/bot.toml` ein (`address`, danach den Bot neu starten). Die Identity legt der Bot beim ersten Verbindungsversuch an.
 
 Logs: `make compose-panel-logs` und `docker compose logs -f ts3audiobot`

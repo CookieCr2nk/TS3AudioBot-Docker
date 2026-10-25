@@ -8,14 +8,14 @@ function clean(value) {
 }
 
 function rejectControls(value, label) {
-  if (/[\r\n\0]/.test(value)) throw new ValidationError(`${label} ist ungültig`);
+  if (/[\r\n\0]/.test(value)) throw new ValidationError("{label} is invalid", { label });
   return value;
 }
 
 export function parseUsername(value) {
   const username = clean(value);
   if (!USERNAME_RE.test(username)) {
-    throw new ValidationError("Benutzername: 3–32 Zeichen, Buchstaben, Zahlen, Punkt, Unterstrich oder Bindestrich");
+    throw new ValidationError("Username: 3–32 characters, letters, digits, dot, underscore, or hyphen");
   }
   return username;
 }
@@ -23,14 +23,14 @@ export function parseUsername(value) {
 export function parsePassword(value) {
   const password = String(value ?? "");
   if (password.length < 10 || password.length > 200) {
-    throw new ValidationError("Das Passwort muss mindestens 10 Zeichen haben");
+    throw new ValidationError("Password must be at least 10 characters");
   }
-  return rejectControls(password, "Das Passwort");
+  return rejectControls(password, "Password");
 }
 
 export function parseRole(value) {
   const role = clean(value);
-  if (role !== "admin" && role !== "user") throw new ValidationError("Ungültige Rolle");
+  if (role !== "admin" && role !== "user") throw new ValidationError("Invalid role");
   return role;
 }
 
@@ -53,43 +53,43 @@ export function assertBaseUrl(value) {
   try {
     url = new URL(clean(value));
   } catch {
-    throw new ValidationError("Die API-Adresse ist keine gültige URL");
+    throw new ValidationError("API address is not a valid URL");
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new ValidationError("Die API-Adresse muss http oder https sein");
+    throw new ValidationError("API address must be http or https");
   }
-  if (url.username || url.password) throw new ValidationError("Die API-Adresse darf keine Zugangsdaten enthalten");
-  if (url.search || url.hash) throw new ValidationError("Die API-Adresse darf keine Query enthalten");
+  if (url.username || url.password) throw new ValidationError("API address must not contain credentials");
+  if (url.search || url.hash) throw new ValidationError("API address must not contain a query");
   if (url.pathname !== "/" && url.pathname !== "") {
-    throw new ValidationError("Die API-Adresse darf nur Host und Port enthalten");
+    throw new ValidationError("API address must contain only a host and a port");
   }
   if (!url.hostname || isBlockedHost(url.hostname)) {
-    throw new ValidationError("Diese API-Adresse ist nicht erlaubt");
+    throw new ValidationError("This API address is not allowed");
   }
   return url.origin;
 }
 
 export function parseInstance(mode, ref) {
   if (mode !== "template" && mode !== "id" && mode !== "none") {
-    throw new ValidationError("Ungültiger Instanzmodus");
+    throw new ValidationError("Invalid instance mode");
   }
   if (mode === "none") return { mode, ref: "" };
   const value = clean(ref);
   if (!NAME_RE.test(value)) {
-    throw new ValidationError("Die Instanz darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten");
+    throw new ValidationError("Instance may contain only letters, digits, dot, underscore, and hyphen");
   }
   return { mode, ref: value };
 }
 
 export function parseName(value) {
-  const name = rejectControls(clean(value), "Der Name");
-  if (!name || name.length > 120) throw new ValidationError("Der Name fehlt oder ist zu lang");
+  const name = rejectControls(clean(value), "Name");
+  if (!name || name.length > 120) throw new ValidationError("Name is missing or too long");
   return name;
 }
 
 export function parseNotes(value) {
-  const notes = rejectControls(clean(value), "Die Notiz");
-  if (notes.length > 500) throw new ValidationError("Die Notiz ist zu lang");
+  const notes = rejectControls(clean(value), "Note");
+  if (notes.length > 500) throw new ValidationError("Note is too long");
   return notes;
 }
 
@@ -105,69 +105,69 @@ export function splitApiCredential(uid, token, { keepExisting = false, clear = f
   if (!secret && keepExisting) return { user, secret: null };
   if (!user && !secret) return { user: "", secret: "" };
   if (!user || !secret) {
-    throw new ValidationError("API-UID und Token müssen zusammen gesetzt werden. Format von !api token: uid:token");
+    throw new ValidationError("Set API UID and token together. Format from !api token: uid:token");
   }
-  if (user.length > 128 || secret.length > 512) throw new ValidationError("Die API-Zugangsdaten sind zu lang");
-  rejectControls(user, "Die API-UID");
-  rejectControls(secret, "Der API-Token");
+  if (user.length > 128 || secret.length > 512) throw new ValidationError("API credentials are too long");
+  rejectControls(user, "API UID");
+  rejectControls(secret, "API token");
   return { user, secret };
 }
 
 export function parseResource(value) {
   const text = String(value ?? "").trim();
-  if (!text || text.length > 2000) throw new ValidationError("Link fehlt oder ist zu lang");
-  return rejectControls(text, "Der Link");
+  if (!text || text.length > 2000) throw new ValidationError("Link is missing or too long");
+  return rejectControls(text, "Link");
 }
 
 export function parseSearchQuery(value) {
-  const text = rejectControls(clean(value), "Die Suche");
-  if (!text || text.length > 200) throw new ValidationError("Die Suche fehlt oder ist zu lang");
+  const text = rejectControls(clean(value), "Search");
+  if (!text || text.length > 200) throw new ValidationError("Search is missing or too long");
   return text;
 }
 
 export function parseIndex(value, label, max) {
   const text = clean(value);
-  if (!/^\d+$/.test(text)) throw new ValidationError(`${label} muss eine ganze Zahl ab 0 sein`);
+  if (!/^\d+$/.test(text)) throw new ValidationError("{label} must be a whole number from 0", { label });
   const number = Number(text);
-  if (number > max) throw new ValidationError(`${label} ist zu groß`);
+  if (number > max) throw new ValidationError("{label} is too large", { label });
   return number;
 }
 
 export function parseVolume(value) {
-  return parseIndex(value, "Lautstärke", 100);
+  return parseIndex(value, "Volume", 100);
 }
 
 export function parseListId(value) {
   const id = clean(value);
   if (!NAME_RE.test(id)) {
-    throw new ValidationError("Die Playlist-ID darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten");
+    throw new ValidationError("Playlist ID may contain only letters, digits, dot, underscore, and hyphen");
   }
   return id;
 }
 
-export function parseTitle(value, label = "Der Titel") {
+export function parseTitle(value, label = "Title") {
   const title = rejectControls(clean(value), label);
-  if (!title || title.length > 120) throw new ValidationError(`${label} fehlt oder ist zu lang`);
+  if (!title || title.length > 120) throw new ValidationError("{label} is missing or too long", { label });
   return title;
 }
 
 export function parseTemplateName(value) {
   const name = clean(value);
   if (!NAME_RE.test(name)) {
-    throw new ValidationError("Der Instanzname darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten");
+    throw new ValidationError("Template name may contain only letters, digits, dot, underscore, and hyphen");
   }
   return name;
 }
 
 export function parseTsAddress(value) {
   const text = clean(value);
-  if (!/^[A-Za-z0-9.:_-]{1,200}$/.test(text)) throw new ValidationError("Die Serveradresse ist ungültig");
+  if (!/^[A-Za-z0-9.:_-]{1,200}$/.test(text)) throw new ValidationError("Server address is invalid");
   return text;
 }
 
 export function parseChannel(value) {
-  const text = rejectControls(clean(value), "Der Channel");
-  if (!text || text.length > 200 || /[()]/.test(text)) throw new ValidationError("Der Channel ist ungültig");
+  const text = rejectControls(clean(value), "Channel");
+  if (!text || text.length > 200 || /[()]/.test(text)) throw new ValidationError("Channel is invalid");
   return text;
 }
 
@@ -176,7 +176,7 @@ export function parseUseInstance(body) {
   const instanceId = clean(body.instanceId);
   if (name && NAME_RE.test(name)) return parseInstance("template", name);
   if (instanceId && NAME_RE.test(instanceId)) return parseInstance("id", instanceId);
-  throw new ValidationError("Diese Instanz hat keinen verwendbaren Namen");
+  throw new ValidationError("This instance has no usable name");
 }
 
 export function parseBotForm(body, { keepExisting = false } = {}) {

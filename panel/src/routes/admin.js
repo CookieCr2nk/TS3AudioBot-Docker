@@ -23,6 +23,7 @@ import {
 } from "../db.js";
 import { HttpError } from "../errors.js";
 import { clearSessionCookie, numericId, wrap } from "../http.js";
+import { errorText } from "../i18n.js";
 import { hashPassword } from "../passwords.js";
 import { presentStatus, presentVersion } from "../present.js";
 import { parseBotForm, parseGrants, parsePassword, parseRole, parseUsername } from "../validate.js";
@@ -56,10 +57,10 @@ function formBot(body, fallback = {}, { submitted = false } = {}) {
   };
 }
 
-async function renderBotForm(res, { bot, grants, error, status = error ? 400 : 200 }) {
+async function renderBotForm(res, { bot, grants, error, status = error ? 400 : 200, t }) {
   const users = customerAccounts(await listUsers());
   return res.status(status).render("bot-form", {
-    title: bot.id ? bot.name : "Bot anlegen",
+    title: bot.id ? bot.name : t("Add bot"),
     active: "bots",
     bot,
     users,
@@ -72,12 +73,12 @@ async function renderBotForm(res, { bot, grants, error, status = error ? 400 : 2
 adminRouter.get(
   "/bots",
   wrap(async (req, res) => {
-    res.render("bots", { title: "Bots", active: "bots", bots: await listBotSummaries() });
+    res.render("bots", { title: req.t("Bots"), active: "bots", bots: await listBotSummaries() });
   }),
 );
 
 adminRouter.get("/bots/new", wrap(async (req, res) => {
-  await renderBotForm(res, { bot: formBot({}), grants: [], error: null, status: 200 });
+  await renderBotForm(res, { bot: formBot({}), grants: [], error: null, status: 200, t: req.t });
 }));
 
 adminRouter.post(
@@ -90,14 +91,15 @@ adminRouter.post(
       const id = await insertBot(fields);
       await replaceGrants(id, grants);
       await addAudit({ userId: req.user.id, botId: id, action: "bot-create", detail: fields.name });
-      await setFlash(req.sessionId, "ok", "Bot gespeichert.");
+      await setFlash(req.sessionId, "ok", req.t("Bot saved."));
       return res.redirect(`/admin/bots/${id}`);
     } catch (err) {
       if (!err.status || err.status >= 500) throw err;
       return renderBotForm(res, {
         bot: formBot(req.body, {}, { submitted: true }),
         grants: parseGrants(req.body, users),
-        error: err.message,
+        error: errorText(err, req.t),
+        t: req.t,
       });
     }
   }),
@@ -106,12 +108,12 @@ adminRouter.post(
 async function loadOwnedBot(req, res) {
   const id = numericId(req.params.id);
   if (!id) {
-    res.status(404).render("error", { title: "Bot", message: "Bot nicht gefunden." });
+    res.status(404).render("error", { title: req.t("Not found"), message: req.t("Bot not found.") });
     return null;
   }
   const row = await getBotRow(id);
   if (!row) {
-    res.status(404).render("error", { title: "Bot", message: "Bot nicht gefunden." });
+    res.status(404).render("error", { title: req.t("Not found"), message: req.t("Bot not found.") });
     return null;
   }
   return mapBot(row, { token: false });
@@ -122,7 +124,7 @@ adminRouter.get(
   wrap(async (req, res) => {
     const bot = await loadOwnedBot(req, res);
     if (!bot) return;
-    await renderBotForm(res, { bot, grants: await listGrants(bot.id), error: null, status: 200 });
+    await renderBotForm(res, { bot, grants: await listGrants(bot.id), error: null, status: 200, t: req.t });
   }),
 );
 
@@ -137,14 +139,15 @@ adminRouter.post(
       await updateBot(existing.id, fields);
       await replaceGrants(existing.id, parseGrants(req.body, users));
       await addAudit({ userId: req.user.id, botId: existing.id, action: "bot-update", detail: fields.name });
-      await setFlash(req.sessionId, "ok", "Bot gespeichert.");
+      await setFlash(req.sessionId, "ok", req.t("Bot saved."));
       return res.redirect(`/admin/bots/${existing.id}`);
     } catch (err) {
       if (!err.status || err.status >= 500) throw err;
       return renderBotForm(res, {
         bot: { ...formBot(req.body, existing, { submitted: true }), id: existing.id },
         grants: parseGrants(req.body, users),
-        error: err.message,
+        error: errorText(err, req.t),
+        t: req.t,
       });
     }
   }),
@@ -156,11 +159,11 @@ adminRouter.post(
     const bot = await loadOwnedBot(req, res);
     if (!bot) return;
     if (String(req.body.confirm || "").trim() !== bot.name) {
-      throw new HttpError("Zur Bestätigung den Bot-Namen exakt eingeben.", 400);
+      throw new HttpError("Type the bot name exactly to confirm.", 400);
     }
     await deleteBot(bot.id);
     await addAudit({ userId: req.user.id, action: "bot-delete", detail: bot.name });
-    await setFlash(req.sessionId, "ok", "Bot gelöscht.");
+    await setFlash(req.sessionId, "ok", req.t("Bot deleted."));
     return res.redirect("/admin/bots");
   }),
 );
@@ -170,16 +173,23 @@ adminRouter.post(
   wrap(async (req, res) => {
     const id = numericId(req.params.id);
     const row = id ? await getBotRow(id) : null;
-    if (!row) throw new HttpError("Bot nicht gefunden", 404);
+    if (!row) throw new HttpError("Bot not found", 404);
     const bot = mapBot(row, { token: true });
     const version = presentVersion(await callBot(bot, ["version"], { timeoutMs: 8000 }));
-    let playback = "Kontext erreichbar";
+    let playback = req.t("Context reachable");
     try {
-      presentStatus(await callBot(bot, statusParts(bot), { timeoutMs: 8000 }));
+      presentStatus(await callBot(bot, statusParts(bot), { timeoutMs: 8000 }), req.t);
     } catch (err) {
-      playback = err.message;
+      playback = errorText(err, req.t);
     }
-    await setFlash(req.sessionId, "ok", `API erreichbar${version ? ` (${version})` : ""}. Wiedergabe: ${playback}`);
+    await setFlash(
+      req.sessionId,
+      "ok",
+      req.t("API reachable{version}. Playback: {playback}", {
+        version: version ? ` (${version})` : "",
+        playback,
+      }),
+    );
     return res.redirect(`/admin/bots/${bot.id}`);
   }),
 );
@@ -187,7 +197,7 @@ adminRouter.post(
 adminRouter.get(
   "/users",
   wrap(async (req, res) => {
-    res.render("users", { title: "Benutzer", active: "users", users: await listUsers(), error: null });
+    res.render("users", { title: req.t("Users"), active: "users", users: await listUsers(), error: null });
   }),
 );
 
@@ -200,15 +210,15 @@ adminRouter.post(
       const role = parseRole(req.body.role || "user");
       const id = await createUser({ username, passwordHash: await hashPassword(password), role });
       await addAudit({ userId: req.user.id, action: "user-create", detail: `${username} (${role}) id ${id}` });
-      await setFlash(req.sessionId, "ok", "Benutzer angelegt.");
+      await setFlash(req.sessionId, "ok", req.t("User created."));
       return res.redirect("/admin/users");
     } catch (err) {
       if (!err.status || err.status >= 500) throw err;
       return res.status(err.status).render("users", {
-        title: "Benutzer",
+        title: req.t("Users"),
         active: "users",
         users: await listUsers(),
-        error: err.message,
+        error: errorText(err, req.t),
       });
     }
   }),
@@ -219,7 +229,7 @@ adminRouter.post(
   wrap(async (req, res) => {
     const id = numericId(req.params.id);
     const user = id ? await findUserById(id) : null;
-    if (!user) throw new HttpError("Benutzer nicht gefunden", 404);
+    if (!user) throw new HttpError("User not found", 404);
     const password = parsePassword(req.body.password);
     await setPassword(user.id, await hashPassword(password));
     await addAudit({ userId: req.user.id, action: "user-password", detail: user.username });
@@ -229,7 +239,11 @@ adminRouter.post(
       return res.redirect("/login");
     }
     await deleteSessionsForUser(user.id);
-    await setFlash(req.sessionId, "ok", `Passwort für ${user.username} gesetzt. Bestehende Sitzungen sind abgemeldet.`);
+    await setFlash(
+      req.sessionId,
+      "ok",
+      req.t("Password set for {name}. Existing sessions were signed out.", { name: user.username }),
+    );
     return res.redirect("/admin/users");
   }),
 );
@@ -239,14 +253,14 @@ adminRouter.post(
   wrap(async (req, res) => {
     const id = numericId(req.params.id);
     const user = id ? await findUserById(id) : null;
-    if (!user) throw new HttpError("Benutzer nicht gefunden", 404);
+    if (!user) throw new HttpError("User not found", 404);
     const role = parseRole(req.body.role);
     if (user.role === "admin" && role !== "admin" && (await countAdmins()) <= 1) {
-      throw new HttpError("Der letzte Administrator kann nicht herabgestuft werden.", 400);
+      throw new HttpError("The last administrator cannot be demoted.", 400);
     }
     await setRole(user.id, role);
     await addAudit({ userId: req.user.id, action: "user-role", detail: `${user.username} → ${role}` });
-    await setFlash(req.sessionId, "ok", "Rolle gespeichert.");
+    await setFlash(req.sessionId, "ok", req.t("Role saved."));
     return res.redirect("/admin/users");
   }),
 );
@@ -256,15 +270,15 @@ adminRouter.post(
   wrap(async (req, res) => {
     const id = numericId(req.params.id);
     const user = id ? await findUserById(id) : null;
-    if (!user) throw new HttpError("Benutzer nicht gefunden", 404);
-    if (user.id === req.user.id) throw new HttpError("Du kannst dich nicht selbst löschen.", 400);
-    if (req.body.confirm !== "on") throw new HttpError("Löschen muss bestätigt werden.", 400);
+    if (!user) throw new HttpError("User not found", 404);
+    if (user.id === req.user.id) throw new HttpError("You cannot delete yourself.", 400);
+    if (req.body.confirm !== "on") throw new HttpError("Delete must be confirmed", 400);
     if (user.role === "admin" && (await countAdmins()) <= 1) {
-      throw new HttpError("Der letzte Administrator kann nicht gelöscht werden.", 400);
+      throw new HttpError("The last administrator cannot be deleted.", 400);
     }
     await deleteUser(user.id);
     await addAudit({ userId: req.user.id, action: "user-delete", detail: user.username });
-    await setFlash(req.sessionId, "ok", "Benutzer gelöscht.");
+    await setFlash(req.sessionId, "ok", req.t("User deleted."));
     return res.redirect("/admin/users");
   }),
 );
@@ -272,6 +286,6 @@ adminRouter.post(
 adminRouter.get(
   "/audit",
   wrap(async (req, res) => {
-    res.render("audit", { title: "Protokoll", active: "audit", rows: await listAudit(200) });
+    res.render("audit", { title: req.t("Audit"), active: "audit", rows: await listAudit(200) });
   }),
 );

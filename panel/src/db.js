@@ -49,7 +49,7 @@ export function mapBot(row, { token = false } = {}) {
     try {
       apiToken = decrypt(row.api_token_enc);
     } catch {
-      throw new HttpError("API-Token kann nicht gelesen werden. TOKEN_KEY prüfen.", 422);
+      throw new HttpError("Cannot read the API token. Check TOKEN_KEY.", 422);
     }
   }
   return {
@@ -93,7 +93,7 @@ export async function ensureAdmin() {
   try {
     username = parseUsername(config.adminUser);
   } catch {
-    console.warn("[panel] ADMIN_USER ist ungültig, es wird 'admin' verwendet.");
+    console.warn("[panel] ADMIN_USER is invalid, using 'admin'.");
   }
 
   let password = config.adminPassword;
@@ -104,7 +104,7 @@ export async function ensureAdmin() {
     generatedPassword = randomToken(18);
     password = generatedPassword;
     if (config.adminPassword) {
-      console.warn("[panel] ADMIN_PASSWORD ist kürzer als 10 Zeichen. Es wurde ein Zufallspasswort erzeugt.");
+      console.warn("[panel] ADMIN_PASSWORD is shorter than 10 characters. Generated a random password.");
     }
   }
 
@@ -150,7 +150,7 @@ export async function createUser({ username, passwordHash, role }) {
     ]);
     return Number(result.insertId);
   } catch (err) {
-    if (err.code === "ER_DUP_ENTRY") throw new HttpError("Benutzername ist schon vergeben", 400);
+    if (err.code === "ER_DUP_ENTRY") throw new HttpError("Username is already taken", 400);
     throw err;
   }
 }

@@ -1,8 +1,8 @@
 <nav class="tabs" aria-label="Bot">
-  <a href="/bots/<%= bot.id %>" <%= tab === "player" ? 'aria-current="page"' : "" %>>Wiedergabe</a>
-  <a href="/bots/<%= bot.id %>/playlists" <%= tab === "playlists" ? 'aria-current="page"' : "" %>>Playlists</a>
-  <a href="/bots/<%= bot.id %>/history" <%= tab === "history" ? 'aria-current="page"' : "" %>>Verlauf</a>
+  <a href="/bots/<%= bot.id %>" <%= tab === "player" ? 'aria-current="page"' : "" %>><%= t("Playback") %></a>
+  <a href="/bots/<%= bot.id %>/playlists" <%= tab === "playlists" ? 'aria-current="page"' : "" %>><%= t("Playlists") %></a>
+  <a href="/bots/<%= bot.id %>/history" <%= tab === "history" ? 'aria-current="page"' : "" %>><%= t("History") %></a>
   <% if (user && user.role === "admin") { %>
-    <a href="/bots/<%= bot.id %>/instances" <%= tab === "instances" ? 'aria-current="page"' : "" %>>Instanzen</a>
+    <a href="/bots/<%= bot.id %>/instances" <%= tab === "instances" ? 'aria-current="page"' : "" %>><%= t("Instances") %></a>
   <% } %>
 </nav>

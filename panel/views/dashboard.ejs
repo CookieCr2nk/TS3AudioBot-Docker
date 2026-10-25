@@ -1,24 +1,24 @@
 <header class="page-head">
   <div>
-    <h1>Übersicht</h1>
-    <p class="muted">Jeder Karte entspricht ein TS3AudioBot-Prozess.</p>
+    <h1><%= t("Overview") %></h1>
+    <p class="muted"><%= t("Each card is one TS3AudioBot process.") %></p>
   </div>
-  <% if (admin) { %><a class="btn btn-primary" href="/admin/bots/new">Bot anlegen</a><% } %>
+  <% if (admin) { %><a class="btn btn-primary" href="/admin/bots/new"><%= t("Add bot") %></a><% } %>
 </header>
 
 <% if (!cards.length) { %>
   <section class="card">
     <% if (admin) { %>
-      <h2>Noch kein Bot</h2>
+      <h2><%= t("No bot yet") %></h2>
       <ol class="steps">
-        <li>Bot anlegen. Im Compose-Netz ist die API <code>http://ts3audiobot:58913</code>. Ein API-Token ist nicht nötig.</li>
-        <li>Liegt <code>data/rights.toml</code> schon von einem älteren Start, in der Admin-Regel <code>isapi = true</code> setzen und den Bot neu starten.</li>
-        <li>Benutzer anlegen und den Bot zuweisen.</li>
+        <li><%= t("Add a bot. On the Compose network the API is http://ts3audiobot:58913. An API token is not required.") %></li>
+        <li><%= t("If data/rights.toml is left from an older start, set isapi = true on the admin rule and restart the bot.") %></li>
+        <li><%= t("Create users and assign the bot.") %></li>
       </ol>
       <%- include("partials/rights") %>
     <% } else { %>
-      <h2>Kein Bot zugewiesen</h2>
-      <p>Ein Administrator muss dir einen Bot freigeben.</p>
+      <h2><%= t("No bot assigned") %></h2>
+      <p><%= t("An administrator has to grant you a bot.") %></p>
     <% } %>
   </section>
 <% } %>
@@ -28,12 +28,12 @@
     <article class="card bot-card">
       <div class="row">
         <h2><a href="/bots/<%= card.id %>"><%= card.name %></a></h2>
-        <% if (card.online) { %><span class="pill pill-ok">Erreichbar</span>
-        <% } else { %><span class="pill pill-bad">Keine Verbindung</span><% } %>
+        <% if (card.online) { %><span class="pill pill-ok"><%= t("Reachable") %></span>
+        <% } else { %><span class="pill pill-bad"><%= t("No connection") %></span><% } %>
       </div>
       <p class="muted">
-        <% if (card.canControl) { %>Steuern<% } else { %>Nur lesen<% } %>
-        <% if (!card.enabled) { %> · deaktiviert<% } %>
+        <% if (card.canControl) { %><%= t("Control") %><% } else { %><%= t("Read only") %><% } %>
+        <% if (!card.enabled) { %> · <%= t("disabled") %><% } %>
         <% if (card.version) { %> · <%= card.version %><% } %>
       </p>
       <% if (card.baseUrl) { %><p class="mono"><%= card.baseUrl %></p><% } %>

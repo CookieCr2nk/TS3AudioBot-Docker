@@ -1,82 +1,82 @@
 <header class="page-head">
   <div>
-    <h1><%= editing ? bot.name : "Bot anlegen" %></h1>
-    <p class="muted">Im Compose-Netz reicht die API-Adresse. Ein Token wird nur verschlüsselt gespeichert, wenn du einen einträgst.</p>
+    <h1><%= editing ? bot.name : t("Add bot") %></h1>
+    <p class="muted"><%= t("On the Compose network the API address is enough. A token is stored encrypted only if you enter one.") %></p>
   </div>
-  <% if (editing) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>">Zur Wiedergabe</a><% } %>
+  <% if (editing) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>"><%= t("Open playback") %></a><% } %>
 </header>
 
 <% if (error) { %><p class="flash flash-error" role="alert"><%= error %></p><% } %>
 
 <form method="post" action="<%= editing ? "/admin/bots/" + bot.id : "/admin/bots" %>" class="card stack">
   <%- include("partials/csrf") %>
-  <label>Anzeigename
+  <label><%= t("Display name") %>
     <input name="name" required maxlength="120" value="<%= bot.name %>">
   </label>
-  <label>API-Adresse
+  <label><%= t("API address") %>
     <input name="baseUrl" required maxlength="255" value="<%= bot.baseUrl %>" placeholder="http://ts3audiobot:58913">
   </label>
   <div class="split">
-    <label>Instanzkontext
+    <label><%= t("Instance context") %>
       <select name="instanceMode">
-        <option value="template" <%= bot.instanceMode === "template" ? "selected" : "" %>>Template-Name</option>
-        <option value="id" <%= bot.instanceMode === "id" ? "selected" : "" %>>Laufende ID</option>
-        <option value="none" <%= bot.instanceMode === "none" ? "selected" : "" %>>Keiner</option>
+        <option value="template" <%= bot.instanceMode === "template" ? "selected" : "" %>><%= t("Template name") %></option>
+        <option value="id" <%= bot.instanceMode === "id" ? "selected" : "" %>><%= t("Running ID") %></option>
+        <option value="none" <%= bot.instanceMode === "none" ? "selected" : "" %>><%= t("None") %></option>
       </select>
     </label>
-    <label class="grow">Wert
+    <label class="grow"><%= t("Value") %>
       <input name="instanceRef" maxlength="64" value="<%= bot.instanceRef %>" placeholder="default">
     </label>
   </div>
-  <p class="muted">Für dieses Docker-Setup ist das Template <code>default</code>. <code>bot template</code> bleibt über Neustarts gültig, eine laufende ID nicht.</p>
+  <p class="muted"><%= t("For this Docker setup the template is default. bot template stays valid across restarts. A running ID does not.") %></p>
   <%- include("partials/rights") %>
-  <h2>API-Zugang</h2>
-  <p class="muted">Im Compose-Netz leer lassen. Nur ausfüllen, wenn der Bot außerhalb liegt und einen Token verlangt.</p>
+  <h2><%= t("API access") %></h2>
+  <p class="muted"><%= t("Leave this empty on the Compose network. Fill it in only when the bot is outside that network and requires a token.") %></p>
   <div class="split">
-    <label class="grow">API-UID
+    <label class="grow"><%= t("API UID") %>
       <input name="apiUser" maxlength="128" value="<%= bot.apiUser %>" autocomplete="off">
     </label>
-    <label class="grow">API-Token
-      <input name="apiToken" type="password" maxlength="512" autocomplete="off" placeholder="<%= editing && bot.hasToken ? "leer lassen behält den Token" : "optional, oder uid:token" %>">
+    <label class="grow"><%= t("API token") %>
+      <input name="apiToken" type="password" maxlength="512" autocomplete="off" placeholder="<%= editing && bot.hasToken ? t("Leave blank to keep the saved token") : t("optional, or uid:token") %>">
     </label>
   </div>
   <% if (editing && bot.hasToken) { %>
-    <label class="check"><input type="checkbox" name="clearToken" value="on"> Gespeicherten Token entfernen</label>
+    <label class="check"><input type="checkbox" name="clearToken" value="on"> <%= t("Remove saved token") %></label>
   <% } %>
-  <label>Notiz
+  <label><%= t("Note") %>
     <textarea name="notes" maxlength="500" rows="3"><%= bot.notes %></textarea>
   </label>
-  <label class="check"><input type="checkbox" name="enabled" value="on" <%= bot.enabled ? "checked" : "" %>> Bot ist aktiv</label>
+  <label class="check"><input type="checkbox" name="enabled" value="on" <%= bot.enabled ? "checked" : "" %>> <%= t("Bot is enabled") %></label>
 
-  <h2>Freigaben</h2>
-  <p class="muted">Administratoren sehen jeden Bot. Hier werden normale Benutzer zugewiesen.</p>
+  <h2><%= t("Grants") %></h2>
+  <p class="muted"><%= t("Administrators see every bot. Assign ordinary users here.") %></p>
   <% if (!users.length) { %>
-    <p class="muted">Noch kein normaler Benutzer. Unter Benutzer kannst du welche anlegen.</p>
+    <p class="muted"><%= t("No ordinary user yet. Create one under Users.") %></p>
   <% } %>
   <% users.forEach(function (account) { %>
     <% const grant = grantMap[account.id]; %>
     <div class="grant">
       <label class="check"><input type="checkbox" name="grant_<%= account.id %>" value="on" <%= grant ? "checked" : "" %>> <%= account.username %></label>
-      <label class="check"><input type="checkbox" name="control_<%= account.id %>" value="on" <%= !grant || grant.canControl ? "checked" : "" %>> Steuern</label>
+      <label class="check"><input type="checkbox" name="control_<%= account.id %>" value="on" <%= !grant || grant.canControl ? "checked" : "" %>> <%= t("Control") %></label>
     </div>
   <% }) %>
 
-  <button class="btn btn-primary" type="submit">Speichern</button>
+  <button class="btn btn-primary" type="submit"><%= t("Save") %></button>
 </form>
 
 <% if (editing) { %>
   <form method="post" action="/admin/bots/<%= bot.id %>/test">
     <%- include("partials/csrf") %>
-    <button class="btn" type="submit">Verbindung prüfen</button>
+    <button class="btn" type="submit"><%= t("Check connection") %></button>
   </form>
 
   <form method="post" action="/admin/bots/<%= bot.id %>/delete" class="card stack danger-zone">
     <%- include("partials/csrf") %>
-    <h2>Bot löschen</h2>
-    <p class="muted">Entfernt den Eintrag aus dem Panel, nicht die Dateien des TS3AudioBot.</p>
-    <label>Bot-Namen zur Bestätigung eingeben
+    <h2><%= t("Delete bot") %></h2>
+    <p class="muted"><%= t("Removes the panel entry, not the TS3AudioBot files.") %></p>
+    <label><%= t("Type the bot name to confirm") %>
       <input name="confirm" required maxlength="120">
     </label>
-    <button class="btn btn-danger" type="submit">Löschen</button>
+    <button class="btn btn-danger" type="submit"><%= t("Delete") %></button>
   </form>
 <% } %>

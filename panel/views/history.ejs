@@ -1,17 +1,17 @@
 <header class="page-head">
   <div>
-    <h1>Verlauf</h1>
+    <h1><%= t("History") %></h1>
     <p class="muted"><%= bot.name %></p>
   </div>
 </header>
 <%- include("partials/botnav") %>
 
 <form method="get" action="/bots/<%= bot.id %>/history" class="split">
-  <label class="grow">Titel enthält
+  <label class="grow"><%= t("Title contains") %>
     <input name="q" value="<%= query %>" maxlength="200">
   </label>
-  <button class="btn" type="submit">Suchen</button>
-  <% if (query) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>/history">Zurücksetzen</a><% } %>
+  <button class="btn" type="submit"><%= t("Search") %></button>
+  <% if (query) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>/history"><%= t("Reset") %></a><% } %>
 </form>
 
 <% if (error) { %>
@@ -19,12 +19,12 @@
   <% if (rightsHint) { %><%- include("partials/rights") %><% } %>
 <% } %>
 
-<% if (!error && !rows.length) { %><p class="muted">Keine Einträge.</p><% } %>
+<% if (!error && !rows.length) { %><p class="muted"><%= t("No entries.") %></p><% } %>
 
 <% if (rows.length) { %>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>ID</th><th>Titel</th><th></th></tr></thead>
+      <thead><tr><th><%= t("ID") %></th><th><%= t("Title") %></th><th></th></tr></thead>
       <tbody>
         <% rows.forEach(function (row) { %>
           <tr>
@@ -36,7 +36,7 @@
                   <%- include("partials/csrf") %>
                   <input type="hidden" name="op" value="history-play">
                   <input type="hidden" name="historyId" value="<%= row.id %>">
-                  <button class="btn" type="submit">Spielen</button>
+                  <button class="btn" type="submit"><%= t("Play") %></button>
                 </form>
               <% } %>
             </td>

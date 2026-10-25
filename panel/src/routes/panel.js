@@ -13,6 +13,7 @@ import {
 } from "../db.js";
 import { HttpError } from "../errors.js";
 import { numericId, rateLimit, safeReferrer, wantsJson, wrap } from "../http.js";
+import { errorText } from "../i18n.js";
 import {
   needsRightsHint,
   presentBotList,
@@ -32,14 +33,21 @@ function authOf(req, access) {
   return { role: req.user.role, canControl: access.canControl };
 }
 
+function detailText(t, action, args) {
+  if (!action.detail) return null;
+  const value = action.detail(args);
+  if (value && typeof value === "object" && typeof value.key === "string") return t(value.key, value.params);
+  return value == null ? null : String(value);
+}
+
 async function openBot(req, res) {
   const id = numericId(req.params.id);
   if (!id) return null;
   const access = await accessToBot(req.user, id);
   if (!access) {
-    const message = "Der Bot ist nicht vorhanden oder dir nicht freigegeben.";
+    const message = req.t("That bot does not exist or is not granted to you.");
     if (wantsJson(req)) res.status(404).json({ ok: false, error: message });
-    else res.status(404).render("error", { title: "Nicht gefunden", message });
+    else res.status(404).render("error", { title: req.t("Not found"), message });
     return null;
   }
   return access;
@@ -64,7 +72,7 @@ panelRouter.get(
             notes: row.notes || "",
             baseUrl: admin ? row.base_url : null,
             online: false,
-            error: err.message,
+            error: errorText(err, req.t),
             canControl,
             version: null,
           };
@@ -74,12 +82,12 @@ panelRouter.get(
           card.version = presentVersion(await callBot(bot, ["version"], { timeoutMs: 4000 }));
           card.online = true;
         } catch (err) {
-          card.error = err.message;
+          card.error = errorText(err, req.t);
         }
         return card;
       }),
     );
-    res.render("dashboard", { title: "Übersicht", active: "dash", cards, admin });
+    res.render("dashboard", { title: req.t("Overview"), active: "dash", cards, admin });
   }),
 );
 
@@ -92,9 +100,9 @@ panelRouter.get(
     let status = null;
     let statusError = null;
     try {
-      status = presentStatus(await callBot(bot, statusParts(bot), { timeoutMs: 12000 }));
+      status = presentStatus(await callBot(bot, statusParts(bot), { timeoutMs: 12000 }), req.t);
     } catch (err) {
-      statusError = err.message;
+      statusError = errorText(err, req.t);
     }
 
     const query = String(req.query.search || "").trim();
@@ -104,14 +112,14 @@ panelRouter.get(
     let results = [];
     let searchError = null;
     if (query) {
-      if (!canControl) searchError = "Keine Steuerrechte für die Suche.";
-      else if (!rateLimit(`search:${req.user.id}`, 20, 60_000)) searchError = "Zu viele Suchen. Bitte kurz warten.";
+      if (!canControl) searchError = req.t("No control rights for search.");
+      else if (!rateLimit(`search:${req.user.id}`, 20, 60_000)) searchError = req.t("Too many searches. Wait a moment.");
       else {
         try {
           const { data } = await runAction(bot, "search", { query, factory }, authOf(req, access));
-          results = presentSearch(data);
+          results = presentSearch(data, req.t);
         } catch (err) {
-          searchError = err.message;
+          searchError = errorText(err, req.t);
         }
       }
     }
@@ -139,10 +147,10 @@ panelRouter.get(
     const access = await openBot(req, res);
     if (!access) return;
     try {
-      const status = presentStatus(await callBot(access.bot, statusParts(access.bot), { timeoutMs: 8000 }));
+      const status = presentStatus(await callBot(access.bot, statusParts(access.bot), { timeoutMs: 8000 }), req.t);
       res.json({ ok: true, status });
     } catch (err) {
-      res.status(502).json({ ok: false, error: err.message });
+      res.status(502).json({ ok: false, error: errorText(err, req.t) });
     }
   }),
 );
@@ -158,12 +166,12 @@ panelRouter.get(
     try {
       const op = query ? "history-search" : "history-last";
       const { data } = await runAction(access.bot, op, { query }, authOf(req, access));
-      rows = presentHistory(data);
+      rows = presentHistory(data, req.t);
     } catch (err) {
-      error = err.message;
+      error = errorText(err, req.t);
     }
     res.render("history", {
-      title: `Verlauf · ${access.bot.name}`,
+      title: req.t("History · {name}", { name: access.bot.name }),
       tab: "history",
       bot: access.bot,
       access,
@@ -186,10 +194,10 @@ panelRouter.get(
       const { data } = await runAction(access.bot, "list-list", {}, authOf(req, access));
       lists = presentPlaylists(data);
     } catch (err) {
-      error = err.message;
+      error = errorText(err, req.t);
     }
     res.render("playlists", {
-      title: `Playlists · ${access.bot.name}`,
+      title: req.t("Playlists · {name}", { name: access.bot.name }),
       tab: "playlists",
       bot: access.bot,
       access,
@@ -209,7 +217,7 @@ panelRouter.get(
     try {
       listId = parseListId(req.params.listId);
     } catch (err) {
-      res.status(400).render("error", { title: "Playlist", message: err.message });
+      res.status(400).render("error", { title: "Playlist", message: errorText(err, req.t) });
       return;
     }
     const page = Math.max(1, numericId(req.query.page) || 1);
@@ -223,10 +231,10 @@ panelRouter.get(
         { listId, offset: (page - 1) * perPage, count: perPage },
         authOf(req, access),
       );
-      playlist = presentPlaylist(data);
-      if (!playlist) throw new HttpError("Die Playlist konnte nicht gelesen werden", 502);
+      playlist = presentPlaylist(data, req.t);
+      if (!playlist) throw new HttpError("The playlist could not be read", 502);
     } catch (err) {
-      error = err.message;
+      error = errorText(err, req.t);
     }
     res.render("playlist", {
       title: playlist?.title || listId,
@@ -246,24 +254,24 @@ panelRouter.get(
 panelRouter.get(
   "/bots/:id/instances",
   wrap(async (req, res) => {
-    if (req.user.role !== "admin") throw new HttpError("Nur für Administratoren", 403);
+    if (req.user.role !== "admin") throw new HttpError("Administrators only", 403);
     const access = await openBot(req, res);
     if (!access) return;
     let instances = [];
     let error = null;
     try {
       const { data } = await runAction(access.bot, "bot-list", {}, authOf(req, access));
-      instances = presentBotList(data).map((item) => ({
+      instances = presentBotList(data, req.t).map((item) => ({
         ...item,
         current:
           (access.bot.instanceMode === "template" && item.name === access.bot.instanceRef) ||
           (access.bot.instanceMode === "id" && String(item.id) === access.bot.instanceRef),
       }));
     } catch (err) {
-      error = err.message;
+      error = errorText(err, req.t);
     }
     res.render("instances", {
-      title: `Instanzen · ${access.bot.name}`,
+      title: req.t("Instances · {name}", { name: access.bot.name }),
       tab: "instances",
       bot: access.bot,
       access,
@@ -280,11 +288,11 @@ panelRouter.post(
     const access = await openBot(req, res);
     if (!access) return;
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
-      throw new HttpError("Zu viele Aktionen. Bitte kurz warten.", 429);
+      throw new HttpError("Too many actions. Wait a moment.", 429);
     }
 
     if (req.body.op === "use-instance") {
-      if (req.user.role !== "admin") throw new HttpError("Nur für Administratoren", 403);
+      if (req.user.role !== "admin") throw new HttpError("Administrators only", 403);
       const instance = parseUseInstance(req.body);
       await updateInstance(access.bot.id, instance);
       await addAudit({
@@ -293,7 +301,7 @@ panelRouter.post(
         action: "use-instance",
         detail: `${instance.mode} ${instance.ref}`.trim(),
       });
-      await setFlash(req.sessionId, "ok", "Diese Instanz steuert jetzt die Wiedergabe.");
+      await setFlash(req.sessionId, "ok", req.t("This instance now controls playback."));
       return res.redirect(safeReferrer(req));
     }
 
@@ -303,11 +311,11 @@ panelRouter.post(
         userId: req.user.id,
         botId: access.bot.id,
         action: req.body.op,
-        detail: action.detail ? action.detail(args) : null,
+        detail: detailText(req.t, action, args),
       });
     }
     if (wantsJson(req)) return res.json({ ok: true });
-    await setFlash(req.sessionId, "ok", action.success || "Erledigt");
+    await setFlash(req.sessionId, "ok", req.t(action.success || "Done"));
     return res.redirect(safeReferrer(req));
   }),
 );

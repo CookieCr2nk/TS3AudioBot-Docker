@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { describe, it } from "node:test";
+import ejs from "ejs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { actions, buildActionRequest } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
+import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
+import de from "../src/locales/de.js";
 import { presentBotList, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
 import { loadSchemaSql, statementsFromSchema } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
@@ -55,19 +61,19 @@ describe("api paths", () => {
 
 describe("action guard", () => {
   it("rejects unknown and dangerous command names", () => {
-    assert.throws(() => buildActionRequest(templateBot, "quit", {}, admin), /Unbekannte Aktion/);
+    assert.throws(() => buildActionRequest(templateBot, "quit", {}, admin), /Unknown action/);
     for (const name of ["quit", "eval", "rights", "system", "api"]) {
       assert.equal(actions[name], undefined);
     }
   });
 
   it("blocks playback without control and hosting actions for users", () => {
-    assert.throws(() => buildActionRequest(templateBot, "play", { resource: "https://example.com/a" }, reader), /Steuerrechte/);
-    assert.throws(() => buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, user), /Administratoren/);
+    assert.throws(() => buildActionRequest(templateBot, "play", { resource: "https://example.com/a" }, reader), /control rights/);
+    assert.throws(() => buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, user), /Administrators only/);
   });
 
   it("requires an explicit confirm before deleting a playlist", () => {
-    assert.throws(() => buildActionRequest(templateBot, "list-delete", { listId: "mix" }, user), /bestätigt/);
+    assert.throws(() => buildActionRequest(templateBot, "list-delete", { listId: "mix" }, user), /confirmed/);
     const built = buildActionRequest(templateBot, "list-delete", { listId: "mix", confirm: "on" }, user);
     assert.equal(buildApiPath(built.parts), "/bot/template/default/(/list/delete/mix)");
   });
@@ -108,7 +114,7 @@ describe("status and lists", () => {
       { Id: 2, Name: "lobby", Server: "", Status: "Connected" },
     ]), [
       { id: null, name: "default", server: "ts.example.com", status: "offline", statusLabel: "Offline" },
-      { id: 2, name: "lobby", server: "", status: "connected", statusLabel: "Verbunden" },
+      { id: 2, name: "lobby", server: "", status: "connected", statusLabel: "Connected" },
     ]);
   });
 });
@@ -116,9 +122,9 @@ describe("status and lists", () => {
 describe("input", () => {
   it("accepts the compose hostname and rejects metadata and credentials", () => {
     assert.equal(assertBaseUrl("http://ts3audiobot:58913/"), "http://ts3audiobot:58913");
-    assert.throws(() => assertBaseUrl("http://169.254.169.254/"), /nicht erlaubt/);
-    assert.throws(() => assertBaseUrl("http://user:pass@bot:58913"), /Zugangsdaten/);
-    assert.throws(() => assertBaseUrl("http://bot:58913/api"), /Host und Port/);
+    assert.throws(() => assertBaseUrl("http://169.254.169.254/"), /not allowed/);
+    assert.throws(() => assertBaseUrl("http://user:pass@bot:58913"), /credentials/);
+    assert.throws(() => assertBaseUrl("http://bot:58913/api"), /host and a port/);
     assert.throws(() => assertBaseUrl("file:///etc/passwd"), /http/);
   });
 
@@ -127,7 +133,7 @@ describe("input", () => {
     assert.deepEqual(splitApiCredential("", ""), { user: "", secret: "" });
     assert.deepEqual(splitApiCredential("uid", "", { keepExisting: true }), { user: "uid", secret: null });
     assert.deepEqual(splitApiCredential("uid", "secret", { clear: true }), { user: "", secret: "" });
-    assert.throws(() => splitApiCredential("uid", ""), /zusammen/);
+    assert.throws(() => splitApiCredential("uid", ""), /together/);
   });
 
   it("limits volume and passwords", () => {
@@ -157,5 +163,134 @@ describe("secrets and schema", () => {
     const creates = statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
     assert.equal(statements.some((statement) => /MODIFY api_token_enc/i.test(statement)), true);
+  });
+});
+
+describe("language", () => {
+  it("follows the browser language and keeps English as the fallback", () => {
+    assert.equal(languageFromHeader("de-DE,de;q=0.9,en;q=0.8"), "de");
+    assert.equal(languageFromHeader("en-US,en;q=0.9,de;q=0.8"), "en");
+    assert.equal(languageFromHeader("de,en"), "de");
+    assert.equal(languageFromHeader("en,de"), "en");
+    assert.equal(languageFromHeader("fr-FR,fr;q=0.9"), "en");
+    assert.equal(languageFromHeader("*"), "en");
+    assert.equal(languageFromHeader(""), "en");
+    assert.equal(translate("de", "Sign in"), "Anmelden");
+    assert.equal(translate("en", "Sign in"), "Sign in");
+    assert.equal(translate("de", "{label} is invalid", { label: "Password" }), "Passwort ist ungültig");
+    assert.equal(translate("de", "Bot said no"), "Bot said no");
+    assert.equal(clientJson("de").includes("Gerade läuft nichts."), true);
+    assert.equal(clientJson("de").includes("<"), false);
+    const german = translator("de");
+    assert.equal(presentStatus(null, german).problems[0], "Die Bot-API hat keinen Status geliefert.");
+    assert.equal(presentBotList([{ Id: 2, Name: "lobby", Status: "Connected" }], german)[0].statusLabel, "Verbunden");
+  });
+
+  it("keeps every panel phrase in the German catalog", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const files = [];
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        if (name === "node_modules" || name === "locales") continue;
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.(js|ejs)$/.test(name)) files.push(path);
+      }
+    };
+    walk(join(root, "src"));
+    walk(join(root, "views"));
+    const missing = new Set();
+    const pattern = /(?:^|[^\w])t\(\s*"((?:\\.|[^"\\])*)"|new (?:Http|Validation|Ts3Api)Error\(\s*"((?:\\.|[^"\\])*)"/g;
+    for (const path of files) {
+      const source = readFileSync(path, "utf8");
+      for (const match of source.matchAll(pattern)) {
+        const key = (match[1] || match[2]).replace(/\\"/g, '"');
+        if (!Object.prototype.hasOwnProperty.call(de, key)) missing.add(`${key} (${path})`);
+      }
+    }
+    assert.deepEqual([...missing], []);
+
+    const catalog = readFileSync(join(root, "src/locales/de.js"), "utf8");
+    const keys = [...catalog.matchAll(/^\s*(?:"((?:\\.|[^"\\])*)"|([A-Za-z_][A-Za-z0-9_]*))\s*:/gm)].map(
+      (match) => match[1] ?? match[2],
+    );
+    const seen = new Set();
+    const duplicates = keys.filter((key) => (seen.has(key) ? true : (seen.add(key), false)));
+    assert.deepEqual(duplicates, []);
+  });
+
+  it("renders the English templates", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const locals = {
+      t: (message, params) => translate("en", message, params),
+      lang: "en",
+      clientJson: clientJson("en"),
+      title: "Test",
+      message: "Test",
+      plain: false,
+      user: { id: 1, username: "admin", role: "admin" },
+      csrf: "csrf",
+      flash: null,
+      active: "",
+      tab: "player",
+      body: "<p>ok</p>",
+      error: null,
+      next: "/",
+      username: "",
+      admin: true,
+      cards: [],
+      bots: [],
+      users: [],
+      rows: [],
+      bot: {
+        id: 1,
+        name: "bot",
+        instanceMode: "template",
+        instanceRef: "default",
+        enabled: true,
+        notes: "",
+        baseUrl: "http://ts3audiobot:58913",
+        apiUser: "",
+        hasToken: false,
+      },
+      access: { canControl: true },
+      editing: true,
+      grantMap: {},
+      status: { song: null, volume: 20, repeat: "off", shuffle: false, queue: null, problems: [] },
+      statusError: null,
+      rightsHint: false,
+      query: "",
+      factory: "youtube",
+      results: [],
+      searchError: null,
+      lists: [],
+      listId: "mix",
+      playlist: { title: "Mix", count: 0, offset: 0, items: [] },
+      page: 1,
+      perPage: 50,
+      instances: [],
+      encode: encodeURIComponent,
+      formatTime: () => "",
+      safeHttpUrl: () => null,
+    };
+    const views = join(root, "views");
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (name.endsWith(".ejs") && name !== "csrf.ejs") {
+          const html = ejs.render(readFileSync(path, "utf8"), locals, { filename: path });
+          assert.equal(html.includes("Anmelden"), false);
+          assert.equal(typeof html, "string");
+        }
+      }
+    };
+    walk(views);
+    const layout = ejs.render(readFileSync(join(views, "layout.ejs"), "utf8"), locals, {
+      filename: join(views, "layout.ejs"),
+    });
+    assert.match(layout, /lang="en"/);
+    assert.match(layout, /Sign out/);
+    assert.match(layout, /Overview/);
   });
 });

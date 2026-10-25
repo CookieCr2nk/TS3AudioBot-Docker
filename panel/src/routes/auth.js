@@ -12,6 +12,7 @@ import {
   touchLogin,
 } from "../db.js";
 import { clearSessionCookie, cookieOptions, newCsrf, rateLimit, requireUser, wrap } from "../http.js";
+import { errorText } from "../i18n.js";
 import { hashPassword, verifyPassword } from "../passwords.js";
 import { parsePassword, safeNext } from "../validate.js";
 
@@ -20,7 +21,7 @@ export const authRouter = Router();
 authRouter.get("/login", (req, res) => {
   if (req.user) return res.redirect("/");
   return res.render("login", {
-    title: "Anmelden",
+    title: req.t("Sign in"),
     plain: true,
     next: safeNext(req.query.next),
     error: null,
@@ -35,10 +36,10 @@ authRouter.post(
     const password = String(req.body.password || "");
     const next = safeNext(req.body.next);
     const fail = (message) =>
-      res.status(401).render("login", { title: "Anmelden", plain: true, next, error: message, username });
+      res.status(401).render("login", { title: req.t("Sign in"), plain: true, next, error: message, username });
 
     if (!rateLimit(`login:${req.ip}:${username.toLowerCase()}`, 8, 15 * 60 * 1000)) {
-      return fail("Zu viele Versuche. Bitte später erneut versuchen.");
+      return fail(req.t("Too many attempts. Try again later."));
     }
 
     const user = await findUserByUsername(username);
@@ -47,9 +48,12 @@ authRouter.post(
       await addAudit({
         userId: user?.id ?? null,
         action: "login-failed",
-        detail: `Login fehlgeschlagen für ${username || "unbekannt"} von ${req.ip}`,
+        detail: req.t("Login failed for {name} from {ip}", {
+          name: username || req.t("unknown"),
+          ip: req.ip,
+        }),
       });
-      return fail("Benutzername oder Passwort ist falsch.");
+      return fail(req.t("Username or password is wrong."));
     }
 
     const token = randomBytes(32).toString("base64url");
@@ -73,7 +77,7 @@ authRouter.post(
 );
 
 authRouter.get("/account", requireUser, (req, res) => {
-  res.render("account", { title: "Konto", active: "account", error: null });
+  res.render("account", { title: req.t("Account"), active: "account", error: null });
 });
 
 authRouter.post(
@@ -81,21 +85,21 @@ authRouter.post(
   requireUser,
   wrap(async (req, res) => {
     const renderError = (message) =>
-      res.status(400).render("account", { title: "Konto", active: "account", error: message });
+      res.status(400).render("account", { title: req.t("Account"), active: "account", error: message });
     const user = await findUserByUsername(req.user.username);
     const currentOk = await verifyPassword(req.body.current || "", user?.password_hash);
-    if (!currentOk) return renderError("Das aktuelle Passwort ist falsch.");
+    if (!currentOk) return renderError(req.t("Current password is wrong."));
     let password;
     try {
       password = parsePassword(req.body.password);
     } catch (err) {
-      return renderError(err.message);
+      return renderError(errorText(err, req.t));
     }
-    if (password !== String(req.body.confirm || "")) return renderError("Die Wiederholung stimmt nicht.");
+    if (password !== String(req.body.confirm || "")) return renderError(req.t("The confirmation does not match."));
     await setPassword(req.user.id, await hashPassword(password));
     await deleteOtherSessions(req.user.id, req.sessionId);
-    await addAudit({ userId: req.user.id, action: "password", detail: "Eigenes Passwort geändert" });
-    await setFlash(req.sessionId, "ok", "Passwort geändert. Andere Sitzungen wurden abgemeldet.");
+    await addAudit({ userId: req.user.id, action: "password", detail: req.t("Changed own password") });
+    await setFlash(req.sessionId, "ok", req.t("Password changed. Other sessions were signed out."));
     return res.redirect("/account");
   }),
 );

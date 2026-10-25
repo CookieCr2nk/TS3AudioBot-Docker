@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `develop` publish both images to GHCR with the tag `:develop`
 
 ### Changed
+- The web panel is English. `panel/src/locales/de.js` is used when the browser prefers German
 - The panel calls the bot API without `!api token`. Port 58913 is not published, and `rights.toml` allows every API caller (`isapi = true`)
 - Trimmed documentation and removed unused tooling added during an automated refactor
 - Simplified `docker-compose.yml` volume setup (bind mount to `./data`)
