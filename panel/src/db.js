@@ -45,7 +45,7 @@ export async function migrate() {
 
 export function mapBot(row, { token = false } = {}) {
   let apiToken = null;
-  if (token) {
+  if (token && row.api_token_enc) {
     try {
       apiToken = decrypt(row.api_token_enc);
     } catch {
@@ -59,8 +59,9 @@ export function mapBot(row, { token = false } = {}) {
     instanceMode: row.instance_mode,
     instanceRef: row.instance_ref,
     useInstance: row.instance_mode !== "none",
-    apiUser: row.api_user,
+    apiUser: row.api_user || "",
     apiToken,
+    hasToken: Boolean(row.api_token_enc),
     enabled: Boolean(row.enabled),
     notes: row.notes || "",
     createdAt: row.created_at,
@@ -292,8 +293,8 @@ export async function insertBot(fields) {
       fields.baseUrl,
       fields.instanceMode,
       fields.instanceRef,
-      fields.apiUser,
-      encrypt(fields.apiToken),
+      fields.apiToken ? fields.apiUser : null,
+      fields.apiToken ? encrypt(fields.apiToken) : null,
       fields.enabled ? 1 : 0,
       fields.notes || null,
     ],
@@ -307,15 +308,16 @@ export async function updateBot(id, fields) {
     fields.baseUrl,
     fields.instanceMode,
     fields.instanceRef,
-    fields.apiUser,
     fields.enabled ? 1 : 0,
     fields.notes || null,
   ];
   let sql = `UPDATE bots
-     SET name = ?, base_url = ?, instance_mode = ?, instance_ref = ?, api_user = ?, enabled = ?, notes = ?`;
-  if (fields.apiToken) {
-    sql += ", api_token_enc = ?";
-    params.push(encrypt(fields.apiToken));
+     SET name = ?, base_url = ?, instance_mode = ?, instance_ref = ?, enabled = ?, notes = ?`;
+  if (fields.apiToken === "") {
+    sql += ", api_user = NULL, api_token_enc = NULL";
+  } else if (fields.apiToken) {
+    sql += ", api_user = ?, api_token_enc = ?";
+    params.push(fields.apiUser, encrypt(fields.apiToken));
   }
   sql += " WHERE id = ?";
   params.push(id);

@@ -11,9 +11,8 @@
     <% if (admin) { %>
       <h2>Noch kein Bot</h2>
       <ol class="steps">
-        <li>Dem Bot in TeamSpeak privat <code>!api token</code> schicken.</li>
-        <li>Die UID in <code>data/rights.toml</code> unter <code>useruid</code> eintragen und den Bot neu starten.</li>
-        <li>Bot anlegen. Im Compose-Netz ist die API <code>http://ts3audiobot:58913</code>.</li>
+        <li>Bot anlegen. Im Compose-Netz ist die API <code>http://ts3audiobot:58913</code>. Ein API-Token ist nicht nötig.</li>
+        <li>Liegt <code>data/rights.toml</code> schon von einem älteren Start, in der Admin-Regel <code>isapi = true</code> setzen und den Bot neu starten.</li>
         <li>Benutzer anlegen und den Bot zuweisen.</li>
       </ol>
       <%- include("partials/rights") %>

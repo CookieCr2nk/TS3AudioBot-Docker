@@ -3,8 +3,8 @@ services:
     image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
     container_name: ts3audiobot
     restart: unless-stopped
-    ports:
-      - "58913:58913"
+    # 58913 is not published. rights.toml treats every API caller as admin,
+    # so the port must stay reachable only by containers on the bot network.
     volumes:
       - ./data:/data
     tmpfs:

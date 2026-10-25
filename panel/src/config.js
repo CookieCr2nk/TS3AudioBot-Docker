@@ -32,7 +32,7 @@ export function runtimeWarnings() {
   const key = tokenKey();
   if (key.startsWith("dev-only") || key.length < 16) {
     warnings.push(
-      "TOKEN_KEY ist unsicher. Setze ihn, bevor du Bots speicherst. Ein späterer Wechsel macht gespeicherte API-Tokens unlesbar.",
+      "TOKEN_KEY ist unsicher. Er wird nur gebraucht, wenn du einen optionalen API-Token speicherst. Ein späterer Wechsel macht gespeicherte Tokens unlesbar.",
     );
   }
   return warnings;

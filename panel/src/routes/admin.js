@@ -50,6 +50,7 @@ function formBot(body, fallback = {}, { submitted = false } = {}) {
     instanceMode: body.instanceMode ?? fallback.instanceMode ?? "template",
     instanceRef: body.instanceRef ?? fallback.instanceRef ?? "default",
     apiUser: body.apiUser ?? fallback.apiUser ?? "",
+    hasToken: Boolean(fallback.hasToken),
     enabled,
     notes: body.notes ?? fallback.notes ?? "",
   };
@@ -84,7 +85,7 @@ adminRouter.post(
   wrap(async (req, res) => {
     const users = customerAccounts(await listUsers());
     try {
-      const fields = parseBotForm(req.body, { tokenRequired: true });
+      const fields = parseBotForm(req.body);
       const grants = parseGrants(req.body, users);
       const id = await insertBot(fields);
       await replaceGrants(id, grants);
@@ -132,7 +133,7 @@ adminRouter.post(
     if (!existing) return;
     const users = customerAccounts(await listUsers());
     try {
-      const fields = parseBotForm(req.body, { tokenRequired: false });
+      const fields = parseBotForm(req.body, { keepExisting: true });
       await updateBot(existing.id, fields);
       await replaceGrants(existing.id, parseGrants(req.body, users));
       await addAudit({ userId: req.user.id, botId: existing.id, action: "bot-update", detail: fields.name });

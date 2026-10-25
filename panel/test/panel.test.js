@@ -4,7 +4,7 @@ import { actions, buildActionRequest } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { presentBotList, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
 import { loadSchemaSql, statementsFromSchema } from "../src/schema.js";
-import { buildApiPath, scope, statusParts } from "../src/ts3ab.js";
+import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
   parsePassword,
@@ -44,6 +44,12 @@ describe("api paths", () => {
   it("disconnects the posted instance, not the saved template", () => {
     const built = buildActionRequest(templateBot, "disconnect", { instanceId: "7" }, admin);
     assert.equal(buildApiPath(built.parts), "/bot/use/7/(/bot/disconnect)");
+  });
+
+  it("sends no authorization header when the bot has no token", () => {
+    assert.equal("Authorization" in apiHeaders({ apiUser: "", apiToken: null }), false);
+    const authed = apiHeaders({ apiUser: "uid", apiToken: "secret" });
+    assert.equal(authed.Authorization, `Basic ${Buffer.from("uid:secret", "utf8").toString("base64")}`);
   });
 });
 
@@ -116,8 +122,12 @@ describe("input", () => {
     assert.throws(() => assertBaseUrl("file:///etc/passwd"), /http/);
   });
 
-  it("splits a pasted api token", () => {
+  it("splits a pasted api token and allows an empty credential", () => {
     assert.deepEqual(splitApiCredential("", "uid123=:secret"), { user: "uid123=", secret: "secret" });
+    assert.deepEqual(splitApiCredential("", ""), { user: "", secret: "" });
+    assert.deepEqual(splitApiCredential("uid", "", { keepExisting: true }), { user: "uid", secret: null });
+    assert.deepEqual(splitApiCredential("uid", "secret", { clear: true }), { user: "", secret: "" });
+    assert.throws(() => splitApiCredential("uid", ""), /zusammen/);
   });
 
   it("limits volume and passwords", () => {
@@ -144,7 +154,8 @@ describe("secrets and schema", () => {
 
   it("loads five tables from the schema file", () => {
     const statements = statementsFromSchema(loadSchemaSql());
-    assert.equal(statements.length, 5);
-    for (const statement of statements) assert.match(statement, /^CREATE TABLE/i);
+    const creates = statements.filter((statement) => /^CREATE TABLE/i.test(statement));
+    assert.equal(creates.length, 5);
+    assert.equal(statements.some((statement) => /MODIFY api_token_enc/i.test(statement)), true);
   });
 });

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate bot config
+        run: bash scripts/validate-config.sh
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+
+      - name: Install panel dependencies
+        working-directory: panel
+        run: npm ci --ignore-scripts
+
+      - name: Panel tests
+        run: node --test panel/test/*.js
+
+      - name: Validate Compose files
+        run: docker compose -f docker-compose.yml -f docker-compose.panel.yml config --quiet
+
+  stack:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build images and check the running stack
+        env:
+          PANEL_DB_PASSWORD: ci-db-password
+          PANEL_DB_ROOT_PASSWORD: ci-root-password
+          PANEL_TOKEN_KEY: ci-token-key-value
+          PANEL_ADMIN_PASSWORD: ci-admin-password
+        run: bash scripts/ci-stack.sh

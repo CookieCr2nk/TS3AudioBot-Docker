@@ -16,7 +16,7 @@ init-data: ## Copy seed config into ./data for bind-mount compose
 	rsync -a --delete config/ data/
 
 test: validate-config ## Run local checks
-	@python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml')); yaml.safe_load(open('docker-compose.panel.yml')); yaml.safe_load(open('.github/workflows/docker-publish.yml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml')); yaml.safe_load(open('docker-compose.panel.yml')); yaml.safe_load(open('.github/workflows/docker-publish.yml')); yaml.safe_load(open('.github/workflows/ci.yml'))"
 	@if command -v node >/dev/null; then node --test panel/test/*.js; else echo "skip panel tests (node not installed)"; fi
 	@echo "OK"
 

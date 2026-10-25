@@ -93,7 +93,8 @@ export function parseNotes(value) {
   return notes;
 }
 
-export function splitApiCredential(uid, token, { tokenRequired = true } = {}) {
+export function splitApiCredential(uid, token, { keepExisting = false, clear = false } = {}) {
+  if (clear) return { user: "", secret: "" };
   let user = clean(uid);
   let secret = String(token ?? "").trim();
   if (!user && secret.includes(":")) {
@@ -101,12 +102,14 @@ export function splitApiCredential(uid, token, { tokenRequired = true } = {}) {
     user = secret.slice(0, index).trim();
     secret = secret.slice(index + 1).trim();
   }
-  if (!user || (tokenRequired && !secret)) {
-    throw new ValidationError("API-UID und Token sind erforderlich. Format von !api token: uid:token");
+  if (!secret && keepExisting) return { user, secret: null };
+  if (!user && !secret) return { user: "", secret: "" };
+  if (!user || !secret) {
+    throw new ValidationError("API-UID und Token müssen zusammen gesetzt werden. Format von !api token: uid:token");
   }
   if (user.length > 128 || secret.length > 512) throw new ValidationError("Die API-Zugangsdaten sind zu lang");
   rejectControls(user, "Die API-UID");
-  if (secret) rejectControls(secret, "Der API-Token");
+  rejectControls(secret, "Der API-Token");
   return { user, secret };
 }
 
@@ -176,9 +179,12 @@ export function parseUseInstance(body) {
   throw new ValidationError("Diese Instanz hat keinen verwendbaren Namen");
 }
 
-export function parseBotForm(body, { tokenRequired }) {
+export function parseBotForm(body, { keepExisting = false } = {}) {
   const instance = parseInstance(clean(body.instanceMode), body.instanceRef);
-  const credential = splitApiCredential(body.apiUser, body.apiToken, { tokenRequired });
+  const credential = splitApiCredential(body.apiUser, body.apiToken, {
+    keepExisting,
+    clear: body.clearToken === "on",
+  });
   return {
     name: parseName(body.name),
     baseUrl: assertBaseUrl(body.baseUrl),

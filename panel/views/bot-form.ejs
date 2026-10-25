@@ -1,7 +1,7 @@
 <header class="page-head">
   <div>
     <h1><%= editing ? bot.name : "Bot anlegen" %></h1>
-    <p class="muted">Der API-Token wird verschlüsselt gespeichert und nicht an den Browser zurückgegeben.</p>
+    <p class="muted">Im Compose-Netz reicht die API-Adresse. Ein Token wird nur verschlüsselt gespeichert, wenn du einen einträgst.</p>
   </div>
   <% if (editing) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>">Zur Wiedergabe</a><% } %>
 </header>
@@ -30,14 +30,19 @@
   </div>
   <p class="muted">Für dieses Docker-Setup ist das Template <code>default</code>. <code>bot template</code> bleibt über Neustarts gültig, eine laufende ID nicht.</p>
   <%- include("partials/rights") %>
+  <h2>API-Zugang</h2>
+  <p class="muted">Im Compose-Netz leer lassen. Nur ausfüllen, wenn der Bot außerhalb liegt und einen Token verlangt.</p>
   <div class="split">
     <label class="grow">API-UID
-      <input name="apiUser" required maxlength="128" value="<%= bot.apiUser %>" autocomplete="off">
+      <input name="apiUser" maxlength="128" value="<%= bot.apiUser %>" autocomplete="off">
     </label>
     <label class="grow">API-Token
-      <input name="apiToken" type="password" maxlength="512" autocomplete="off" placeholder="<%= editing ? "leer lassen behält den Token" : "oder uid:token in dieses Feld" %>" <%= editing ? "" : "required" %>>
+      <input name="apiToken" type="password" maxlength="512" autocomplete="off" placeholder="<%= editing && bot.hasToken ? "leer lassen behält den Token" : "optional, oder uid:token" %>">
     </label>
   </div>
+  <% if (editing && bot.hasToken) { %>
+    <label class="check"><input type="checkbox" name="clearToken" value="on"> Gespeicherten Token entfernen</label>
+  <% } %>
   <label>Notiz
     <textarea name="notes" maxlength="500" rows="3"><%= bot.notes %></textarea>
   </label>

@@ -1,127 +1,100 @@
 # TS3AudioBot-Docker
 
-Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) on Debian 12 (Bookworm) with .NET 9.
+Docker-Image für [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) und ein optionales Web-Panel.
 
-Published images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master`
+Es gibt zwei Wege:
 
-## Quick start
+| | Nur der Bot | Bot und Panel |
+|---|---|---|
+| Start | `docker compose up -d` | `make compose-panel-up` |
+| Oberfläche | keine | http://localhost:8080 |
+| Bot-API Port 58913 | nicht von außen erreichbar | nur das Panel, im internen Netz |
+
+Das Panel und der Bot sind getrennte Container. MariaDB ist ein dritter Container und sieht die Bot-API nicht.
+
+## Bot und Panel starten
 
 ```bash
 git clone https://github.com/CookieCr2nk/TS3AudioBot-Docker.git
 cd TS3AudioBot-Docker
 make init-data
-docker compose run --rm ts3audiobot
-```
-
-Stop the container with `Ctrl+C` once the config files are written, then edit `data/bots/default/bot.toml` (TeamSpeak address, identity, password). Start the bot in the background:
-
-```bash
-docker compose up -d
-```
-
-Logs: `docker compose logs -f ts3audiobot`
-
-## Configuration
-
-Config lives in the `./data` volume (mounted at `/data` in the container):
-
-| File | Purpose |
-|------|---------|
-| `data/bots/default/bot.toml` | Connection settings for the default bot |
-| `data/ts3audiobot.toml` | Global bot defaults and tool paths |
-| `data/rights.toml` | Command permissions |
-
-On first run the bot generates an identity key. Add it to your TeamSpeak server's identity whitelist before connecting.
-
-Full option reference: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
-
-## Security
-
-The image and `docker-compose.yml` run the bot as an unprivileged user with a read-only root filesystem, dropped capabilities, and no new privileges. See [SECURITY.md](SECURITY.md) for details and how to report vulnerabilities.
-
-## Web panel
-
-Optional hosting panel for the bot Web API. It stores users, bot assignments, and API tokens in MariaDB. The browser never sees the bot token. Playback, playlists, history, and template start/stop go through an allowlist of API commands.
-
-The default `docker compose up` still starts only TS3AudioBot. The panel is a second compose file:
-
-```bash
 cp panel/.env.example .env
-# set PANEL_DB_PASSWORD and PANEL_TOKEN_KEY
+```
+
+In der `.env` im Repo-Root mindestens diese zwei Werte setzen:
+
+- `PANEL_DB_PASSWORD` — Passwort der Panel-Datenbank
+- `PANEL_ADMIN_PASSWORD` — mindestens 10 Zeichen, sonst schreibt der erste Start ein Zufallspasswort einmal in die Panel-Logs
+
+Dann:
+
+```bash
 make compose-panel-up
 ```
 
-Open http://localhost:8080. On an empty database the panel creates the admin user from `PANEL_ADMIN_USER` (default `admin`). If `PANEL_ADMIN_PASSWORD` is empty or shorter than 10 characters, a random password is printed once in `docker compose logs panel`.
+Öffne http://localhost:8080 und melde dich an. Lege einen Bot an. Die API-Adresse im Compose-Netz ist `http://ts3audiobot:58913`. UID und Token leer lassen.
 
-Inside Compose the bot API is `http://ts3audiobot:58913`. Create that bot in the panel and paste the `uid:token` string from a private `!api token`.
+TeamSpeak trägst du in `data/bots/default/bot.toml` ein (`address`, danach den Bot neu starten). Die Identity legt der Bot beim ersten Verbindungsversuch an.
 
-The bot grants full API access to `127.0.0.1` only. Panel requests come from the Docker network, so add that TeamSpeak UID to `useruid` in `data/rights.toml` and restart the bot. One API token is shared by every panel user of that bot; the panel decides who may control playback.
+Logs: `make compose-panel-logs` und `docker compose logs -f ts3audiobot`
 
-`TOKEN_KEY` encrypts stored API tokens. Set it before the first bot is saved. Changing it later makes those tokens unreadable.
+Stoppen: `make compose-panel-down`
 
-Local checks for the panel: `make panel-test`.
+## Warum kein API-Token
 
-## Manual `docker run`
+Die Bot-API hört im Container auf Port 58913. Compose veröffentlicht diesen Port nicht. Im Panel-Setup hängen nur Bot und Panel am Netz `botapi`. MariaDB hängt an einem zweiten Netz `paneldb` ohne Internetzugang.
+
+`data/rights.toml` erlaubt deshalb jeden API-Aufruf (`isapi = true`). Das ist sicher, solange Port 58913 nicht auf den Host gemappt wird. Eine feste Container-IP gibt es nicht, weil die sich je nach Docker-Installation ändert.
+
+Wer `data/rights.toml` schon von einem älteren Stand hat: in der Admin-Regel `isapi = true` eintragen, alte Panel-IPs entfernen, Bot neu starten.
+
+Ein API-Token im Panel ist nur nötig, wenn der Bot absichtlich außerhalb dieses Netzes liegt.
+
+## Nur den Bot starten
 
 ```bash
-docker volume create ts3audiobot-data
-
-# First run — generates config, then stop with Ctrl+C
-docker run --rm -it -v ts3audiobot-data:/data ghcr.io/cookiecr2nk/ts3audiobot-docker:master
-
-docker run -d --name ts3audiobot \
-  -p 58913:58913 \
-  -v ts3audiobot-data:/data \
-  --read-only \
-  --tmpfs /tmp:mode=1777,size=64m \
-  --cap-drop=ALL \
-  --security-opt no-new-privileges:true \
-  ghcr.io/cookiecr2nk/ts3audiobot-docker:master
+make init-data
+docker compose up -d
 ```
 
-## Building
+Es gibt dann keine Weboberfläche. Die API bleibt im Container. Wer Port 58913 trotzdem veröffentlicht, macht jeden, der den Port erreicht, zum Bot-Admin. Dafür vorher `isapi = true` aus `data/rights.toml` entfernen.
 
-Default build (TS3AudioBot `0.12.0`):
+## Konfiguration
+
+`make init-data` kopiert `config/` nach `data/`. Danach gilt nur noch `data/`. Ein späteres Image-Update ändert eine bestehende `data/` nicht.
+
+| Datei | Inhalt |
+|---|---|
+| `data/bots/default/bot.toml` | TeamSpeak-Adresse, Name, Identity |
+| `data/ts3audiobot.toml` | Globale Defaults, Web-API an auf Port 58913 |
+| `data/rights.toml` | Wer welche Befehle darf |
+
+Optionen: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
+
+## Images bauen
 
 ```bash
 docker build -t ts3audiobot-docker:local .
+docker build -t ts3audiobot-panel:local ./panel
 ```
 
-Another upstream release:
+`BOT_RELEASE` muss ein [Release-Tag](https://github.com/Splamy/TS3AudioBot/releases) sein, kein Branch-Name. Standard ist `0.12.0`.
 
-```bash
-docker build --build-arg BOT_RELEASE=0.11.0 -t ts3audiobot-docker:0.11.0 .
-```
-
-`BOT_RELEASE` must be a real [GitHub release tag](https://github.com/Splamy/TS3AudioBot/releases), not a branch name.
-
-Multi-arch (needs buildx):
-
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ts3audiobot-docker:local .
-```
-
-## Development
-
-```bash
-make help            # list targets
-make build           # local image
-make validate-config # check bot.toml before starting
-make compose-up      # start stack
-make compose-logs    # follow logs
-```
-
-Optional pre-commit hooks:
-
-```bash
-pip install pre-commit
-pre-commit install
-```
+Images von GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` und, nach dem ersten Publish, `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:master`.
 
 ## CI
 
-Pushes to `master` build `linux/amd64` and `linux/arm64` images, run Trivy scans, and publish SBOM artifacts. Images are signed with cosign (keyless via GitHub OIDC).
+Zwei Workflows:
 
-## License
+- `.github/workflows/ci.yml` prüft bei jedem Push und Pull Request die Config, die Panel-Tests, baut beide Images und startet den Stack. Der Lauf gilt erst, wenn das Panel gesund ist, die Bot-API vom Panel aus antwortet und Port 58913 nicht am Host hängt.
+- `.github/workflows/docker-publish.yml` veröffentlicht auf `master` beide Images für `linux/amd64` und `linux/arm64`, scannt sie und signiert sie.
 
-MIT — see [LICENSE](LICENSE). TS3AudioBot itself is GPLv3.
+Lokal: `make test` und `make panel-test`.
+
+## Sicherheit
+
+Der Bot läuft als Benutzer `ts3audiobot` (UID 9999), mit nur-lesbarem Root-Dateisystem und ohne Linux-Capabilities. Details und Meldungen: [SECURITY.md](SECURITY.md).
+
+## Lizenz
+
+MIT, siehe [LICENSE](LICENSE). TS3AudioBot selbst ist GPLv3.

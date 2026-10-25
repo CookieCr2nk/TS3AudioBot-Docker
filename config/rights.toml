@@ -33,11 +33,13 @@
 [[rule]]
 	# Set your admin Group Ids here, ex: [ 13, 42 ]
 	groupid = []
-	# And/Or your admin Client Uids here.
-	# The web panel does not call from 127.0.0.1. Add the UID from `!api token`.
+	# And/Or your admin Client Uids here
 	useruid = [  ]
-	# By default treat requests from localhost as admin
-	ip = ["127.0.0.1", "::1" ]
+	# Calls from inside this container (health check).
+	ip = ["127.0.0.1", "::1"]
+	# Every web API caller. Compose does not publish port 58913, and only the
+	# panel shares the bot network, so this does not depend on a container IP.
+	isapi = true
 
 	"+" = "*"
 

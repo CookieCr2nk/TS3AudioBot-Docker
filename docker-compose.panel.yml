@@ -1,12 +1,14 @@
-# Web panel and MariaDB for the TS3AudioBot API.
+# Web panel and MariaDB next to TS3AudioBot.
 # Start: docker compose -f docker-compose.yml -f docker-compose.panel.yml up -d --build
-# Put real secrets in the repository-root .env before exposing port 8080.
-# Defaults below are for a local stack only.
+#
+# botapi:   only the bot and the panel. The bot API is not published to the host.
+# paneldb:  only the panel and MariaDB, and it has no route to the internet.
+# No fixed container addresses. Docker assigns them.
 
 services:
   ts3audiobot:
     networks:
-      - panelnet
+      - botapi
 
   mariadb:
     image: mariadb:11.4
@@ -23,7 +25,7 @@ services:
     volumes:
       - ts3panel-db:/var/lib/mysql
     networks:
-      - panelnet
+      - paneldb
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -68,7 +70,8 @@ services:
       - no-new-privileges:true
     pids_limit: 200
     networks:
-      - panelnet
+      - botapi
+      - paneldb
     logging:
       driver: json-file
       options:
@@ -79,4 +82,6 @@ volumes:
   ts3panel-db:
 
 networks:
-  panelnet:
+  botapi:
+  paneldb:
+    internal: true

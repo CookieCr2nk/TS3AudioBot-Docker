@@ -30,6 +30,15 @@ function basicAuth(user, token) {
   return `Basic ${Buffer.from(`${user}:${token}`, "utf8").toString("base64")}`;
 }
 
+export function apiHeaders(bot) {
+  const headers = {
+    Accept: "application/json",
+    "User-Agent": "ts3panel",
+  };
+  if (bot?.apiUser && bot?.apiToken) headers.Authorization = basicAuth(bot.apiUser, bot.apiToken);
+  return headers;
+}
+
 async function readLimited(response, limit) {
   const declared = Number(response.headers.get("content-length") || 0);
   if (declared > limit) throw new Ts3ApiError("Antwort des Bots ist zu groß");
@@ -91,11 +100,7 @@ export async function callBot(bot, parts, { timeoutMs = 15000 } = {}) {
       method: "GET",
       redirect: "manual",
       signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        Authorization: basicAuth(bot.apiUser, bot.apiToken),
-        "User-Agent": "ts3panel",
-      },
+      headers: apiHeaders(bot),
     });
     if (response.status >= 300 && response.status < 400) {
       throw new Ts3ApiError("Weiterleitung der Bot-API wurde abgelehnt");

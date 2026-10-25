@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS bots (
   base_url VARCHAR(255) NOT NULL,
   instance_mode ENUM('template', 'id', 'none') NOT NULL DEFAULT 'template',
   instance_ref VARCHAR(64) NOT NULL DEFAULT 'default',
-  api_user VARCHAR(128) NOT NULL,
-  api_token_enc TEXT NOT NULL,
+  api_user VARCHAR(128) NULL,
+  api_token_enc TEXT NULL,
   enabled TINYINT(1) NOT NULL DEFAULT 1,
   notes VARCHAR(500) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -63,3 +63,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_audit_bot FOREIGN KEY (bot_id) REFERENCES bots (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Existing installs created these columns as NOT NULL.
+ALTER TABLE bots MODIFY api_user VARCHAR(128) NULL;
+ALTER TABLE bots MODIFY api_token_enc TEXT NULL;

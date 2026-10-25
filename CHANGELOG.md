@@ -8,6 +8,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Web panel (`panel/`) for the TS3AudioBot Web API, with MariaDB accounts and bot assignments (`docker-compose.panel.yml`)
 
 ### Changed
+- The panel calls the bot API without `!api token`. Port 58913 is not published, and `rights.toml` allows every API caller (`isapi = true`)
 - Trimmed documentation and removed unused tooling added during an automated refactor
 - Simplified `docker-compose.yml` volume setup (bind mount to `./data`)
 - Rewrote README and SECURITY.md without compliance marketing language
