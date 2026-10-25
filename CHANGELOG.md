@@ -18,6 +18,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - Bot `/tmp` tmpfs is 256 MiB and executable. The .NET single-file host extracts about 68 MiB there and maps `libhostfxr.so` from it. 64 MiB failed the write, and Docker's default `noexec` then failed the map
+- Install Ubuntu 22.04 `libicu70` next to Debian 12's `libicu72`. .NET Core 3.1 only probes ICU through version 70, so the bot exited before the API listened
 - `validate-config.sh` now checks the actual `bots/default/bot.toml` fields
 
 ## Previous work (2026-04)

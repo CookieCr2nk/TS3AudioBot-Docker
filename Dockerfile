@@ -56,8 +56,29 @@ ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
     HOME=/tmp
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# TS3AudioBot 0.12 ships a self-contained .NET Core 3.1 host. That host
+# dlopens libicuuc.so.N / libicui18n.so.N only through major version 70
+# (dotnet/runtime#34095 raised the ceiling in .NET 5, not in 3.1).
+# Bookworm's libicu72 is installed by the base image and is never probed,
+# so the process FailFasts before the API listens. Ubuntu 22.04's libicu70
+# provides the .so.70 names and requires glibc >= 2.34, which bookworm has.
+# Checksums are the jammy pool files libicu70_70.1-2.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl libopus0 && \
+    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libopus0 && \
+    icu_arch="$(dpkg --print-architecture)" && \
+    case "$icu_arch" in \
+      amd64) \
+        icu_url="https://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu70_70.1-2_amd64.deb"; \
+        icu_sha="58a154f6307289813da2276f900498ef536ae7c0522d2cf31a3c3c5cf62dfd9a" ;; \
+      arm64) \
+        icu_url="https://ports.ubuntu.com/pool/main/i/icu/libicu70_70.1-2_arm64.deb"; \
+        icu_sha="ac68372cf4a976e6a206858fd9b28c68e49d37d650b9b8653270038a6e7bc174" ;; \
+      *) echo "unsupported architecture: ${icu_arch}" >&2; exit 1 ;; \
+    esac && \
+    curl -fL --retry 5 --retry-delay 5 "$icu_url" -o /tmp/libicu70.deb && \
+    echo "${icu_sha}  /tmp/libicu70.deb" | sha256sum -c - && \
+    dpkg-deb -x /tmp/libicu70.deb / && \
+    ldconfig && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     find / -xdev -perm /6000 -type f -print0 | xargs -0 -r chmod a-s
 
