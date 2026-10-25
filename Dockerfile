@@ -56,28 +56,36 @@ ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
     HOME=/tmp
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# TS3AudioBot 0.12 ships a self-contained .NET Core 3.1 host. That host
-# dlopens libicuuc.so.N / libicui18n.so.N only through major version 70
-# (dotnet/runtime#34095 raised the ceiling in .NET 5, not in 3.1).
-# Bookworm's libicu72 is installed by the base image and is never probed,
-# so the process FailFasts before the API listens. Ubuntu 22.04's libicu70
-# provides the .so.70 names and requires glibc >= 2.34, which bookworm has.
-# Checksums are the jammy pool files libicu70_70.1-2.
+# TS3AudioBot 0.12 ships a self-contained .NET Core 3.1 host. That runtime
+# predates Debian 12's libraries, so the process exits before the API listens:
+# - It dlopens libicuuc.so.N only through major version 70. Bookworm's
+#   libicu72 is never probed (dotnet/runtime#34095 raised the ceiling in
+#   .NET 5). Ubuntu 22.04's libicu70 supplies libicuuc.so.70.
+# - It dlopens libssl.so.1.1. Bookworm ships libssl.so.3 only. Bullseye's
+#   libssl1.1 1.1.1w-0+deb11u8 supplies the 1.1 sonames.
+# Bookworm's glibc is new enough for both. Checksums are pinned below.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libopus0 && \
-    icu_arch="$(dpkg --print-architecture)" && \
-    case "$icu_arch" in \
+    lib_arch="$(dpkg --print-architecture)" && \
+    case "$lib_arch" in \
       amd64) \
         icu_url="https://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu70_70.1-2_amd64.deb"; \
-        icu_sha="58a154f6307289813da2276f900498ef536ae7c0522d2cf31a3c3c5cf62dfd9a" ;; \
+        icu_sha="58a154f6307289813da2276f900498ef536ae7c0522d2cf31a3c3c5cf62dfd9a"; \
+        ssl_url="https://archive.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1w-0+deb11u8_amd64.deb"; \
+        ssl_sha="dcc68a543de6cb955a57077b66dcdb15f61d1e31e072f2c6cc4082c37da1b00d" ;; \
       arm64) \
         icu_url="https://ports.ubuntu.com/pool/main/i/icu/libicu70_70.1-2_arm64.deb"; \
-        icu_sha="ac68372cf4a976e6a206858fd9b28c68e49d37d650b9b8653270038a6e7bc174" ;; \
-      *) echo "unsupported architecture: ${icu_arch}" >&2; exit 1 ;; \
+        icu_sha="ac68372cf4a976e6a206858fd9b28c68e49d37d650b9b8653270038a6e7bc174"; \
+        ssl_url="https://archive.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1w-0+deb11u8_arm64.deb"; \
+        ssl_sha="0fba4e602e499c97c4b623bd56295115667c312ff583221a71b476dd6983a5e0" ;; \
+      *) echo "unsupported architecture: ${lib_arch}" >&2; exit 1 ;; \
     esac && \
     curl -fL --retry 5 --retry-delay 5 "$icu_url" -o /tmp/libicu70.deb && \
     echo "${icu_sha}  /tmp/libicu70.deb" | sha256sum -c - && \
     dpkg-deb -x /tmp/libicu70.deb / && \
+    curl -fL --retry 5 --retry-delay 5 "$ssl_url" -o /tmp/libssl1.1.deb && \
+    echo "${ssl_sha}  /tmp/libssl1.1.deb" | sha256sum -c - && \
+    dpkg-deb -x /tmp/libssl1.1.deb / && \
     ldconfig && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     find / -xdev -perm /6000 -type f -print0 | xargs -0 -r chmod a-s
