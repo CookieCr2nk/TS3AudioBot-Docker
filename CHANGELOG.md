@@ -16,6 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
+- Bot `/tmp` tmpfs is 256 MiB. The .NET single-file host extracts about 68 MiB there; 64 MiB made it exit with "I/O failure when writing extracted files" before the API could start
 - `validate-config.sh` now checks the actual `bots/default/bot.toml` fields
 
 ## Previous work (2026-04)

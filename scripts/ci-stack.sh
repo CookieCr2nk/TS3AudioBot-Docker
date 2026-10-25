@@ -32,6 +32,9 @@ cleanup() {
 trap cleanup EXIT
 
 make init-data
+# ./data hides the image directory and is owned by the runner. The bot
+# writes its database and log there as uid 9999.
+sudo chown -R 9999:9999 data
 docker build -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
 "${COMPOSE[@]}" up -d --build
 

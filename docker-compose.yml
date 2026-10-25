@@ -7,8 +7,11 @@ services:
     # so the port must stay reachable only by containers on the bot network.
     volumes:
       - ./data:/data
+    # TS3AudioBot 0.12 is a .NET Core 3.1 single-file binary. It extracts
+    # about 68 MiB into /tmp/.net before it listens. A 64 MiB tmpfs fails
+    # that write and the process exits.
     tmpfs:
-      - /tmp:mode=1777,size=64m
+      - /tmp:mode=1777,size=256m
     read_only: true
     cap_drop:
       - ALL
