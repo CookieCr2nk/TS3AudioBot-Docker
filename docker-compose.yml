@@ -8,10 +8,11 @@ services:
     volumes:
       - ./data:/data
     # TS3AudioBot 0.12 is a .NET Core 3.1 single-file binary. It extracts
-    # about 68 MiB into /tmp/.net before it listens. A 64 MiB tmpfs fails
-    # that write and the process exits.
+    # about 68 MiB into /tmp/.net and then maps libhostfxr.so from there.
+    # Docker's tmpfs default is noexec, so exec is required. 64 MiB is too
+    # small for the extract and the process exits before it listens.
     tmpfs:
-      - /tmp:mode=1777,size=256m
+      - /tmp:mode=1777,size=256m,exec
     read_only: true
     cap_drop:
       - ALL

@@ -47,8 +47,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/CookieCr2nk/TS3AudioBot-Docker"
 
 ENV DEBIAN_FRONTEND=noninteractive
-# The single-file host writes about 68 MiB under DOTNET_BUNDLE_EXTRACT_BASE_DIR.
-# Compose mounts /tmp as a 256 MiB tmpfs because the root filesystem is read-only.
+# The single-file host writes about 68 MiB under DOTNET_BUNDLE_EXTRACT_BASE_DIR
+# and maps libhostfxr.so from there. Compose mounts /tmp as a 256 MiB tmpfs
+# with exec, because the root filesystem is read-only and Docker's tmpfs
+# default is noexec.
 ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
     XDG_CACHE_HOME=/tmp/.cache \
     HOME=/tmp
