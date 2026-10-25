@@ -1,6 +1,7 @@
 services:
   ts3audiobot:
-    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:develop
+    pull_policy: always
     container_name: ts3audiobot
     restart: unless-stopped
     # 58913 is not published. rights.toml treats every API caller as admin,

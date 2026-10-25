@@ -12,11 +12,14 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Keep the freshly built bot image. Panel and MariaDB may still pull.
+# Compose pulls the GHCR tags. CI tests the images built from this
+# checkout, so those tags stay local.
 PULL_OVERRIDE="$(mktemp)"
 cat > "$PULL_OVERRIDE" <<'EOF'
 services:
   ts3audiobot:
+    pull_policy: never
+  panel:
     pull_policy: never
 EOF
 
@@ -35,8 +38,11 @@ make init-data
 # ./data hides the image directory and is owned by the runner. The bot
 # writes its database and log there as uid 9999.
 sudo chown -R 9999:9999 data
-docker build -t ghcr.io/cookiecr2nk/ts3audiobot-docker:master .
-"${COMPOSE[@]}" up -d --build
+BOT_IMAGE="$(awk '/image: ghcr.io\/cookiecr2nk\/ts3audiobot-docker:/{print $2; exit}' docker-compose.yml)"
+PANEL_IMAGE="$(awk '/image: ghcr.io\/cookiecr2nk\/ts3audiobot-docker-panel:/{print $2; exit}' docker-compose.panel.yml)"
+docker build -t "$BOT_IMAGE" .
+docker build -t "$PANEL_IMAGE" ./panel
+"${COMPOSE[@]}" up -d
 
 wait_healthy() {
   local name="$1"

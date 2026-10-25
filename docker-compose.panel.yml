@@ -1,5 +1,6 @@
 # Web panel and MariaDB next to TS3AudioBot.
-# Start: docker compose -f docker-compose.yml -f docker-compose.panel.yml up -d --build
+# Start: docker compose -f docker-compose.yml -f docker-compose.panel.yml up -d
+# Bot and panel images come from GHCR (:develop on this branch).
 #
 # botapi:   only the bot and the panel. The bot API is not published to the host.
 # paneldb:  only the panel and MariaDB, and it has no route to the internet.
@@ -39,9 +40,8 @@ services:
         max-file: "3"
 
   panel:
-    build:
-      context: ./panel
-    image: ts3audiobot-panel:local
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:develop
+    pull_policy: always
     container_name: ts3panel
     restart: unless-stopped
     depends_on:
