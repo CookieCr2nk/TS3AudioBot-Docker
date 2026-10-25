@@ -63,9 +63,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #   .NET 5). Ubuntu 22.04's libicu70 supplies libicuuc.so.70.
 # - It dlopens libssl.so.1.1. Bookworm ships libssl.so.3 only. Bullseye's
 #   libssl1.1 1.1.1w-0+deb11u8 supplies the 1.1 sonames.
-# Bookworm's glibc is new enough for both. Checksums are pinned below.
+# - DllImport("libopus") loads libopus.so. libopus0 only ships libopus.so.0,
+#   so the unversioned symlink from libopus-dev is created below.
+# Bookworm's glibc is new enough for these libraries. Checksums are pinned below.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libopus0 && \
+    opus_so0="$(dpkg -L libopus0 | awk '/\/libopus\.so\.0$/{print; exit}')" && \
+    test -n "$opus_so0" && \
+    ln -sfn libopus.so.0 "$(dirname "$opus_so0")/libopus.so" && \
     lib_arch="$(dpkg --print-architecture)" && \
     case "$lib_arch" in \
       amd64) \
