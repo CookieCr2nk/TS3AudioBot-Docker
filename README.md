@@ -103,14 +103,14 @@ docker build -t ts3audiobot-panel:local ./panel
 
 `BOT_RELEASE` muss ein [Release-Tag](https://github.com/Splamy/TS3AudioBot/releases) sein, kein Branch-Name. Standard ist `0.12.0`.
 
-Images von GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` und, nach dem ersten Publish, `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:master`.
+Images von GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` und `:develop`, dazu das Panel als `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:master` und `:develop`.
 
 ## CI
 
 Zwei Workflows:
 
 - `.github/workflows/ci.yml` prüft bei jedem Push und Pull Request die Config, die Panel-Tests, baut beide Images und startet den Stack. Der Lauf gilt erst, wenn das Panel gesund ist, die Bot-API vom Panel aus antwortet und Port 58913 nicht am Host hängt.
-- `.github/workflows/docker-publish.yml` veröffentlicht auf `master` beide Images für `linux/amd64` und `linux/arm64`, scannt sie und signiert sie.
+- `.github/workflows/docker-publish.yml` baut auf `master` und `develop` beide Images für `linux/amd64` und `linux/arm64` und schiebt sie nach GHCR. `develop` bekommt den Tag `:develop`. `master` behält `:master` und den Bot-Release-Tag. Die Images werden gescannt und signiert.
 
 Lokal: `make test` und `make panel-test`.
 

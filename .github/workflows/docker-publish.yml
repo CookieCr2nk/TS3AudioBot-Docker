@@ -9,11 +9,11 @@ on:
 #  schedule:
 #    - cron: '29 8 * * *'
   push:
-    branches: [ "master" ]
+    branches: [ "master", "develop" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "develop" ]
   workflow_dispatch:
 
 env:
@@ -68,11 +68,13 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=master,enable={{is_default_branch}}
-            type=raw,value=${{ env.BOT_RELEASE }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=${{ env.BOT_RELEASE }},enable={{is_default_branch}}
             type=sha,format=short
 
       # On pull requests we build a single-arch image and load it locally so it
-      # can be scanned without pushing. On master we build all platforms and push.
+      # can be scanned without pushing. On master and develop we build all
+      # platforms and push. develop is published as :develop, not as the bot release tag.
       - name: Build Docker image
         id: build
         uses: docker/build-push-action@v6
@@ -182,6 +184,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-panel
           tags: |
             type=raw,value=master,enable={{is_default_branch}}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
             type=sha,format=short
 
       - name: Build panel image

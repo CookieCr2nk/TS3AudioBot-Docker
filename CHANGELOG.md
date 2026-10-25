@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Web panel (`panel/`) for the TS3AudioBot Web API, with MariaDB accounts and bot assignments (`docker-compose.panel.yml`)
 - Compose file for an external MariaDB (`docker-compose.panel-external-db.yml`)
+- Pushes to `develop` publish both images to GHCR with the tag `:develop`
 
 ### Changed
 - The panel calls the bot API without `!api token`. Port 58913 is not published, and `rights.toml` allows every API caller (`isapi = true`)
