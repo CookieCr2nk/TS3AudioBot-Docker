@@ -40,6 +40,29 @@ Logs: `make compose-panel-logs` und `docker compose logs -f ts3audiobot`
 
 Stoppen: `make compose-panel-down`
 
+## Externe MariaDB
+
+Wenn die Datenbank schon woanders läuft, startet dieser Stack keinen MariaDB-Container. Host, Port, Benutzer, Passwort und Datenbankname kommen nur aus der `.env`.
+
+```bash
+# in der .env im Repo-Root
+PANEL_DB_HOST=db.example.com
+PANEL_DB_PORT=3306
+PANEL_DB_NAME=ts3panel
+PANEL_DB_USER=ts3panel
+PANEL_DB_PASSWORD=change-me
+```
+
+Liegt MariaDB auf demselben Rechner wie Docker, setze `PANEL_DB_HOST=host.docker.internal`. `127.0.0.1` wäre der Panel-Container selbst.
+
+Datenbank und Benutzer müssen existieren und von der Docker-Bridge aus Verbindungen annehmen. Das Panel legt seine Tabellen beim Start selbst an.
+
+```bash
+make compose-panel-external-up
+```
+
+Stoppen: `make compose-panel-external-down`. Die externe Datenbank bleibt dabei unangetastet.
+
 ## Warum kein API-Token
 
 Die Bot-API hört im Container auf Port 58913. Compose veröffentlicht diesen Port nicht. Im Panel-Setup hängen nur Bot und Panel am Netz `botapi`. MariaDB hängt an einem zweiten Netz `paneldb` ohne Internetzugang.
