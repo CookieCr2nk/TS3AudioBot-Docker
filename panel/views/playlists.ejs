@@ -1,0 +1,48 @@
+<header class="page-head">
+  <div>
+    <h1>Playlists</h1>
+    <p class="muted"><%= bot.name %></p>
+  </div>
+</header>
+<%- include("partials/botnav") %>
+
+<% if (error) { %>
+  <p class="flash flash-error" role="alert"><%= error %></p>
+  <% if (rightsHint) { %><%- include("partials/rights") %><% } %>
+<% } %>
+
+<% if (access.canControl) { %>
+  <form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
+    <%- include("partials/csrf") %>
+    <input type="hidden" name="op" value="list-create">
+    <h2>Neue Playlist</h2>
+    <div class="split">
+      <label>ID
+        <input name="listId" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="abend">
+      </label>
+      <label class="grow">Titel
+        <input name="title" required maxlength="120" placeholder="Abend">
+      </label>
+      <button class="btn btn-primary" type="submit">Anlegen</button>
+    </div>
+  </form>
+<% } %>
+
+<% if (!error && !lists.length) { %><p class="muted">Keine Playlists.</p><% } %>
+
+<div class="cards">
+  <% lists.forEach(function (list) { %>
+    <article class="card">
+      <h2><a href="/bots/<%= bot.id %>/playlists/<%= encode(list.id) %>"><%= list.title %></a></h2>
+      <p class="muted mono"><%= list.id %><% if (list.count != null) { %> · <%= list.count %> Titel<% } %></p>
+      <% if (access.canControl) { %>
+        <form method="post" action="/bots/<%= bot.id %>/action" class="row">
+          <%- include("partials/csrf") %>
+          <input type="hidden" name="listId" value="<%= list.id %>">
+          <button class="btn btn-primary" type="submit" name="op" value="list-play">Spielen</button>
+          <button class="btn" type="submit" name="op" value="list-queue">Anhängen</button>
+        </form>
+      <% } %>
+    </article>
+  <% }) %>
+</div>

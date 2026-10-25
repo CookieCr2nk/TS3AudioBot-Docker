@@ -1,0 +1,45 @@
+<header class="page-head">
+  <div>
+    <h1>Übersicht</h1>
+    <p class="muted">Jeder Karte entspricht ein TS3AudioBot-Prozess.</p>
+  </div>
+  <% if (admin) { %><a class="btn btn-primary" href="/admin/bots/new">Bot anlegen</a><% } %>
+</header>
+
+<% if (!cards.length) { %>
+  <section class="card">
+    <% if (admin) { %>
+      <h2>Noch kein Bot</h2>
+      <ol class="steps">
+        <li>Dem Bot in TeamSpeak privat <code>!api token</code> schicken.</li>
+        <li>Die UID in <code>data/rights.toml</code> unter <code>useruid</code> eintragen und den Bot neu starten.</li>
+        <li>Bot anlegen. Im Compose-Netz ist die API <code>http://ts3audiobot:58913</code>.</li>
+        <li>Benutzer anlegen und den Bot zuweisen.</li>
+      </ol>
+      <%- include("partials/rights") %>
+    <% } else { %>
+      <h2>Kein Bot zugewiesen</h2>
+      <p>Ein Administrator muss dir einen Bot freigeben.</p>
+    <% } %>
+  </section>
+<% } %>
+
+<div class="cards">
+  <% cards.forEach(function (card) { %>
+    <article class="card bot-card">
+      <div class="row">
+        <h2><a href="/bots/<%= card.id %>"><%= card.name %></a></h2>
+        <% if (card.online) { %><span class="pill pill-ok">Erreichbar</span>
+        <% } else { %><span class="pill pill-bad">Keine Verbindung</span><% } %>
+      </div>
+      <p class="muted">
+        <% if (card.canControl) { %>Steuern<% } else { %>Nur lesen<% } %>
+        <% if (!card.enabled) { %> · deaktiviert<% } %>
+        <% if (card.version) { %> · <%= card.version %><% } %>
+      </p>
+      <% if (card.baseUrl) { %><p class="mono"><%= card.baseUrl %></p><% } %>
+      <% if (card.notes) { %><p><%= card.notes %></p><% } %>
+      <% if (card.error) { %><p class="warn"><%= card.error %></p><% } %>
+    </article>
+  <% }) %>
+</div>

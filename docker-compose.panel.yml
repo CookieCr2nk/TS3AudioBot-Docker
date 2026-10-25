@@ -1,0 +1,82 @@
+# Web panel and MariaDB for the TS3AudioBot API.
+# Start: docker compose -f docker-compose.yml -f docker-compose.panel.yml up -d --build
+# Put real secrets in the repository-root .env before exposing port 8080.
+# Defaults below are for a local stack only.
+
+services:
+  ts3audiobot:
+    networks:
+      - panelnet
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: ts3panel-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${PANEL_DB_NAME:-ts3panel}
+      MARIADB_USER: ${PANEL_DB_USER:-ts3panel}
+      MARIADB_PASSWORD: ${PANEL_DB_PASSWORD:-ts3panel}
+      MARIADB_ROOT_PASSWORD: ${PANEL_DB_ROOT_PASSWORD:-ts3panel-root}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ts3panel-db:/var/lib/mysql
+    networks:
+      - panelnet
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  panel:
+    build:
+      context: ./panel
+    image: ts3audiobot-panel:local
+    container_name: ts3panel
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_USER: ${PANEL_DB_USER:-ts3panel}
+      DB_PASSWORD: ${PANEL_DB_PASSWORD:-ts3panel}
+      DB_NAME: ${PANEL_DB_NAME:-ts3panel}
+      TOKEN_KEY: ${PANEL_TOKEN_KEY:-dev-only-token-key}
+      ADMIN_USER: ${PANEL_ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${PANEL_ADMIN_PASSWORD:-}
+      COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-false}
+      TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
+      PORT: "8080"
+    ports:
+      - "${PANEL_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    networks:
+      - panelnet
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ts3panel-db:
+
+networks:
+  panelnet:

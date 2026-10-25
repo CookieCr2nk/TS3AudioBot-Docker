@@ -18,6 +18,7 @@ Please do not open a public GitHub issue for security problems. Email **noa@jode
 - Treat `bot.toml` identity keys and passwords as secrets
 - Restrict who can reach port 58913 if the web API is enabled
 - Back up the `data/` directory before upgrades
+- If you run the web panel, set `PANEL_DB_PASSWORD` and `PANEL_TOKEN_KEY` before exposing port 8080. The panel keeps bot API tokens encrypted in MariaDB and does not send them to the browser. Do not publish the MariaDB port.
 
 ## Dependencies
 

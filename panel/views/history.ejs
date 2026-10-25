@@ -1,0 +1,48 @@
+<header class="page-head">
+  <div>
+    <h1>Verlauf</h1>
+    <p class="muted"><%= bot.name %></p>
+  </div>
+</header>
+<%- include("partials/botnav") %>
+
+<form method="get" action="/bots/<%= bot.id %>/history" class="split">
+  <label class="grow">Titel enthält
+    <input name="q" value="<%= query %>" maxlength="200">
+  </label>
+  <button class="btn" type="submit">Suchen</button>
+  <% if (query) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>/history">Zurücksetzen</a><% } %>
+</form>
+
+<% if (error) { %>
+  <p class="flash flash-error" role="alert"><%= error %></p>
+  <% if (rightsHint) { %><%- include("partials/rights") %><% } %>
+<% } %>
+
+<% if (!error && !rows.length) { %><p class="muted">Keine Einträge.</p><% } %>
+
+<% if (rows.length) { %>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Titel</th><th></th></tr></thead>
+      <tbody>
+        <% rows.forEach(function (row) { %>
+          <tr>
+            <td class="mono"><%= row.id == null ? "—" : row.id %></td>
+            <td><%= row.title %><% if (row.meta) { %><div class="muted"><%= row.meta %></div><% } %></td>
+            <td>
+              <% if (access.canControl && row.id != null) { %>
+                <form method="post" action="/bots/<%= bot.id %>/action">
+                  <%- include("partials/csrf") %>
+                  <input type="hidden" name="op" value="history-play">
+                  <input type="hidden" name="historyId" value="<%= row.id %>">
+                  <button class="btn" type="submit">Spielen</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

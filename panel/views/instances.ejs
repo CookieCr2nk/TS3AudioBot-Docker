@@ -1,0 +1,111 @@
+<header class="page-head">
+  <div>
+    <h1>Instanzen</h1>
+    <p class="muted">
+      Vorlagen in diesem TS3AudioBot-Prozess.
+      Steuerung der Wiedergabe:
+      <% if (bot.instanceMode === "none") { %>kein Kontext<% } else { %><%= bot.instanceMode %> <span class="mono"><%= bot.instanceRef %></span><% } %>
+    </p>
+  </div>
+</header>
+<%- include("partials/botnav") %>
+
+<% if (error) { %>
+  <p class="flash flash-error" role="alert"><%= error %></p>
+  <% if (rightsHint) { %><%- include("partials/rights") %><% } %>
+<% } %>
+
+<form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
+  <%- include("partials/csrf") %>
+  <input type="hidden" name="op" value="template-create">
+  <h2>Vorlage anlegen</h2>
+  <div class="split">
+    <label class="grow">Name
+      <input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="lobby">
+    </label>
+    <button class="btn btn-primary" type="submit">Anlegen</button>
+  </div>
+  <p class="muted">Identität und Passwort bleiben in <code>data/bots/&lt;name&gt;/bot.toml</code>.</p>
+</form>
+
+<% if (instances.length) { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Server</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% instances.forEach(function (item) { %>
+          <tr>
+            <td class="mono"><%= item.id == null ? "—" : item.id %></td>
+            <td><%= item.name || "—" %><% if (item.current) { %> <span class="pill pill-ok">Aktiv</span><% } %></td>
+            <td>
+              <% if (item.name && item.status === "offline") { %>
+                <form method="post" action="/bots/<%= bot.id %>/action" class="inline">
+                  <%- include("partials/csrf") %>
+                  <input type="hidden" name="op" value="template-address">
+                  <input type="hidden" name="name" value="<%= item.name %>">
+                  <input name="address" value="<%= item.server %>" placeholder="ts.example.com" maxlength="200" required>
+                  <button class="btn btn-ghost" type="submit">Speichern</button>
+                </form>
+              <% } else { %><%= item.server || "—" %><% } %>
+            </td>
+            <td><span class="pill pill-<%= item.status === "connected" ? "ok" : item.status === "connecting" ? "warn" : "bad" %>"><%= item.statusLabel %></span></td>
+            <td class="actions-cell">
+              <% if (item.name && item.status === "offline") { %>
+                <form method="post" action="/bots/<%= bot.id %>/action">
+                  <%- include("partials/csrf") %>
+                  <input type="hidden" name="op" value="connect">
+                  <input type="hidden" name="name" value="<%= item.name %>">
+                  <button class="btn" type="submit">Starten</button>
+                </form>
+              <% } %>
+              <% if (item.id != null) { %>
+                <form method="post" action="/bots/<%= bot.id %>/action" data-confirm="Instanz trennen?">
+                  <%- include("partials/csrf") %>
+                  <input type="hidden" name="op" value="disconnect">
+                  <input type="hidden" name="instanceId" value="<%= item.id %>">
+                  <button class="btn btn-danger" type="submit">Trennen</button>
+                </form>
+              <% } %>
+              <% if (item.name || item.id != null) { %>
+                <form method="post" action="/bots/<%= bot.id %>/action">
+                  <%- include("partials/csrf") %>
+                  <input type="hidden" name="op" value="use-instance">
+                  <input type="hidden" name="name" value="<%= item.name %>">
+                  <input type="hidden" name="instanceId" value="<%= item.id == null ? "" : item.id %>">
+                  <button class="btn btn-ghost" type="submit">Steuern</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
+  <%- include("partials/csrf") %>
+  <input type="hidden" name="op" value="move">
+  <h2>Channel</h2>
+  <div class="split">
+    <label class="grow">Channel-Pfad oder /ID
+      <input name="channel" required maxlength="200" placeholder="/5 oder Home/Lobby">
+    </label>
+    <button class="btn" type="submit">Verschieben</button>
+  </div>
+  <p class="muted">Gilt für die Instanz, die oben als Steuerung gesetzt ist.</p>
+</form>
+
+<form method="post" action="/bots/<%= bot.id %>/action" class="card stack danger-zone">
+  <%- include("partials/csrf") %>
+  <input type="hidden" name="op" value="template-delete">
+  <h2>Vorlage löschen</h2>
+  <p class="muted">Löscht die Bot-Konfiguration im TS3AudioBot. Die Eingabe muss dem Namen entsprechen.</p>
+  <div class="split">
+    <label>Name<input name="name" required maxlength="64"></label>
+    <label>Bestätigung<input name="confirm" required maxlength="64"></label>
+    <button class="btn btn-danger" type="submit">Löschen</button>
+  </div>
+</form>

@@ -1,0 +1,77 @@
+<header class="page-head">
+  <div>
+    <h1><%= editing ? bot.name : "Bot anlegen" %></h1>
+    <p class="muted">Der API-Token wird verschlüsselt gespeichert und nicht an den Browser zurückgegeben.</p>
+  </div>
+  <% if (editing) { %><a class="btn btn-ghost" href="/bots/<%= bot.id %>">Zur Wiedergabe</a><% } %>
+</header>
+
+<% if (error) { %><p class="flash flash-error" role="alert"><%= error %></p><% } %>
+
+<form method="post" action="<%= editing ? "/admin/bots/" + bot.id : "/admin/bots" %>" class="card stack">
+  <%- include("partials/csrf") %>
+  <label>Anzeigename
+    <input name="name" required maxlength="120" value="<%= bot.name %>">
+  </label>
+  <label>API-Adresse
+    <input name="baseUrl" required maxlength="255" value="<%= bot.baseUrl %>" placeholder="http://ts3audiobot:58913">
+  </label>
+  <div class="split">
+    <label>Instanzkontext
+      <select name="instanceMode">
+        <option value="template" <%= bot.instanceMode === "template" ? "selected" : "" %>>Template-Name</option>
+        <option value="id" <%= bot.instanceMode === "id" ? "selected" : "" %>>Laufende ID</option>
+        <option value="none" <%= bot.instanceMode === "none" ? "selected" : "" %>>Keiner</option>
+      </select>
+    </label>
+    <label class="grow">Wert
+      <input name="instanceRef" maxlength="64" value="<%= bot.instanceRef %>" placeholder="default">
+    </label>
+  </div>
+  <p class="muted">Für dieses Docker-Setup ist das Template <code>default</code>. <code>bot template</code> bleibt über Neustarts gültig, eine laufende ID nicht.</p>
+  <%- include("partials/rights") %>
+  <div class="split">
+    <label class="grow">API-UID
+      <input name="apiUser" required maxlength="128" value="<%= bot.apiUser %>" autocomplete="off">
+    </label>
+    <label class="grow">API-Token
+      <input name="apiToken" type="password" maxlength="512" autocomplete="off" placeholder="<%= editing ? "leer lassen behält den Token" : "oder uid:token in dieses Feld" %>" <%= editing ? "" : "required" %>>
+    </label>
+  </div>
+  <label>Notiz
+    <textarea name="notes" maxlength="500" rows="3"><%= bot.notes %></textarea>
+  </label>
+  <label class="check"><input type="checkbox" name="enabled" value="on" <%= bot.enabled ? "checked" : "" %>> Bot ist aktiv</label>
+
+  <h2>Freigaben</h2>
+  <p class="muted">Administratoren sehen jeden Bot. Hier werden normale Benutzer zugewiesen.</p>
+  <% if (!users.length) { %>
+    <p class="muted">Noch kein normaler Benutzer. Unter Benutzer kannst du welche anlegen.</p>
+  <% } %>
+  <% users.forEach(function (account) { %>
+    <% const grant = grantMap[account.id]; %>
+    <div class="grant">
+      <label class="check"><input type="checkbox" name="grant_<%= account.id %>" value="on" <%= grant ? "checked" : "" %>> <%= account.username %></label>
+      <label class="check"><input type="checkbox" name="control_<%= account.id %>" value="on" <%= !grant || grant.canControl ? "checked" : "" %>> Steuern</label>
+    </div>
+  <% }) %>
+
+  <button class="btn btn-primary" type="submit">Speichern</button>
+</form>
+
+<% if (editing) { %>
+  <form method="post" action="/admin/bots/<%= bot.id %>/test">
+    <%- include("partials/csrf") %>
+    <button class="btn" type="submit">Verbindung prüfen</button>
+  </form>
+
+  <form method="post" action="/admin/bots/<%= bot.id %>/delete" class="card stack danger-zone">
+    <%- include("partials/csrf") %>
+    <h2>Bot löschen</h2>
+    <p class="muted">Entfernt den Eintrag aus dem Panel, nicht die Dateien des TS3AudioBot.</p>
+    <label>Bot-Namen zur Bestätigung eingeben
+      <input name="confirm" required maxlength="120">
+    </label>
+    <button class="btn btn-danger" type="submit">Löschen</button>
+  </form>
+<% } %>

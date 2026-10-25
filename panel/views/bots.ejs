@@ -1,0 +1,31 @@
+<header class="page-head">
+  <div>
+    <h1>Bots</h1>
+    <p class="muted">Jeder Eintrag ist ein TS3AudioBot mit eigener Web-API.</p>
+  </div>
+  <a class="btn btn-primary" href="/admin/bots/new">Bot anlegen</a>
+</header>
+
+<% if (!bots.length) { %><p class="muted">Noch kein Bot angelegt.</p><% } %>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>API</th><th>Instanz</th><th>Benutzer</th><th></th></tr>
+    </thead>
+    <tbody>
+      <% bots.forEach(function (item) { %>
+        <tr>
+          <td>
+            <%= item.name %>
+            <% if (!item.enabled) { %><span class="pill pill-bad">Aus</span><% } %>
+          </td>
+          <td class="mono"><%= item.baseUrl %></td>
+          <td class="mono"><%= item.instanceMode %><% if (item.instanceRef) { %> / <%= item.instanceRef %><% } %></td>
+          <td><%= item.grantCount %></td>
+          <td><a class="btn btn-ghost" href="/admin/bots/<%= item.id %>">Bearbeiten</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>

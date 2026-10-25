@@ -1,0 +1,18 @@
+<section class="card narrow">
+  <h1>Konto</h1>
+  <p class="muted">Angemeldet als <%= user.username %>.</p>
+  <% if (error) { %><p class="flash flash-error" role="alert"><%= error %></p><% } %>
+  <form method="post" action="/account" class="stack">
+    <%- include("partials/csrf") %>
+    <label>Aktuelles Passwort
+      <input name="current" type="password" autocomplete="current-password" required>
+    </label>
+    <label>Neues Passwort
+      <input name="password" type="password" autocomplete="new-password" required minlength="10">
+    </label>
+    <label>Wiederholen
+      <input name="confirm" type="password" autocomplete="new-password" required minlength="10">
+    </label>
+    <button class="btn btn-primary" type="submit">Passwort ändern</button>
+  </form>
+</section>

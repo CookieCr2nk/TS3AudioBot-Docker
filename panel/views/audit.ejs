@@ -1,0 +1,26 @@
+<header class="page-head">
+  <div>
+    <h1>Protokoll</h1>
+    <p class="muted">Die letzten 200 Aktionen. API-Tokens stehen hier nicht.</p>
+  </div>
+</header>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Zeit</th><th>Benutzer</th><th>Bot</th><th>Aktion</th><th>Detail</th></tr>
+    </thead>
+    <tbody>
+      <% rows.forEach(function (row) { %>
+        <tr>
+          <td><%= formatTime(row.createdAt) %></td>
+          <td><%= row.username || "—" %></td>
+          <td><%= row.botName || "—" %></td>
+          <td class="mono"><%= row.action %></td>
+          <td><%= row.detail %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% if (!rows.length) { %><p class="muted">Noch keine Einträge.</p><% } %>

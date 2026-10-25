@@ -4,6 +4,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- Web panel (`panel/`) for the TS3AudioBot Web API, with MariaDB accounts and bot assignments (`docker-compose.panel.yml`)
+
 ### Changed
 - Trimmed documentation and removed unused tooling added during an automated refactor
 - Simplified `docker-compose.yml` volume setup (bind mount to `./data`)

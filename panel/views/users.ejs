@@ -1,0 +1,70 @@
+<header class="page-head">
+  <div>
+    <h1>Benutzer</h1>
+    <p class="muted">Konten für das Panel. Das sind nicht die TeamSpeak-Identitäten.</p>
+  </div>
+</header>
+
+<% if (error) { %><p class="flash flash-error" role="alert"><%= error %></p><% } %>
+
+<form method="post" action="/admin/users" class="card stack">
+  <%- include("partials/csrf") %>
+  <h2>Anlegen</h2>
+  <div class="split">
+    <label>Benutzername
+      <input name="username" required maxlength="32" pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,31}" autocomplete="off">
+    </label>
+    <label>Passwort
+      <input name="password" type="password" required minlength="10" autocomplete="new-password">
+    </label>
+    <label>Rolle
+      <select name="role">
+        <option value="user">Benutzer</option>
+        <option value="admin">Administrator</option>
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit">Anlegen</button>
+  </div>
+</form>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Rolle</th><th>Letzter Login</th><th>Passwort</th><th></th></tr>
+    </thead>
+    <tbody>
+      <% users.forEach(function (account) { %>
+        <tr>
+          <td><%= account.username %></td>
+          <td>
+            <form method="post" action="/admin/users/<%= account.id %>/role" class="inline">
+              <%- include("partials/csrf") %>
+              <select name="role">
+                <option value="user" <%= account.role === "user" ? "selected" : "" %>>Benutzer</option>
+                <option value="admin" <%= account.role === "admin" ? "selected" : "" %>>Administrator</option>
+              </select>
+              <button class="btn btn-ghost" type="submit">Speichern</button>
+            </form>
+          </td>
+          <td><%= account.lastLoginAt ? formatTime(account.lastLoginAt) : "—" %></td>
+          <td>
+            <form method="post" action="/admin/users/<%= account.id %>/password" class="inline">
+              <%- include("partials/csrf") %>
+              <input name="password" type="password" required minlength="10" autocomplete="new-password" placeholder="Neues Passwort">
+              <button class="btn btn-ghost" type="submit">Setzen</button>
+            </form>
+          </td>
+          <td>
+            <% if (account.id !== user.id) { %>
+              <form method="post" action="/admin/users/<%= account.id %>/delete" class="inline">
+                <%- include("partials/csrf") %>
+                <label class="check"><input type="checkbox" name="confirm" value="on" required> Löschen</label>
+                <button class="btn btn-danger" type="submit">Entfernen</button>
+              </form>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>

@@ -6,6 +6,7 @@
 
 [[rule]]
 	groupid = []
+	# The web panel does not call from 127.0.0.1. Add the UID from `!api token`.
 	useruid = []
 	ip = ["127.0.0.1", "::1"]
 	"+" = "*"
