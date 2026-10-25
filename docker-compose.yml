@@ -1,3 +1,6 @@
+# Only the bot. The API port stays inside the container.
+# Start: docker compose up -d
+
 services:
   ts3audiobot:
     image: ghcr.io/cookiecr2nk/ts3audiobot-docker:develop

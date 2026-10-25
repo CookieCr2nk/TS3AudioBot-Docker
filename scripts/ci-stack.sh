@@ -23,7 +23,7 @@ services:
     pull_policy: never
 EOF
 
-COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.panel.yml -f "$PULL_OVERRIDE")
+COMPOSE=(docker compose -f docker-compose.panel.yml -f "$PULL_OVERRIDE")
 export PANEL_DB_PASSWORD="${PANEL_DB_PASSWORD:-ci-db-password}"
 export PANEL_DB_ROOT_PASSWORD="${PANEL_DB_ROOT_PASSWORD:-ci-root-password}"
 export PANEL_TOKEN_KEY="${PANEL_TOKEN_KEY:-ci-token-key-value}"

@@ -9,7 +9,7 @@ Please do not open a public GitHub issue for security problems. Email **noa@jode
 - Runs as user `ts3audiobot` (UID 9999) with `/usr/sbin/nologin`
 - Bot binaries and `yt-dlp` are owned by root; the app user cannot modify them
 - SUID/SGID bits are stripped from the base image at build time
-- `docker-compose.yml` enables read-only root, `cap_drop: ALL`, `no-new-privileges`, and a PID limit
+- The Compose files enable read-only root, `cap_drop: ALL`, `no-new-privileges`, and a PID limit
 - Health check hits `http://127.0.0.1:58913/` from inside the container
 
 ## What you should do

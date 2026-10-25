@@ -37,7 +37,11 @@ jobs:
         run: node --test panel/test/*.js
 
       - name: Validate Compose files
-        run: docker compose -f docker-compose.yml -f docker-compose.panel.yml config --quiet
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.panel.yml config --quiet
+          PANEL_DB_HOST=db.example.com PANEL_DB_PASSWORD=ci \
+            docker compose -f docker-compose.panel-external-db.yml config --quiet
 
   stack:
     needs: test

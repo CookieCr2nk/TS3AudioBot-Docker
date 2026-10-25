@@ -1,5 +1,5 @@
-# Web panel and MariaDB next to TS3AudioBot.
-# Start: docker compose -f docker-compose.yml -f docker-compose.panel.yml up -d
+# Bot, web panel, and MariaDB.
+# Start: docker compose -f docker-compose.panel.yml up -d
 # Bot and panel images come from GHCR (:develop on this branch).
 #
 # botapi:   only the bot and the panel. The bot API is not published to the host.
@@ -8,6 +8,31 @@
 
 services:
   ts3audiobot:
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:develop
+    pull_policy: always
+    container_name: ts3audiobot
+    restart: unless-stopped
+    # 58913 is not published. rights.toml treats every API caller as admin,
+    # so the port must stay reachable only by containers on the bot network.
+    volumes:
+      - ./data:/data
+    # TS3AudioBot 0.12 is a .NET Core 3.1 single-file binary. It extracts
+    # about 68 MiB into /tmp/.net and then maps libhostfxr.so from there.
+    # Docker's tmpfs default is noexec, so exec is required. 64 MiB is too
+    # small for the extract and the process exits before it listens.
+    tmpfs:
+      - /tmp:mode=1777,size=256m,exec
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 100
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - botapi
 

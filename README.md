@@ -2,15 +2,16 @@
 
 Docker-Image für [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) und ein optionales Web-Panel.
 
-Es gibt zwei Wege:
+Es gibt drei Compose-Dateien. Jede startet für sich.
 
-| | Nur der Bot | Bot und Panel |
-|---|---|---|
-| Start | `docker compose up -d` | `make compose-panel-up` |
-| Oberfläche | keine | http://localhost:8080 |
-| Bot-API Port 58913 | nicht von außen erreichbar | nur das Panel, im internen Netz |
+| | Nur der Bot | Bot, Panel, MariaDB | Bot, Panel, externe MariaDB |
+|---|---|---|---|
+| Datei | `docker-compose.yml` | `docker-compose.panel.yml` | `docker-compose.panel-external-db.yml` |
+| Start | `docker compose up -d` | `make compose-panel-up` | `make compose-panel-external-up` |
+| Oberfläche | keine | http://localhost:8080 | http://localhost:8080 |
+| Bot-API Port 58913 | nicht von außen erreichbar | nur das Panel, im internen Netz | nur das Panel, im internen Netz |
 
-Das Panel und der Bot sind getrennte Container. MariaDB ist ein dritter Container und sieht die Bot-API nicht.
+Das Panel und der Bot sind getrennte Container. In `docker-compose.panel.yml` ist MariaDB ein dritter Container und sieht die Bot-API nicht.
 
 ## Bot und Panel starten
 
@@ -38,13 +39,13 @@ Die Oberfläche ist Englisch. Bevorzugt der Browser Deutsch, verwendet das Panel
 
 TeamSpeak trägst du in `data/bots/default/bot.toml` ein (`address`, danach den Bot neu starten). Die Identity legt der Bot beim ersten Verbindungsversuch an.
 
-Logs: `make compose-panel-logs` und `docker compose logs -f ts3audiobot`
+Logs: `make compose-panel-logs` und `docker compose -f docker-compose.panel.yml logs -f ts3audiobot`
 
 Stoppen: `make compose-panel-down`
 
 ## Externe MariaDB
 
-Wenn die Datenbank schon woanders läuft, startet dieser Stack keinen MariaDB-Container. Host, Port, Benutzer, Passwort und Datenbankname kommen nur aus der `.env`.
+`docker-compose.panel-external-db.yml` startet den Bot und das Panel und keinen MariaDB-Container. Host, Port, Benutzer, Passwort und Datenbankname kommen nur aus der `.env`.
 
 ```bash
 # in der .env im Repo-Root

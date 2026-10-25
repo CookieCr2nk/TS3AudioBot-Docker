@@ -38,19 +38,19 @@ compose-restart: ## Restart the bot container
 	$(COMPOSE) restart ts3audiobot
 
 compose-panel-up: ## Start bot, MariaDB, and the web panel
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.panel.yml up -d
+	$(COMPOSE) -f docker-compose.panel.yml up -d
 
 compose-panel-down: ## Stop bot, MariaDB, and the web panel
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.panel.yml down
+	$(COMPOSE) -f docker-compose.panel.yml down
 
 compose-panel-logs: ## Follow web panel logs
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.panel.yml logs -f panel
+	$(COMPOSE) -f docker-compose.panel.yml logs -f panel
 
 compose-panel-external-up: ## Start bot and panel against an external MariaDB
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.panel-external-db.yml up -d
+	$(COMPOSE) -f docker-compose.panel-external-db.yml up -d
 
 compose-panel-external-down: ## Stop bot and panel that use an external MariaDB
-	$(COMPOSE) -f docker-compose.yml -f docker-compose.panel-external-db.yml down
+	$(COMPOSE) -f docker-compose.panel-external-db.yml down
 
 panel-test: ## Run web panel unit tests
 	node --test panel/test/*.js
