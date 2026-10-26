@@ -1,17 +1,15 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import helmet from "helmet";
+import { existsSync } from "node:fs";
 import path, { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { api, apiError } from "./api.js";
 import { config } from "./config.js";
-import { ping, setFlash } from "./db.js";
+import { ping } from "./db.js";
 import { failureFor } from "./errors.js";
-import { csrfProtect, loadSession, requireAdmin, requireUser, safeReferrer, wantsJson, wrap } from "./http.js";
-import { clientJson, errorText, languageFromHeader, translator } from "./i18n.js";
-import { formatTime, safeHttpUrl } from "./present.js";
-import { adminRouter } from "./routes/admin.js";
-import { authRouter } from "./routes/auth.js";
-import { panelRouter } from "./routes/panel.js";
+import { loadSession, wantsJson, wrap } from "./http.js";
+import { errorText, languageFromHeader, translator } from "./i18n.js";
 
 // dirname("/app/") is "/" on Linux. Resolve from this file, which lives in src/.
 export function panelRoot(moduleFile, pathApi = path) {
@@ -19,14 +17,13 @@ export function panelRoot(moduleFile, pathApi = path) {
 }
 
 const root = panelRoot(fileURLToPath(import.meta.url));
+const dist = join(root, "dist");
 
 export function createApp({ startupError = null } = {}) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
   app.set("query parser", "simple");
-  app.set("view engine", "ejs");
-  app.set("views", join(root, "views"));
 
   app.use(
     helmet({
@@ -45,25 +42,13 @@ export function createApp({ startupError = null } = {}) {
       },
     }),
   );
-  app.use(express.urlencoded({ extended: false, limit: "32kb" }));
   app.use(express.json({ limit: "32kb" }));
   app.use(cookieParser());
   app.use((req, res, next) => {
     const lang = languageFromHeader(req.get("accept-language"));
-    const t = translator(lang);
     req.lang = lang;
-    req.t = t;
+    req.t = translator(lang);
     res.set("Vary", "Accept-Language");
-    res.locals.lang = lang;
-    res.locals.t = t;
-    res.locals.clientJson = clientJson(lang);
-    res.locals.plain = false;
-    res.locals.title = "TS3 Panel";
-    res.locals.active = "";
-    res.locals.tab = "";
-    res.locals.encode = encodeURIComponent;
-    res.locals.formatTime = (value) => formatTime(value, lang);
-    res.locals.safeHttpUrl = safeHttpUrl;
     next();
   });
 
@@ -71,8 +56,7 @@ export function createApp({ startupError = null } = {}) {
     "/healthz",
     wrap(async (req, res) => {
       if (startupError) {
-        const failure = failureFor(startupError, { startup: true });
-        res.status(failure.status).type("text").send(failure.message);
+        respondWithFailure(req, res, startupError, { startup: true });
         return;
       }
       try {
@@ -87,12 +71,6 @@ export function createApp({ startupError = null } = {}) {
     }),
   );
 
-  app.use(express.static(join(root, "public"), { index: false }));
-  app.use((req, res, next) => {
-    res.set("Cache-Control", "no-store");
-    next();
-  });
-  app.use(installRenderer);
   if (startupError) {
     app.use((req, res) => {
       respondWithFailure(req, res, startupError, { startup: true });
@@ -101,42 +79,35 @@ export function createApp({ startupError = null } = {}) {
   }
 
   app.use(loadSession);
-  app.use(csrfProtect);
+  app.use("/api", api);
+  app.use("/api", apiError);
 
-  app.use(authRouter);
-  app.use(requireUser);
-  app.use(panelRouter);
-  app.use("/admin", requireAdmin, adminRouter);
+  if (existsSync(dist)) {
+    app.use(express.static(dist, { index: false, maxAge: "1h" }));
+    app.use((req, res, next) => {
+      if (req.method !== "GET" && req.method !== "HEAD") return next();
+      if (req.path === "/healthz" || req.path.startsWith("/api")) return next();
+      res.set("Cache-Control", "no-store");
+      res.sendFile(join(dist, "index.html"));
+    });
+  }
 
   app.use((req, res) => {
     const say = req.t || ((message) => message);
-    res.status(404).render("error", { title: say("Not found"), message: say("That page does not exist.") });
+    const message = say("That page does not exist.");
+    if (wantsJson(req) || req.path.startsWith("/api")) {
+      res.status(404).json({ ok: false, error: message });
+      return;
+    }
+    res.status(404).type("text").send(message);
   });
 
   app.use((err, req, res, next) => {
-    Promise.resolve(renderError(err, req, res)).catch(next);
+    if (res.headersSent) return next(err);
+    respondWithFailure(req, res, err);
   });
 
   return app;
-}
-
-function installRenderer(req, res, next) {
-  const render = res.render.bind(res);
-  res.render = (view, options = {}, callback) => {
-    const done =
-      callback ||
-      ((err, html) => {
-        if (err) return next(err);
-        res.send(html);
-      });
-    const locals = { ...res.locals, ...options };
-    if (view === "layout") return render(view, locals, done);
-    return render(view, locals, (err, html) => {
-      if (err) return done(err);
-      return render("layout", { ...locals, body: html }, done);
-    });
-  };
-  next();
 }
 
 function respondWithFailure(req, res, err, options = {}) {
@@ -148,33 +119,9 @@ function respondWithFailure(req, res, err, options = {}) {
   if (!failure) console.error(err);
   else if (status >= 500) console.error(`[panel] ${err.code || ""} ${err.message}`.trim());
 
-  if (wantsJson(req)) {
+  if (wantsJson(req) || req.path.startsWith("/api")) {
     res.status(status).json({ ok: false, error: message });
     return;
   }
-  const sendPage = () => {
-    res.status(status).render("error", { title: say("Error"), message, plain: true }, (renderErr, html) => {
-      if (renderErr || !html) {
-        if (!res.headersSent) res.status(status).type("text").send(message);
-        return;
-      }
-      res.status(status).send(html);
-    });
-  };
-  if (!req.sessionId || req.method === "GET" || req.method === "HEAD") {
-    sendPage();
-    return;
-  }
-  setFlash(req.sessionId, "error", message)
-    .then(() => {
-      res.redirect(safeReferrer(req));
-    })
-    .catch((flashErr) => {
-      console.error(`[panel] ${flashErr.message}`);
-      sendPage();
-    });
-}
-
-function renderError(err, req, res) {
-  respondWithFailure(req, res, err);
+  res.status(status).type("text").send(message);
 }

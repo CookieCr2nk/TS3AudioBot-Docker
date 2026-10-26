@@ -439,6 +439,7 @@ const de = {
   "Owner is invalid": "Der Besitzer ist ungültig",
   "This account is suspended.": "Dieses Konto ist gesperrt.",
   "Connection · {name}": "Verbindung · {name}",
+  Settings: "Einstellungen",
 };
 
 export default de;

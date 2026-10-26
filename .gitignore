@@ -13,6 +13,7 @@ config/bots/*
 
 # Web panel
 panel/node_modules/
+panel/dist/
 
 # Editor / tooling
 .DS_Store

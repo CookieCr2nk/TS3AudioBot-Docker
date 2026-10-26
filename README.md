@@ -38,7 +38,9 @@ Open http://localhost:8080 and sign in. Add an instance. One instance is one Doc
 
 Compose pulls `ghcr.io/cookiecr2nk/ts3audiobot-docker` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel` with the tag in `IMAGE_TAG`. The default is `main`. Put `IMAGE_TAG=develop` in the root `.env` to pull the images built from `develop`. The Compose files are the same on both branches.
 
-The UI is English. When the browser prefers German, the panel uses `panel/src/locales/de.js`.
+The UI is a single page. The menu stays in place, and saving a setting does not reload it. The source strings are English. When the browser prefers German, the panel uses `panel/src/locales/de.js`.
+
+To work on the UI locally, from `panel/`: `npm install`, then `npm start` and `npm run client`. Open `http://127.0.0.1:5173`. `npm run build` writes the files the image serves.
 
 Bot files live in the named volume `ts3audiobot-data`, mounted at `/data`. The first start copies `config/` from the image into an empty volume. Put the TeamSpeak server in `bots/default/bot.toml` on that volume (`address`, then restart the bot). The bot creates its identity on the first connection attempt.
 
