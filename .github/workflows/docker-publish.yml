@@ -21,9 +21,8 @@ env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-  # Upstream TS3AudioBot release tag to install. Must be a real GitHub release
-  # of Splamy/TS3AudioBot (branch names like "master"/"develop" are NOT releases).
-  BOT_RELEASE: "0.12.0"
+  # Git ref of Splamy/TS3AudioBot compiled into the bot image.
+  BOT_REF: develop
   # Fix Node.js 20 deprecation warnings
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -69,7 +68,6 @@ jobs:
           tags: |
             type=raw,value=master,enable={{is_default_branch}}
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=raw,value=${{ env.BOT_RELEASE }},enable={{is_default_branch}}
             type=sha,format=short
 
       # On pull requests we build a single-arch image and load it locally so it
@@ -86,7 +84,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BOT_RELEASE=${{ env.BOT_RELEASE }}
+            BOT_REF=${{ env.BOT_REF }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: ${{ github.event_name != 'pull_request' }}
@@ -141,14 +139,14 @@ jobs:
         with:
           image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: cyclonedx-json
-          output-file: sbom-${{ env.BOT_RELEASE }}.json
+          output-file: sbom-bot.json
 
       - name: Upload SBOM as artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ env.BOT_RELEASE }}
-          path: sbom-${{ env.BOT_RELEASE }}.json
+          name: sbom-bot
+          path: sbom-bot.json
           retention-days: 30
 
   panel:
