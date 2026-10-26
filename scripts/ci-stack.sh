@@ -34,8 +34,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-BOT_IMAGE="$(awk '/image: ghcr.io\/cookiecr2nk\/ts3audiobot-docker:/{print $2; exit}' docker-compose.yml)"
-PANEL_IMAGE="$(awk '/image: ghcr.io\/cookiecr2nk\/ts3audiobot-docker-panel:/{print $2; exit}' docker-compose.panel.yml)"
+export IMAGE_TAG="${IMAGE_TAG:-main}"
+BOT_IMAGE="$(docker compose -f docker-compose.yml config --images)"
+PANEL_IMAGE="$(docker compose -f docker-compose.panel.yml config --images | awk '/ts3audiobot-docker-panel/ { print; exit }')"
 docker build -t "$BOT_IMAGE" .
 docker build -t "$PANEL_IMAGE" ./panel
 "${COMPOSE[@]}" up -d

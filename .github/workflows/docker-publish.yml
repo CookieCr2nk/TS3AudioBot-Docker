@@ -67,11 +67,12 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
             type=sha,format=short
 
       # On pull requests we build a single-arch image and load it locally so it
       # can be scanned without pushing. On main and develop we build all
-      # platforms and push. main is published as :main.
+      # platforms and push. main is published as :main, develop as :develop.
       - name: Build Docker image
         id: build
         uses: docker/build-push-action@v6
@@ -181,6 +182,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-panel
           tags: |
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
             type=sha,format=short
 
       - name: Build panel image
