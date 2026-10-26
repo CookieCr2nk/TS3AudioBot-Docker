@@ -16,10 +16,7 @@ services:
     # so the port must stay reachable only by containers on the bot network.
     volumes:
       - ts3audiobot-data:/data
-    # TS3AudioBot 0.12 is a .NET Core 3.1 single-file binary. It extracts
-    # about 68 MiB into /tmp/.net and then maps libhostfxr.so from there.
-    # Docker's tmpfs default is noexec, so exec is required. 64 MiB is too
-    # small for the extract and the process exits before it listens.
+    # The root filesystem is read-only, so temporary files go on this tmpfs.
     tmpfs:
       - /tmp:mode=1777,size=256m,exec
     read_only: true

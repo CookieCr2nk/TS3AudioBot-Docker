@@ -8,13 +8,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl && \
+    apt-get install -y --no-install-recommends ca-certificates curl unzip && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/TS3AudioBot
 RUN case "$TARGETARCH" in \
-      amd64) bot_arch="x64"; ytdlp="yt-dlp_linux" ;; \
-      arm64) bot_arch="arm64"; ytdlp="yt-dlp_linux_aarch64" ;; \
+      amd64) ytdlp="yt-dlp_linux" ;; \
+      arm64) ytdlp="yt-dlp_linux_aarch64" ;; \
       *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac && \
     curl -fL --retry 5 --retry-delay 5 \
@@ -23,25 +23,23 @@ RUN case "$TARGETARCH" in \
     chmod 755 /usr/local/bin/yt-dlp && \
     /usr/local/bin/yt-dlp --version && \
     curl -fL --retry 5 --retry-delay 10 \
-      "https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_RELEASE}/TS3AudioBot_linux_${bot_arch}.tar.gz" \
-      -o TS3AudioBot.tar.gz && \
-    tar -xzf TS3AudioBot.tar.gz && \
-    rm TS3AudioBot.tar.gz && \
-    chmod -R 755 .
+      "https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_RELEASE}/TS3AudioBot_dotnetcore3.1.zip" \
+      -o TS3AudioBot.zip && \
+    unzip TS3AudioBot.zip && \
+    rm TS3AudioBot.zip && \
+    test -f TS3AudioBot.dll
 
 # --- Runtime ---
-FROM mcr.microsoft.com/dotnet/runtime:3.1-bullseye-slim
+FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim
 
 LABEL org.opencontainers.image.title="TS3AudioBot"
-LABEL org.opencontainers.image.description="TS3AudioBot 0.12 on the .NET Core 3.1 runtime"
+LABEL org.opencontainers.image.description="TS3AudioBot 0.12 on the .NET Core 3.1 ASP.NET runtime"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/CookieCr2nk/TS3AudioBot-Docker"
 
 ENV DEBIAN_FRONTEND=noninteractive
-# The single-file host extracts its bundle under /tmp/.net.
-# HOME and the cache sit on that tmpfs because the root filesystem is read-only.
-ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
-    XDG_CACHE_HOME=/tmp/.cache \
+# HOME and the cache sit on /tmp because the root filesystem is read-only.
+ENV XDG_CACHE_HOME=/tmp/.cache \
     HOME=/tmp
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -76,4 +74,4 @@ EXPOSE 58913
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -sS http://127.0.0.1:58913/ > /dev/null || exit 1
 
-ENTRYPOINT ["/opt/TS3AudioBot/TS3AudioBot", "--non-interactive", "--stats-disabled"]
+ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]
