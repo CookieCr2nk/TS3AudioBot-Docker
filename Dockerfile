@@ -12,19 +12,22 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/TS3AudioBot
-# The 0.12 zip is architecture-independent. yt-dlp is not.
-# arm/v7 publishes an onedir zip, so _internal has to sit next to the binary.
+# Each architecture has its own upstream tarball. arm/v7 yt-dlp is an onedir zip,
+# so _internal has to sit next to that binary.
 RUN mkdir -p /opt/yt-dlp && \
     case "$TARGETARCH" in \
-      amd64) curl -fL --retry 5 --retry-delay 5 \
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
-        -o /opt/yt-dlp/yt-dlp ;; \
-      arm64) curl -fL --retry 5 --retry-delay 5 \
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" \
-        -o /opt/yt-dlp/yt-dlp ;; \
-      arm) curl -fL --retry 5 --retry-delay 5 \
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_armv7l.zip" \
-        -o /tmp/yt-dlp.zip && \
+      amd64) bot_arch="x64"; \
+        curl -fL --retry 5 --retry-delay 5 \
+          "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
+          -o /opt/yt-dlp/yt-dlp ;; \
+      arm64) bot_arch="arm64"; \
+        curl -fL --retry 5 --retry-delay 5 \
+          "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" \
+          -o /opt/yt-dlp/yt-dlp ;; \
+      arm) bot_arch="arm"; \
+        curl -fL --retry 5 --retry-delay 5 \
+          "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_armv7l.zip" \
+          -o /tmp/yt-dlp.zip && \
         unzip /tmp/yt-dlp.zip -d /tmp/yt-dlp && \
         mv /tmp/yt-dlp/yt-dlp_linux_armv7l /opt/yt-dlp/yt-dlp && \
         mv /tmp/yt-dlp/_internal /opt/yt-dlp/_internal && \
@@ -35,11 +38,12 @@ RUN mkdir -p /opt/yt-dlp && \
     ln -s /opt/yt-dlp/yt-dlp /usr/local/bin/yt-dlp && \
     /usr/local/bin/yt-dlp --version && \
     curl -fL --retry 5 --retry-delay 10 \
-      "https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_RELEASE}/TS3AudioBot_dotnetcore3.1.zip" \
-      -o TS3AudioBot.zip && \
-    unzip TS3AudioBot.zip && \
-    rm TS3AudioBot.zip && \
-    test -f TS3AudioBot.dll
+      "https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_RELEASE}/TS3AudioBot_linux_${bot_arch}.tar.gz" \
+      -o TS3AudioBot.tar.gz && \
+    tar -xzf TS3AudioBot.tar.gz && \
+    rm TS3AudioBot.tar.gz && \
+    chmod -R 755 . && \
+    test -f TS3AudioBot
 
 # The 3.1 tag is not one multi-arch manifest. Each Debian 11 tag is separate.
 FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim AS runtime-amd64
@@ -56,8 +60,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/CookieCr2nk/TS3AudioBot-Docker"
 
 ENV DEBIAN_FRONTEND=noninteractive
-# HOME and the cache sit on /tmp because the root filesystem is read-only.
-ENV XDG_CACHE_HOME=/tmp/.cache \
+# The single-file host extracts its bundle under /tmp/.net.
+# HOME and the cache sit on that tmpfs because the root filesystem is read-only.
+ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
+    XDG_CACHE_HOME=/tmp/.cache \
     HOME=/tmp
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -93,4 +99,4 @@ EXPOSE 58913
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -sS http://127.0.0.1:58913/ > /dev/null || exit 1
 
-ENTRYPOINT ["dotnet", "/opt/TS3AudioBot/TS3AudioBot.dll", "--non-interactive", "--stats-disabled"]
+ENTRYPOINT ["/opt/TS3AudioBot/TS3AudioBot", "--non-interactive", "--stats-disabled"]

@@ -16,7 +16,8 @@ services:
     # so the port must stay reachable only by containers on the bot network.
     volumes:
       - ts3audiobot-data:/data
-    # The root filesystem is read-only, so temporary files go on this tmpfs.
+    # The 0.12 binary extracts about 68 MiB into /tmp/.net and maps libhostfxr.so
+    # from there. Docker's tmpfs default is noexec, and 64 MiB is too small.
     tmpfs:
       - /tmp:mode=1777,size=256m,exec
     read_only: true

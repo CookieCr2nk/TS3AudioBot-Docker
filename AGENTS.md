@@ -26,10 +26,10 @@ Images on `develop`: `ghcr.io/cookiecr2nk/ts3audiobot-docker:develop` and `ghcr.
 
 ## Bot image
 
-The bot is the framework-dependent `TS3AudioBot_dotnetcore3.1.zip`, started with `dotnet TS3AudioBot.dll`. Do not break these limits:
+The bot is the self-contained Linux tarball for the image architecture: `TS3AudioBot_linux_x64.tar.gz`, `TS3AudioBot_linux_arm64.tar.gz`, or `TS3AudioBot_linux_arm.tar.gz`. Do not break these limits:
 
-- `/tmp` is a tmpfs of 256 MiB with `exec`. The root filesystem is read-only, so temporary files go there.
-- The runtime stage is `mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim` (Debian 11). There is no .NET Core 3.1 image for Debian 12 or 13. That image supplies ICU 67 and `libssl.so.1.1`. Do not set invariant globalization. Do not switch back to the self-contained linux tarball. Extra apt packages come from `archive.debian.org`. The bullseye-security pool on `deb.debian.org` returns 404.
+- `/tmp` is a tmpfs of 256 MiB with `exec`. The single-file host extracts about 68 MiB into `/tmp/.net` and maps `libhostfxr.so` from there. 64 MiB or `noexec` exits the process before the API listens.
+- The runtime stage is the .NET Core 3.1 ASP.NET image for that architecture (`3.1-bullseye-slim`, `3.1-bullseye-slim-arm64v8`, or `3.1-bullseye-slim-arm32v7`). There is no .NET Core 3.1 image for Debian 12 or 13. Those images supply ICU 67 and `libssl.so.1.1`. Do not set invariant globalization. Extra apt packages come from `archive.debian.org`. The bullseye-security pool on `deb.debian.org` returns 404.
 - The image needs a `libopus.so` link to `libopus.so.0`.
 - The process runs as `ts3audiobot` (UID 9999), with a read-only root filesystem and no Linux capabilities.
 - `yt-dlp` is a self-contained binary per architecture. `linux/arm/v7` uses `yt-dlp_linux_armv7l.zip` and keeps its `_internal` directory next to the binary. The bot image is published for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`. The panel image stays `linux/amd64` and `linux/arm64`.
