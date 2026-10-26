@@ -12,6 +12,9 @@ services:
     pull_policy: always
     container_name: ts3audiobot
     restart: unless-stopped
+    environment:
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
+      COMPlus_System_Globalization_Invariant: "1"
     # 58913 is not published. rights.toml treats every API caller as admin,
     # so the port must stay reachable only by containers on the bot network.
     volumes:
@@ -27,7 +30,6 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    pids_limit: 100
     logging:
       driver: json-file
       options:
@@ -64,7 +66,6 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    pids_limit: 200
     networks:
       - botapi
     logging:

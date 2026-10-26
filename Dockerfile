@@ -40,9 +40,11 @@ LABEL org.opencontainers.image.source="https://github.com/CookieCr2nk/TS3AudioBo
 ENV DEBIAN_FRONTEND=noninteractive
 # TS3AudioBot 0.12 is a self-contained .NET Core 3.1 binary.
 # Invariant skips ICU. Bookworm only has ICU 72, and this runtime stops at 70.
+# 3.1 checks COMPlus_System_Globalization_Invariant before DOTNET_SYSTEM_GLOBALIZATION_INVARIANT.
 # The host extracts its bundle under /tmp/.net. Compose gives /tmp exec and 256 MiB.
 # HOME and the cache sit on that tmpfs because the root filesystem is read-only.
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 \
+    COMPlus_System_Globalization_Invariant=1 \
     DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
     XDG_CACHE_HOME=/tmp/.cache \
     HOME=/tmp

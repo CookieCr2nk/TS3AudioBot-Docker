@@ -15,6 +15,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `develop` publish both images to GHCR with the tag `:develop`
 
 ### Changed
+- Compose no longer sets a PID limit on the bot or the panel
 - Bot data in every Compose file is the named volume `ts3audiobot-data` mounted at `/data`. An empty volume is filled from the image copy of `config/`
 - Each Compose file is a complete stack: `docker-compose.yml` is the bot only, `docker-compose.panel.yml` is the bot, the panel, and MariaDB, and `docker-compose.panel-external-db.yml` is the bot and the panel against an external MariaDB
 - The web panel is English. `panel/src/locales/de.js` is used when the browser prefers German
@@ -23,7 +24,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
-- Run the bot with `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`. .NET Core 3.1 exits on Debian 12 because it cannot load ICU 72, and shipping a second ICU build did not stop that exit
+- Run the bot with `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` and `COMPlus_System_Globalization_Invariant=1`. .NET Core 3.1 exits on Debian 12 because it cannot load ICU 72, and it checks the `COMPlus_` switch before the `DOTNET_` variable
+- The panel finds its pages under the application directory. In the image that is `/app/views`. The previous lookup used `/views`, so opening the panel failed before the page rendered
+- When the database is down, the login is rejected, the database is missing, or the schema does not match, the panel states that on the page. It keeps listening after a failed startup so the message is visible, and `/healthz` stays unhealthy
 - Bot `/tmp` tmpfs is 256 MiB and executable. The .NET single-file host extracts about 68 MiB there and maps `libhostfxr.so` from it. 64 MiB failed the write, and Docker's default `noexec` then failed the map
 - Install Debian 11 `libssl1.1` next to Bookworm's OpenSSL 3. .NET Core 3.1 only loads `libssl.so.1.1`
 - Link `libopus.so` to `libopus.so.0`. The bot imports `libopus`, and the `libopus0` package only ships the versioned soname

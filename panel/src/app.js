@@ -1,11 +1,11 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import helmet from "helmet";
-import { dirname, join } from "node:path";
+import path, { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { ping, setFlash } from "./db.js";
-import { Ts3ApiError } from "./errors.js";
+import { failureFor } from "./errors.js";
 import { csrfProtect, loadSession, requireAdmin, requireUser, safeReferrer, wantsJson, wrap } from "./http.js";
 import { clientJson, errorText, languageFromHeader, translator } from "./i18n.js";
 import { formatTime, safeHttpUrl } from "./present.js";
@@ -13,9 +13,14 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { panelRouter } from "./routes/panel.js";
 
-const root = dirname(fileURLToPath(new URL("..", import.meta.url)));
+// dirname("/app/") is "/" on Linux. Resolve from this file, which lives in src/.
+export function panelRoot(moduleFile, pathApi = path) {
+  return pathApi.join(pathApi.dirname(moduleFile), "..");
+}
 
-export function createApp() {
+const root = panelRoot(fileURLToPath(import.meta.url));
+
+export function createApp({ startupError = null } = {}) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
@@ -65,7 +70,19 @@ export function createApp() {
   app.get(
     "/healthz",
     wrap(async (req, res) => {
-      await ping();
+      if (startupError) {
+        const failure = failureFor(startupError, { startup: true });
+        res.status(failure.status).type("text").send(failure.message);
+        return;
+      }
+      try {
+        await ping();
+      } catch (err) {
+        const failure = failureFor(err);
+        console.error(`[panel] ${err.code || ""} ${err.message}`.trim());
+        res.status(failure ? failure.status : 500).type("text").send(failure ? failure.message : "error");
+        return;
+      }
       res.type("text").send("ok");
     }),
   );
@@ -75,9 +92,16 @@ export function createApp() {
     res.set("Cache-Control", "no-store");
     next();
   });
+  app.use(installRenderer);
+  if (startupError) {
+    app.use((req, res) => {
+      respondWithFailure(req, res, startupError, { startup: true });
+    });
+    return app;
+  }
+
   app.use(loadSession);
   app.use(csrfProtect);
-  app.use(installRenderer);
 
   app.use(authRouter);
   app.use(requireUser);
@@ -115,29 +139,42 @@ function installRenderer(req, res, next) {
   next();
 }
 
-async function renderError(err, req, res) {
+function respondWithFailure(req, res, err, options = {}) {
   if (res.headersSent) return;
-  const status = err.status || 500;
-  const safe = (err.status && err.status < 500) || err instanceof Ts3ApiError;
+  const failure = failureFor(err, options);
+  const status = failure?.status || err.status || 500;
   const say = typeof req.t === "function" ? req.t : (message) => message;
-  const message = safe ? errorText(err, say) : say("Internal error");
-  if (!safe) console.error(err);
-  else if (status >= 500) console.error(`[panel] ${err.message}`);
+  const message = failure ? errorText(failure, say) : say("Internal error");
+  if (!failure) console.error(err);
+  else if (status >= 500) console.error(`[panel] ${err.code || ""} ${err.message}`.trim());
 
   if (wantsJson(req)) {
     res.status(status).json({ ok: false, error: message });
     return;
   }
-  if (req.sessionId && req.method !== "GET" && req.method !== "HEAD") {
-    await setFlash(req.sessionId, "error", message);
-    res.redirect(safeReferrer(req));
+  const sendPage = () => {
+    res.status(status).render("error", { title: say("Error"), message, plain: true }, (renderErr, html) => {
+      if (renderErr || !html) {
+        if (!res.headersSent) res.status(status).type("text").send(message);
+        return;
+      }
+      res.status(status).send(html);
+    });
+  };
+  if (!req.sessionId || req.method === "GET" || req.method === "HEAD") {
+    sendPage();
     return;
   }
-  res.status(status).render("error", { title: say("Error"), message }, (renderErr, html) => {
-    if (renderErr || !html) {
-      res.status(status).type("text").send(message);
-      return;
-    }
-    res.status(status).send(html);
-  });
+  setFlash(req.sessionId, "error", message)
+    .then(() => {
+      res.redirect(safeReferrer(req));
+    })
+    .catch((flashErr) => {
+      console.error(`[panel] ${flashErr.message}`);
+      sendPage();
+    });
+}
+
+function renderError(err, req, res) {
+  respondWithFailure(req, res, err);
 }

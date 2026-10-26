@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import ejs from "ejs";
-import { dirname, join } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createApp, panelRoot } from "../src/app.js";
+import { pool } from "../src/db.js";
+import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
@@ -21,6 +24,8 @@ import {
 } from "../src/validate.js";
 
 process.env.TOKEN_KEY = "test-token-key-value";
+
+after(() => pool.end());
 
 const templateBot = { useInstance: true, instanceMode: "template", instanceRef: "default" };
 const user = { role: "user", canControl: true };
@@ -359,5 +364,86 @@ describe("language", () => {
     assert.match(layout, /lang="en"/);
     assert.match(layout, /Sign out/);
     assert.match(layout, /Overview/);
+  });
+});
+
+describe("panel paths and failures", () => {
+  it("keeps views under the application directory when that directory is /app", () => {
+    assert.equal(posix.dirname("/app/"), "/");
+    assert.equal(posix.join(posix.dirname("/app/"), "views"), "/views");
+    assert.equal(panelRoot("/app/src/app.js", posix), "/app");
+    assert.equal(posix.join(panelRoot("/app/src/app.js", posix), "views"), "/app/views");
+  });
+
+  it("turns known failures into a fixed sentence and hides the rest", () => {
+    const down = Object.assign(new Error("connect ECONNREFUSED 10.1.2.3:3306"), { code: "ECONNREFUSED" });
+    assert.equal(failureFor(down).message, "The database is unreachable.");
+    assert.equal(failureFor(down).message.includes("10.1.2.3"), false);
+    assert.equal(
+      failureFor(down, { startup: true }).message,
+      "The database is unreachable. Restart the panel once the database is up.",
+    );
+    assert.equal(
+      failureFor(Object.assign(new Error("denied"), { code: "ER_ACCESS_DENIED_ERROR" })).message,
+      "The database rejected the panel login.",
+    );
+    assert.equal(
+      failureFor(Object.assign(new Error("missing"), { code: "ER_BAD_DB_ERROR" })).message,
+      "The panel database does not exist.",
+    );
+    const wrapped = new Error("aggregate");
+    wrapped.errors = [Object.assign(new Error("lookup"), { code: "ENOTFOUND" })];
+    assert.equal(failureFor(wrapped).message, "The database is unreachable.");
+    const missing = Object.assign(new Error('Failed to lookup view "login" in views directory "/views"'), {
+      view: { name: "login" },
+    });
+    assert.equal(failureFor(missing).message, "The page template {name} is missing.");
+    assert.deepEqual(failureFor(missing).params, { name: "login" });
+    assert.equal(
+      failureFor(new Error("Migration 2 changed after it was applied."), { startup: true }).message,
+      "The database schema does not match this panel.",
+    );
+    assert.equal(failureFor(new HttpError("Bot not found", 404)).message, "Bot not found");
+    assert.equal(failureFor(new Ts3ApiError("Bot API is unreachable")).status, 502);
+    assert.equal(failureFor(new Error("password=secret SELECT * FROM users")), null);
+  });
+
+  it("renders the login page and a database outage", async () => {
+    const login = createApp();
+    const loginServer = await new Promise((resolve) => {
+      const server = login.listen(0, "127.0.0.1", () => resolve(server));
+    });
+    try {
+      const port = loginServer.address().port;
+      const page = await fetch(`http://127.0.0.1:${port}/login`, { headers: { "accept-language": "de" } });
+      const html = await page.text();
+      assert.equal(page.status, 200);
+      assert.match(html, /Anmelden/);
+      const health = await fetch(`http://127.0.0.1:${port}/healthz`);
+      assert.equal(health.status, 503);
+      assert.match(await health.text(), /database is unreachable/i);
+    } finally {
+      await new Promise((resolve) => loginServer.close(resolve));
+    }
+
+    const outage = createApp({
+      startupError: Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:3306"), { code: "ECONNREFUSED" }),
+    });
+    const outageServer = await new Promise((resolve) => {
+      const server = outage.listen(0, "127.0.0.1", () => resolve(server));
+    });
+    try {
+      const port = outageServer.address().port;
+      const page = await fetch(`http://127.0.0.1:${port}/`, { headers: { "accept-language": "de" } });
+      const html = await page.text();
+      assert.equal(page.status, 503);
+      assert.match(html, /Die Datenbank ist nicht erreichbar/);
+      assert.equal(html.includes("127.0.0.1"), false);
+      const health = await fetch(`http://127.0.0.1:${port}/healthz`);
+      assert.equal(health.status, 503);
+      assert.match(await health.text(), /Restart the panel once the database is up/);
+    } finally {
+      await new Promise((resolve) => outageServer.close(resolve));
+    }
   });
 });

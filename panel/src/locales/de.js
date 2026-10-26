@@ -59,6 +59,16 @@ const de = {
   "That page does not exist.": "Die Seite gibt es nicht.",
   Error: "Fehler",
   "Internal error": "Interner Fehler",
+  "The database is unreachable.": "Die Datenbank ist nicht erreichbar.",
+  "The database is unreachable. Restart the panel once the database is up.":
+    "Die Datenbank ist nicht erreichbar. Starte das Panel neu, sobald die Datenbank läuft.",
+  "The database rejected the panel login.": "Die Datenbank hat die Anmeldung des Panels abgelehnt.",
+  "The panel database does not exist.": "Die Panel-Datenbank existiert nicht.",
+  "The page template {name} is missing.": "Die Seitenvorlage {name} fehlt.",
+  "The page template is missing.": "Eine Seitenvorlage fehlt.",
+  "The database schema does not match this panel.": "Das Datenbankschema passt nicht zu diesem Panel.",
+  "The panel could not start. The details are in the panel log.":
+    "Das Panel konnte nicht starten. Die Details stehen im Panel-Log.",
   "This panel does not need an !api token. The bot API is reachable only on the panel Docker network.":
     "Für dieses Panel ist kein !api token nötig. Die Bot-API ist nur im Docker-Netz des Panels erreichbar.",
   "rights.toml therefore allows every API call (isapi = true). Do not publish port 58913.":

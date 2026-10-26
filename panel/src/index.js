@@ -4,6 +4,7 @@ import { ensureAdmin, migrate, pool } from "./db.js";
 
 for (const warning of runtimeWarnings()) console.warn(`[panel] ${warning}`);
 
+let startupError = null;
 try {
   await migrate();
   const created = await ensureAdmin();
@@ -15,11 +16,11 @@ try {
     }
   }
 } catch (err) {
+  startupError = err;
   console.error("[panel] Startup failed:", err.message);
-  process.exit(1);
 }
 
-const app = createApp();
+const app = createApp({ startupError });
 const server = app.listen(config.port, "0.0.0.0", () => {
   console.log(`[panel] listening on :${config.port}`);
 });
