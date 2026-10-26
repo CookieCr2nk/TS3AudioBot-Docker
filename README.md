@@ -1,19 +1,21 @@
 # TS3AudioBot-Docker
 
-Docker-Image für [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) und ein optionales Web-Panel.
+Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) and an optional web panel.
 
-Es gibt drei Compose-Dateien. Jede startet für sich.
+Agent rules are in [`AGENTS.md`](AGENTS.md). Panel work also follows [`panel/AGENTS.md`](panel/AGENTS.md). Grok loads both by filename, Claude loads `CLAUDE.md`, and Cursor loads `.cursor/rules/project.mdc`.
 
-| | Nur der Bot | Bot, Panel, MariaDB | Bot, Panel, externe MariaDB |
+There are three Compose files. Each one starts on its own.
+
+| | Bot only | Bot, panel, MariaDB | Bot, panel, external MariaDB |
 |---|---|---|---|
-| Datei | `docker-compose.yml` | `docker-compose.panel.yml` | `docker-compose.panel-external-db.yml` |
+| File | `docker-compose.yml` | `docker-compose.panel.yml` | `docker-compose.panel-external-db.yml` |
 | Start | `docker compose up -d` | `make compose-panel-up` | `make compose-panel-external-up` |
-| Oberfläche | keine | http://localhost:8080 | http://localhost:8080 |
-| Bot-API Port 58913 | nicht von außen erreichbar | nur das Panel, im internen Netz | nur das Panel, im internen Netz |
+| UI | none | http://localhost:8080 | http://localhost:8080 |
+| Bot API port 58913 | not reachable from outside | panel only, on the internal network | panel only, on the internal network |
 
-Das Panel und der Bot sind getrennte Container. In `docker-compose.panel.yml` ist MariaDB ein dritter Container und sieht die Bot-API nicht.
+The panel and the bot are separate containers. In `docker-compose.panel.yml` MariaDB is a third container and cannot see the bot API.
 
-## Bot und Panel starten
+## Start the bot and the panel
 
 ```bash
 git clone https://github.com/CookieCr2nk/TS3AudioBot-Docker.git
@@ -22,33 +24,33 @@ make init-data
 cp panel/.env.example .env
 ```
 
-In der `.env` im Repo-Root mindestens diese zwei Werte setzen:
+Set at least these two values in the `.env` at the repo root:
 
-- `PANEL_DB_PASSWORD` — Passwort der Panel-Datenbank
-- `PANEL_ADMIN_PASSWORD` — mindestens 10 Zeichen, sonst schreibt der erste Start ein Zufallspasswort einmal in die Panel-Logs
+- `PANEL_DB_PASSWORD` — password of the panel database
+- `PANEL_ADMIN_PASSWORD` — at least 10 characters, or the first start writes a random password once into the panel logs
 
-Dann:
+Then:
 
 ```bash
 make compose-panel-up
 ```
 
-Öffne http://localhost:8080 und melde dich an. Lege einen Bot an. Die API-Adresse im Compose-Netz ist `http://ts3audiobot:58913`. UID und Token leer lassen.
+Open http://localhost:8080 and sign in. Add a bot. On the Compose network the API address is `http://ts3audiobot:58913`. Leave the UID and token empty.
 
-Die Oberfläche ist Englisch. Bevorzugt der Browser Deutsch, verwendet das Panel die Übersetzung in `panel/src/locales/de.js`.
+The UI is English. When the browser prefers German, the panel uses `panel/src/locales/de.js`.
 
-TeamSpeak trägst du in `data/bots/default/bot.toml` ein (`address`, danach den Bot neu starten). Die Identity legt der Bot beim ersten Verbindungsversuch an.
+Put the TeamSpeak server in `data/bots/default/bot.toml` (`address`, then restart the bot). The bot creates its identity on the first connection attempt.
 
-Logs: `make compose-panel-logs` und `docker compose -f docker-compose.panel.yml logs -f ts3audiobot`
+Logs: `make compose-panel-logs` and `docker compose -f docker-compose.panel.yml logs -f ts3audiobot`
 
-Stoppen: `make compose-panel-down`
+Stop: `make compose-panel-down`
 
-## Externe MariaDB
+## External MariaDB
 
-`docker-compose.panel-external-db.yml` startet den Bot und das Panel und keinen MariaDB-Container. Host, Port, Benutzer, Passwort und Datenbankname kommen nur aus der `.env`.
+`docker-compose.panel-external-db.yml` starts the bot and the panel and does not start a MariaDB container. Host, port, user, password, and database name come only from `.env`.
 
 ```bash
-# in der .env im Repo-Root
+# in the .env at the repo root
 PANEL_DB_HOST=db.example.com
 PANEL_DB_PORT=3306
 PANEL_DB_NAME=ts3panel
@@ -56,79 +58,79 @@ PANEL_DB_USER=ts3panel
 PANEL_DB_PASSWORD=change-me
 ```
 
-Liegt MariaDB auf demselben Rechner wie Docker, setze `PANEL_DB_HOST=host.docker.internal`. `127.0.0.1` wäre der Panel-Container selbst.
+When MariaDB runs on the same machine as Docker, set `PANEL_DB_HOST=host.docker.internal`. `127.0.0.1` would be the panel container itself.
 
-Datenbank und Benutzer müssen existieren und von der Docker-Bridge aus Verbindungen annehmen. Das Panel legt seine Tabellen beim Start selbst an.
+The database and user must already exist and must accept connections from the Docker bridge. The panel creates its tables on startup.
 
-Schemaänderungen liegen als nummerierte Dateien in `panel/sql/migrations/`. Jede neue Datei wird einmal ausgeführt und in `schema_migrations` mit einer Prüfsumme gespeichert. Eine Datei, die schon angewendet wurde, darf sich nicht mehr ändern. Die nächste Änderung ist eine neue Datei mit der nächsten Nummer, zum Beispiel `003_name.sql`. Die SQL-Anweisungen müssen sich erneut ausführen lassen, falls der Prozess zwischen zwei Anweisungen abbricht.
+Schema changes are numbered files in `panel/sql/migrations/`. Each new file runs once and is stored in `schema_migrations` with a checksum. A file that has already been applied must not change. The next change is a new file with the next number, for example `003_name.sql`. The SQL statements must be safe to run again if the process stops between two statements.
 
 ```bash
 make compose-panel-external-up
 ```
 
-Stoppen: `make compose-panel-external-down`. Die externe Datenbank bleibt dabei unangetastet.
+Stop with `make compose-panel-external-down`. The external database is left as it is.
 
-## Radio und Verbindung
+## Radio and connection
 
-Radiosender stehen in der Panel-Datenbank, nicht in den Dateien des Bots. Unter Radio legt jeder Benutzer mit Steuerrecht private Sender an. Ein Administrator kann einen Sender für alle freigeben und sieht auch private Sender. Ein gemeinsamer Sender bleibt erhalten, wenn das Konto gelöscht wird, das ihn angelegt hat. Abspielen und Anhängen laufen über den gerade geöffneten Bot. Dieselbe Adresse bleibt erhalten, wenn `data/` ersetzt wird.
+Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when `data/` is replaced.
 
-Unter Instanzen schreibt ein Administrator Nickname, Standard-Channel, Serverpasswort, Channelpasswort, Bitrate und den Start mit dem Prozess in das Bot-Template. Leere Felder bleiben unverändert. Passwörter gehen an den Bot und werden nicht in der Panel-Datenbank gespeichert. Ein TeamSpeak-Privilege-Key wird einmal an die Instanz geschickt, die gerade die Wiedergabe steuert, und nicht im Panel gespeichert.
+Under Instances, an administrator writes the nickname, default channel, server password, channel password, bitrate, and whether the bot connects when the process starts into the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the instance that currently controls playback and is not stored in the panel.
 
-## Warum kein API-Token
+## Why there is no API token
 
-Die Bot-API hört im Container auf Port 58913. Compose veröffentlicht diesen Port nicht. Im Panel-Setup hängen nur Bot und Panel am Netz `botapi`. MariaDB hängt an einem zweiten Netz `paneldb` ohne Internetzugang.
+The bot API listens on port 58913 inside the container. Compose does not publish that port. In the panel setup only the bot and the panel are on the `botapi` network. MariaDB is on a second network, `paneldb`, with no route to the internet.
 
-`data/rights.toml` erlaubt deshalb jeden API-Aufruf (`isapi = true`). Das ist sicher, solange Port 58913 nicht auf den Host gemappt wird. Eine feste Container-IP gibt es nicht, weil die sich je nach Docker-Installation ändert.
+`data/rights.toml` therefore allows every API call (`isapi = true`). That is safe as long as port 58913 is not mapped to the host. There is no fixed container IP, because it changes with the Docker install.
 
-Wer `data/rights.toml` schon von einem älteren Stand hat: in der Admin-Regel `isapi = true` eintragen, alte Panel-IPs entfernen, Bot neu starten.
+If `data/rights.toml` is left from an older start, set `isapi = true` on the admin rule, remove old panel IPs, and restart the bot.
 
-Ein API-Token im Panel ist nur nötig, wenn der Bot absichtlich außerhalb dieses Netzes liegt.
+An API token in the panel is required only when the bot is deliberately outside this network.
 
-## Nur den Bot starten
+## Start the bot only
 
 ```bash
 make init-data
 docker compose up -d
 ```
 
-Es gibt dann keine Weboberfläche. Die API bleibt im Container. Wer Port 58913 trotzdem veröffentlicht, macht jeden, der den Port erreicht, zum Bot-Admin. Dafür vorher `isapi = true` aus `data/rights.toml` entfernen.
+There is no web UI. The API stays inside the container. Publishing port 58913 anyway makes everyone who can reach the port a bot admin. Remove `isapi = true` from `data/rights.toml` before doing that.
 
-## Konfiguration
+## Configuration
 
-`make init-data` kopiert `config/` nach `data/`. Danach gilt nur noch `data/`. Ein späteres Image-Update ändert eine bestehende `data/` nicht.
+`make init-data` copies `config/` to `data/`. After that only `data/` counts. A later image update does not change an existing `data/` directory.
 
-| Datei | Inhalt |
+| File | Contents |
 |---|---|
-| `data/bots/default/bot.toml` | TeamSpeak-Adresse, Name, Identity |
-| `data/ts3audiobot.toml` | Globale Defaults, Web-API an auf Port 58913 |
-| `data/rights.toml` | Wer welche Befehle darf |
+| `data/bots/default/bot.toml` | TeamSpeak address, name, identity |
+| `data/ts3audiobot.toml` | Global defaults, web API on port 58913 |
+| `data/rights.toml` | Who may run which commands |
 
-Optionen: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
+Options: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
 
-## Images bauen
+## Build the images
 
 ```bash
 docker build -t ts3audiobot-docker:local .
 docker build -t ts3audiobot-panel:local ./panel
 ```
 
-`BOT_RELEASE` muss ein [Release-Tag](https://github.com/Splamy/TS3AudioBot/releases) sein, kein Branch-Name. Standard ist `0.12.0`.
+`BOT_RELEASE` must be a [release tag](https://github.com/Splamy/TS3AudioBot/releases), not a branch name. The default is `0.12.0`.
 
-Images von GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` und `:develop`, dazu das Panel als `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:master` und `:develop`.
+Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` and `:develop`, and the panel as `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:master` and `:develop`.
 
 ## CI
 
-Zwei Workflows:
+Two workflows:
 
-- `.github/workflows/ci.yml` prüft bei jedem Push und Pull Request die Config, die Panel-Tests, baut beide Images und startet den Stack. Der Lauf gilt erst, wenn das Panel gesund ist, die Bot-API vom Panel aus antwortet und Port 58913 nicht am Host hängt.
-- `.github/workflows/docker-publish.yml` baut auf `master` und `develop` beide Images für `linux/amd64` und `linux/arm64` und schiebt sie nach GHCR. `develop` bekommt den Tag `:develop`. `master` behält `:master` und den Bot-Release-Tag. Die Images werden gescannt und signiert.
+- `.github/workflows/ci.yml` checks the config and the panel tests on every push and pull request, builds both images, and starts the stack. The run passes only when the panel is healthy, the bot API answers from the panel, and port 58913 is not bound on the host.
+- `.github/workflows/docker-publish.yml` builds both images for `linux/amd64` and `linux/arm64` on `master` and `develop` and pushes them to GHCR. `develop` gets the tag `:develop`. `master` keeps `:master` and the bot release tag. The images are scanned and signed.
 
-Lokal: `make test` und `make panel-test`.
+Locally: `make test` and `make panel-test`.
 
-## Sicherheit
+## Security
 
-Der Bot läuft als Benutzer `ts3audiobot` (UID 9999), mit nur-lesbarem Root-Dateisystem und ohne Linux-Capabilities. Details und Meldungen: [SECURITY.md](SECURITY.md).
+The bot runs as user `ts3audiobot` (UID 9999), with a read-only root filesystem and no Linux capabilities. Details and reports: [SECURITY.md](SECURITY.md).
 
-## Lizenz
+## License
 
-MIT, siehe [LICENSE](LICENSE). TS3AudioBot selbst ist GPLv3.
+MIT, see [LICENSE](LICENSE). TS3AudioBot itself is GPLv3.
