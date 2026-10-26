@@ -2,7 +2,11 @@
 
 Read this file before changing anything in this repository. If the change is under `panel/`, read `panel/AGENTS.md` next. For panel code, the panel file wins when the two disagree.
 
-`README.md` is the human guide. This file is the rules for edits. Do not copy the README into comments or into new Markdown files. Project docs stay in English. The German UI catalog in `panel/src/locales/de.js` stays German.
+`README.md` is the human guide. This file is the rules for edits. Do not copy the README into comments or into new Markdown files.
+
+## Language
+
+Write everything in English. That includes docs, commit messages, code, comments, UI source strings, SQL comments, and Compose comments. The only German text is a translation catalog, currently `panel/src/locales/de.js`. Add another catalog only when the user asks for another language. Do not put German into views, routes, or error messages. Those stay English keys, and the catalog maps them.
 
 ## What this repo is
 

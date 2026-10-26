@@ -6,7 +6,7 @@ Read this file before changing anything under `panel/`. Repository rules are in 
 
 Hosting UI for the TS3AudioBot web API. Node.js 22, ESM, Express, EJS, MariaDB through `mysql2`. No bundler. Start with `node src/index.js`.
 
-The UI source language is English. When the browser prefers German, strings come from `src/locales/de.js`. Every new `t("...")` string and every `HttpError`, `ValidationError`, or `Ts3ApiError` with a fixed English sentence needs an entry there. Otherwise `keeps every panel phrase in the German catalog` fails. Do not add a second catalog file.
+The repository language rule is in `../AGENTS.md`: everything is English except translation catalogs. The UI source strings are English. When the browser prefers German, those strings are looked up in `src/locales/de.js`. Every new `t("...")` string and every `HttpError`, `ValidationError`, or `Ts3ApiError` with a fixed English sentence needs an entry there. Otherwise `keeps every panel phrase in the German catalog` fails. Do not add a second catalog unless the user asks for another language.
 
 ## Layout
 
