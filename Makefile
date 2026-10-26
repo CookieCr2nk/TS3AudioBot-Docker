@@ -1,4 +1,4 @@
-.PHONY: help build build-multiarch test init-data compose-up compose-down compose-logs logs compose-restart clean validate-config pre-commit-install
+.PHONY: help build build-multiarch test init-data compose-up compose-down compose-logs logs compose-restart clean validate-config pre-commit-install compose-panel-up compose-panel-down compose-panel-logs compose-panel-external-up compose-panel-external-down panel-test
 
 COMPOSE := docker compose
 
@@ -11,12 +11,13 @@ build: ## Build image locally
 build-multiarch: ## Build amd64 + arm64 (requires buildx)
 	docker buildx build --platform linux/amd64,linux/arm64 -t ts3audiobot-docker:local .
 
-init-data: ## Copy seed config into ./data for bind-mount compose
+init-data: ## Copy seed config into ./data (not the Compose volume)
 	mkdir -p data
 	rsync -a --delete config/ data/
 
 test: validate-config ## Run local checks
-	@python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml')); yaml.safe_load(open('.github/workflows/docker-publish.yml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml')); yaml.safe_load(open('docker-compose.panel.yml')); yaml.safe_load(open('docker-compose.panel-external-db.yml')); yaml.safe_load(open('.github/workflows/docker-publish.yml')); yaml.safe_load(open('.github/workflows/ci.yml'))"
+	@if command -v node >/dev/null; then node --test panel/test/*.js; else echo "skip panel tests (node not installed)"; fi
 	@echo "OK"
 
 validate-config: ## Check bot.toml has required fields
@@ -35,6 +36,24 @@ logs: compose-logs ## Alias for compose-logs
 
 compose-restart: ## Restart the bot container
 	$(COMPOSE) restart ts3audiobot
+
+compose-panel-up: ## Start bot, MariaDB, and the web panel
+	$(COMPOSE) -f docker-compose.panel.yml up -d
+
+compose-panel-down: ## Stop bot, MariaDB, and the web panel
+	$(COMPOSE) -f docker-compose.panel.yml down
+
+compose-panel-logs: ## Follow web panel logs
+	$(COMPOSE) -f docker-compose.panel.yml logs -f panel
+
+compose-panel-external-up: ## Start bot and panel against an external MariaDB
+	$(COMPOSE) -f docker-compose.panel-external-db.yml up -d
+
+compose-panel-external-down: ## Stop bot and panel that use an external MariaDB
+	$(COMPOSE) -f docker-compose.panel-external-db.yml down
+
+panel-test: ## Run web panel unit tests
+	node --test panel/test/*.js
 
 clean: ## Remove local image tag
 	-docker rmi ts3audiobot-docker:local

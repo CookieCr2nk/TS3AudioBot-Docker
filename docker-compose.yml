@@ -1,22 +1,30 @@
+# Only the bot. The API port stays inside the container.
+# Start: docker compose up -d
+
 services:
   ts3audiobot:
-    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:main
+    pull_policy: always
     container_name: ts3audiobot
     restart: unless-stopped
-    ports:
-      - "58913:58913"
+    # 58913 is not published. rights.toml treats every API caller as admin,
+    # so the port must stay reachable only by containers on the bot network.
     volumes:
-      - ./data:/data
+      - ts3audiobot-data:/data
+    # The root filesystem is read-only, so temporary files go on this tmpfs.
     tmpfs:
-      - /tmp:mode=1777,size=64m
+      - /tmp:mode=1777,size=256m,exec
     read_only: true
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
-    pids_limit: 100
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  ts3audiobot-data:
+    name: ts3audiobot-data

@@ -1,0 +1,109 @@
+# Bot, web panel, and MariaDB.
+# Start: docker compose -f docker-compose.panel.yml up -d
+# Bot and panel images come from GHCR (:main).
+#
+# botapi:   only the bot and the panel. The bot API is not published to the host.
+# paneldb:  only the panel and MariaDB, and it has no route to the internet.
+# No fixed container addresses. Docker assigns them.
+
+services:
+  ts3audiobot:
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:main
+    pull_policy: always
+    container_name: ts3audiobot
+    restart: unless-stopped
+    # 58913 is not published. rights.toml treats every API caller as admin,
+    # so the port must stay reachable only by containers on the bot network.
+    volumes:
+      - ts3audiobot-data:/data
+    # The root filesystem is read-only, so temporary files go on this tmpfs.
+    tmpfs:
+      - /tmp:mode=1777,size=256m,exec
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - botapi
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: ts3panel-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${PANEL_DB_NAME:-ts3panel}
+      MARIADB_USER: ${PANEL_DB_USER:-ts3panel}
+      MARIADB_PASSWORD: ${PANEL_DB_PASSWORD:-ts3panel}
+      MARIADB_ROOT_PASSWORD: ${PANEL_DB_ROOT_PASSWORD:-ts3panel-root}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ts3panel-db:/var/lib/mysql
+    networks:
+      - paneldb
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  panel:
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main
+    pull_policy: always
+    container_name: ts3panel
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_USER: ${PANEL_DB_USER:-ts3panel}
+      DB_PASSWORD: ${PANEL_DB_PASSWORD:-ts3panel}
+      DB_NAME: ${PANEL_DB_NAME:-ts3panel}
+      TOKEN_KEY: ${PANEL_TOKEN_KEY:-dev-only-token-key}
+      ADMIN_USER: ${PANEL_ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${PANEL_ADMIN_PASSWORD:-}
+      COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-false}
+      TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
+      PORT: "8080"
+    ports:
+      - "${PANEL_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - botapi
+      - paneldb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ts3audiobot-data:
+    name: ts3audiobot-data
+  ts3panel-db:
+
+networks:
+  botapi:
+  paneldb:
+    internal: true

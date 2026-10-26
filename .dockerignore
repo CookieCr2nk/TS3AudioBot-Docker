@@ -13,6 +13,9 @@ config/plugins/
 config/*.example
 
 data/
+panel
+.env
+.env.*
 .devcontainer
 .vscode
 .pre-commit-config.yaml

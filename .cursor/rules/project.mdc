@@ -1,0 +1,6 @@
+---
+description: Read the repository agent guides before editing
+alwaysApply: true
+---
+
+Read `AGENTS.md` in the repo root before changing anything in this repository. Before changing anything under `panel/`, also read `panel/AGENTS.md`. Do that before the first edit, even when the task looks small. For panel code, `panel/AGENTS.md` wins when the two disagree.

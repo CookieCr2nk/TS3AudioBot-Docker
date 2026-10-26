@@ -1,0 +1,26 @@
+<header class="page-head">
+  <div>
+    <h1><%= t("Audit") %></h1>
+    <p class="muted"><%= t("The last 200 actions. API tokens are not listed here.") %></p>
+  </div>
+</header>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th><%= t("Time") %></th><th><%= t("User") %></th><th>Bot</th><th><%= t("Action") %></th><th><%= t("Detail") %></th></tr>
+    </thead>
+    <tbody>
+      <% rows.forEach(function (row) { %>
+        <tr>
+          <td><%= formatTime(row.createdAt) %></td>
+          <td><%= row.username || "—" %></td>
+          <td><%= row.botName || "—" %></td>
+          <td class="mono"><%= row.action %></td>
+          <td><%= row.detail %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% if (!rows.length) { %><p class="muted"><%= t("No entries yet.") %></p><% } %>

@@ -2,22 +2,23 @@
 
 ## Reporting a vulnerability
 
-Please do not open a public GitHub issue for security problems. Email **noa@joder.li** with a description, steps to reproduce, and expected impact. I aim to respond within a few days.
+Open a [GitHub issue](https://github.com/CookieCr2nk/TS3AudioBot-Docker/issues/new) with a description, steps to reproduce, and the impact.
 
 ## What this image does
 
 - Runs as user `ts3audiobot` (UID 9999) with `/usr/sbin/nologin`
 - Bot binaries and `yt-dlp` are owned by root; the app user cannot modify them
 - SUID/SGID bits are stripped from the base image at build time
-- `docker-compose.yml` enables read-only root, `cap_drop: ALL`, `no-new-privileges`, and a PID limit
+- The Compose files enable read-only root, `cap_drop: ALL`, and `no-new-privileges`
 - Health check hits `http://127.0.0.1:58913/` from inside the container
 
 ## What you should do
 
 - Pull image updates regularly
 - Treat `bot.toml` identity keys and passwords as secrets
-- Restrict who can reach port 58913 if the web API is enabled
+- Do not publish port 58913. `rights.toml` grants every API caller admin rights. Only the panel container shares the bot network.
 - Back up the `data/` directory before upgrades
+- If you run the web panel, set `PANEL_DB_PASSWORD` before exposing port 8080. Do not publish the MariaDB port. Optional API tokens are encrypted and are not sent to the browser.
 
 ## Dependencies
 

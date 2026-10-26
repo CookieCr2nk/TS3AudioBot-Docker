@@ -1,0 +1,16 @@
+<section class="card login-card">
+  <p class="eyebrow">TS3AudioBot</p>
+  <h1><%= t("Sign in") %></h1>
+  <p class="muted"><%= t("Management for bots, playback, and access.") %></p>
+  <% if (error) { %><p class="flash flash-error" role="alert"><%= error %></p><% } %>
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="next" value="<%= next %>">
+    <label><%= t("Username") %>
+      <input name="username" autocomplete="username" required value="<%= username %>" maxlength="32">
+    </label>
+    <label><%= t("Password") %>
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-primary" type="submit"><%= t("Sign in") %></button>
+  </form>
+</section>

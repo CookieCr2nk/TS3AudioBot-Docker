@@ -141,6 +141,8 @@ path = "ffmpeg"
 
 [rights]
 #Path to the permission file. The file will be generated if it doesn't exist.
+#Who may call the API is decided in rights.toml (isapi = true). This file has
+#no trusted-address list. Keep port 58913 off the host so only the panel can connect.
 path = "rights.toml"
 
 [plugins]
@@ -157,6 +159,8 @@ port = 58913
 
 [web.api]
 #If you want to enable the web api.
+#Calls without an Authorization header stay anonymous. rights.toml allows every
+#API caller, because the port is only reachable from the panel network.
 enabled = true
 #Limits the maximum command complexity to prevent endless loops.
 command_complexity = 64

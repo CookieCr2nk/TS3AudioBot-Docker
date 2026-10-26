@@ -11,6 +11,9 @@ config/bots/*
 .env
 .env.local
 
+# Web panel
+panel/node_modules/
+
 # Editor / tooling
 .DS_Store
 *.swp

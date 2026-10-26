@@ -9,11 +9,11 @@ on:
 #  schedule:
 #    - cron: '29 8 * * *'
   push:
-    branches: [ "master" ]
+    branches: [ "main", "develop" ]
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main", "develop" ]
   workflow_dispatch:
 
 env:
@@ -21,9 +21,8 @@ env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-  # Upstream TS3AudioBot release tag to install. Must be a real GitHub release
-  # of Splamy/TS3AudioBot (branch names like "master"/"develop" are NOT releases).
-  BOT_RELEASE: "0.12.0"
+  # Git ref of Splamy/TS3AudioBot compiled into the bot image.
+  BOT_REF: develop
   # Fix Node.js 20 deprecation warnings
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -67,24 +66,24 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=master,enable={{is_default_branch}}
-            type=raw,value=${{ env.BOT_RELEASE }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,format=short
 
       # On pull requests we build a single-arch image and load it locally so it
-      # can be scanned without pushing. On master we build all platforms and push.
+      # can be scanned without pushing. On main and develop we build all
+      # platforms and push. main is published as :main.
       - name: Build Docker image
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64,linux/arm/v7' }}
           load: ${{ github.event_name == 'pull_request' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BOT_RELEASE=${{ env.BOT_RELEASE }}
+            BOT_REF=${{ env.BOT_REF }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: ${{ github.event_name != 'pull_request' }}
@@ -139,12 +138,98 @@ jobs:
         with:
           image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: cyclonedx-json
-          output-file: sbom-${{ env.BOT_RELEASE }}.json
+          output-file: sbom-bot.json
 
       - name: Upload SBOM as artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ env.BOT_RELEASE }}
-          path: sbom-${{ env.BOT_RELEASE }}.json
+          name: sbom-bot
+          path: sbom-bot.json
           retention-days: 30
+
+  panel:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-panel
+          tags: |
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short
+
+      - name: Build panel image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./panel
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          load: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=panel
+          cache-to: type=gha,scope=panel,mode=max
+          provenance: ${{ github.event_name != 'pull_request' }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: 'sarif'
+          output: 'trivy-panel.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('trivy-panel.sarif') != ''
+        with:
+          sarif_file: 'trivy-panel.sarif'
+          category: 'trivy-panel'
+
+      - name: Report CRITICAL vulnerabilities (non-blocking)
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: 'table'
+          severity: 'CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign panel image with cosign
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_EXPERIMENTAL: true
+        run: |
+          cosign sign --yes ${{ fromJSON(steps.meta.outputs.json).tags[0] }}

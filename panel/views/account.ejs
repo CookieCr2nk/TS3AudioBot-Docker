@@ -1,0 +1,18 @@
+<section class="card narrow">
+  <h1><%= t("Account") %></h1>
+  <p class="muted"><%= t("Signed in as {name}.", { name: user.username }) %></p>
+  <% if (error) { %><p class="flash flash-error" role="alert"><%= error %></p><% } %>
+  <form method="post" action="/account" class="stack">
+    <%- include("partials/csrf") %>
+    <label><%= t("Current password") %>
+      <input name="current" type="password" autocomplete="current-password" required>
+    </label>
+    <label><%= t("New password") %>
+      <input name="password" type="password" autocomplete="new-password" required minlength="10">
+    </label>
+    <label><%= t("Confirm") %>
+      <input name="confirm" type="password" autocomplete="new-password" required minlength="10">
+    </label>
+    <button class="btn btn-primary" type="submit"><%= t("Change password") %></button>
+  </form>
+</section>

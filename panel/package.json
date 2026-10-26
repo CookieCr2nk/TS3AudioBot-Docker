@@ -1,0 +1,22 @@
+{
+  "name": "ts3audiobot-panel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hosting panel for the TS3AudioBot web API",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "mysql2": "^3.14.1"
+  }
+}

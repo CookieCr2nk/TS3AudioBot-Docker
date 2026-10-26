@@ -8,4 +8,6 @@
 	groupid = []
 	useruid = []
 	ip = ["127.0.0.1", "::1"]
+	# Every API caller. Only safe while port 58913 is not published.
+	isapi = true
 	"+" = "*"

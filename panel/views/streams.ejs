@@ -1,0 +1,83 @@
+<header class="page-head">
+  <div>
+    <h1><%= t("Radio") %></h1>
+    <p class="muted"><%= t("Streams saved in the panel database. Playback uses the bot you have open. The address stays when the bot data is replaced.") %></p>
+    <% if (user && user.role === "admin") { %><p class="muted"><%= t("Administrators also see private stations.") %></p><% } %>
+  </div>
+</header>
+<%- include("partials/botnav") %>
+
+<% if (access.canControl) { %>
+  <form method="post" action="/bots/<%= bot.id %>/streams" class="card stack">
+    <%- include("partials/csrf") %>
+    <h2><%= t("New station") %></h2>
+    <div class="split">
+      <label><%= t("Name") %>
+        <input name="name" required maxlength="120" placeholder="Kiss FM">
+      </label>
+      <label class="grow"><%= t("Stream address") %>
+        <input name="url" type="url" required maxlength="500" placeholder="https://example.com/stream">
+      </label>
+    </div>
+    <label><%= t("Note") %>
+      <input name="notes" maxlength="500">
+    </label>
+    <% if (user && user.role === "admin") { %>
+      <label class="check">
+        <input type="checkbox" name="shared" value="on">
+        <%= t("Shared catalog") %>
+      </label>
+      <p class="muted"><%= t("Visible to every user. A private station is visible only to you.") %></p>
+    <% } %>
+    <button class="btn btn-primary" type="submit"><%= t("Save") %></button>
+  </form>
+<% } %>
+
+<% if (!streams.length) { %><p class="muted"><%= t("No stations yet.") %></p><% } %>
+
+<% if (streams.length) { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th><%= t("Name") %></th>
+          <th><%= t("Stream address") %></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% streams.forEach(function (stream) { %>
+          <tr>
+            <td>
+              <%= stream.name %>
+              <% if (stream.shared) { %><span class="pill pill-ok"><%= t("Shared") %></span><% } else { %><span class="pill"><%= t("Private") %></span><% } %>
+              <% if (stream.ownerName || stream.notes) { %>
+                <p class="muted"><% if (stream.ownerName) { %><%= t("by {name}", { name: stream.ownerName }) %><% } %><% if (stream.ownerName && stream.notes) { %> · <% } %><%= stream.notes %></p>
+              <% } %>
+            </td>
+            <td>
+              <% if (stream.displayUrl) { %>
+                <a class="mono" href="<%= stream.displayUrl %>" rel="noopener noreferrer" target="_blank"><%= stream.displayUrl %></a>
+              <% } %>
+            </td>
+            <td class="actions-cell">
+              <% if (access.canControl) { %>
+                <form method="post" action="/bots/<%= bot.id %>/streams/<%= stream.id %>/play">
+                  <%- include("partials/csrf") %>
+                  <button class="btn btn-primary" type="submit" name="op" value="play"><%= t("Play") %></button>
+                  <button class="btn" type="submit" name="op" value="add"><%= t("Append") %></button>
+                </form>
+              <% } %>
+              <% if (stream.canDelete) { %>
+                <form method="post" action="/bots/<%= bot.id %>/streams/<%= stream.id %>/delete" data-confirm="<%= t("Delete this station?") %>">
+                  <%- include("partials/csrf") %>
+                  <button class="btn btn-danger" type="submit"><%= t("Delete") %></button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
