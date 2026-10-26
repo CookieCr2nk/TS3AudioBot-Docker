@@ -12,15 +12,27 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/TS3AudioBot
-RUN case "$TARGETARCH" in \
-      amd64) ytdlp="yt-dlp_linux" ;; \
-      arm64) ytdlp="yt-dlp_linux_aarch64" ;; \
+# The 0.12 zip is architecture-independent. yt-dlp is not.
+# arm/v7 publishes an onedir zip, so _internal has to sit next to the binary.
+RUN mkdir -p /opt/yt-dlp && \
+    case "$TARGETARCH" in \
+      amd64) curl -fL --retry 5 --retry-delay 5 \
+        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" \
+        -o /opt/yt-dlp/yt-dlp ;; \
+      arm64) curl -fL --retry 5 --retry-delay 5 \
+        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" \
+        -o /opt/yt-dlp/yt-dlp ;; \
+      arm) curl -fL --retry 5 --retry-delay 5 \
+        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_armv7l.zip" \
+        -o /tmp/yt-dlp.zip && \
+        unzip /tmp/yt-dlp.zip -d /tmp/yt-dlp && \
+        mv /tmp/yt-dlp/yt-dlp_linux_armv7l /opt/yt-dlp/yt-dlp && \
+        mv /tmp/yt-dlp/_internal /opt/yt-dlp/_internal && \
+        rm -rf /tmp/yt-dlp /tmp/yt-dlp.zip ;; \
       *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac && \
-    curl -fL --retry 5 --retry-delay 5 \
-      "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${ytdlp}" \
-      -o /usr/local/bin/yt-dlp && \
-    chmod 755 /usr/local/bin/yt-dlp && \
+    chmod 755 /opt/yt-dlp/yt-dlp && \
+    ln -s /opt/yt-dlp/yt-dlp /usr/local/bin/yt-dlp && \
     /usr/local/bin/yt-dlp --version && \
     curl -fL --retry 5 --retry-delay 10 \
       "https://github.com/Splamy/TS3AudioBot/releases/download/${BOT_RELEASE}/TS3AudioBot_dotnetcore3.1.zip" \
@@ -29,8 +41,14 @@ RUN case "$TARGETARCH" in \
     rm TS3AudioBot.zip && \
     test -f TS3AudioBot.dll
 
+# The 3.1 tag is not one multi-arch manifest. Each Debian 11 tag is separate.
+FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim AS runtime-amd64
+FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim-arm64v8 AS runtime-arm64
+FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim-arm32v7 AS runtime-arm
+
 # --- Runtime ---
-FROM mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim
+ARG TARGETARCH
+FROM runtime-${TARGETARCH}
 
 LABEL org.opencontainers.image.title="TS3AudioBot"
 LABEL org.opencontainers.image.description="TS3AudioBot 0.12 on the .NET Core 3.1 ASP.NET runtime"
@@ -61,6 +79,7 @@ RUN groupadd -g 9999 ts3audiobot && \
     mkdir -p /data && \
     chown -R ts3audiobot:ts3audiobot /data
 
+COPY --from=builder --chown=root:root /opt/yt-dlp /opt/yt-dlp
 COPY --from=builder --chown=root:root /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
 COPY --from=builder --chown=root:root /opt/TS3AudioBot /opt/TS3AudioBot
 

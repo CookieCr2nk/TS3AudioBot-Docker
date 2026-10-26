@@ -32,7 +32,7 @@ The bot is the framework-dependent `TS3AudioBot_dotnetcore3.1.zip`, started with
 - The runtime stage is `mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim` (Debian 11). There is no .NET Core 3.1 image for Debian 12 or 13. That image supplies ICU 67 and `libssl.so.1.1`. Do not set invariant globalization. Do not switch back to the self-contained linux tarball. Extra apt packages come from `archive.debian.org`. The bullseye-security pool on `deb.debian.org` returns 404.
 - The image needs a `libopus.so` link to `libopus.so.0`.
 - The process runs as `ts3audiobot` (UID 9999), with a read-only root filesystem and no Linux capabilities.
-- `yt-dlp` is a self-contained binary per architecture. There is no `linux/arm/v7`.
+- `yt-dlp` is a self-contained binary per architecture. `linux/arm/v7` uses `yt-dlp_linux_armv7l.zip` and keeps its `_internal` directory next to the binary. The bot image is published for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`. The panel image stays `linux/amd64` and `linux/arm64`.
 
 ## Config and runtime data
 

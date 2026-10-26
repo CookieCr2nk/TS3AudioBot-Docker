@@ -121,7 +121,7 @@ Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` and `:develo
 Two workflows:
 
 - `.github/workflows/ci.yml` checks the config and the panel tests on every push and pull request, builds both images, and starts the stack. The run passes only when the panel is healthy, the bot API answers from the panel, and port 58913 is not bound on the host.
-- `.github/workflows/docker-publish.yml` builds both images for `linux/amd64` and `linux/arm64` on `master` and `develop` and pushes them to GHCR. `develop` gets the tag `:develop`. `master` keeps `:master` and the bot release tag. The images are scanned and signed.
+- `.github/workflows/docker-publish.yml` builds the bot image for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`, and the panel image for `linux/amd64` and `linux/arm64`, on `master` and `develop`, and pushes them to GHCR. `develop` gets the tag `:develop`. `master` keeps `:master` and the bot release tag. The images are scanned and signed.
 
 Locally: `make test` and `make panel-test`.
 

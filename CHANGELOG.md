@@ -24,7 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
-- Run TS3AudioBot 0.12 with `dotnet TS3AudioBot.dll` from `TS3AudioBot_dotnetcore3.1.zip` on `mcr.microsoft.com/dotnet/aspnet:3.1-bullseye-slim`. The image runtime loads ICU 67 and `libssl.so.1.1`. `yt-dlp` stays the per-architecture binary. Extra packages come from `archive.debian.org` because the bullseye-security pool on `deb.debian.org` returns 404
+- Run TS3AudioBot 0.12 with `dotnet TS3AudioBot.dll` from `TS3AudioBot_dotnetcore3.1.zip` on the .NET Core 3.1 ASP.NET image for Debian 11. The same zip is used for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`. The image runtime loads ICU 67 and `libssl.so.1.1`. `yt-dlp` stays the per-architecture binary. Extra packages come from `archive.debian.org` because the bullseye-security pool on `deb.debian.org` returns 404
 - Report vulnerabilities as a GitHub issue. The previous contact address is gone
 - The panel finds its pages under the application directory. In the image that is `/app/views`. The previous lookup used `/views`, so opening the panel failed before the page rendered
 - When the database is down, the login is rejected, the database is missing, or the schema does not match, the panel states that on the page. It keeps listening after a failed startup so the message is visible, and `/healthz` stays unhealthy
