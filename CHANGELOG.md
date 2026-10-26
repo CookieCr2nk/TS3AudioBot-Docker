@@ -16,6 +16,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
+- GHCR drops image versions that are no longer current. `main`, `develop`, `master`, release tags, and the three newest commit tags stay. Untagged platform manifests of those images stay
 - Seed `ts3audiobot.toml` uses Opus bitrate 96, a user volume cap of 80, and shows the song title and cover. The bundled WebInterface stays off because this image does not build it. `rights.toml` grants help, now-playing, and playback to everyone in TeamSpeak, and keeps `isapi = true` on the admin rule. `cmd.eval`, `cmd.xecute`, and `cmd.json.*` stay on that admin rule
 - The panel database replaces `bots` with `instances` and `ts_bots`. An existing bot row becomes one instance and one TeamSpeak bot. `bots` and `bot_grants` are dropped after the copy
 - Compose pulls both GHCR images with `${IMAGE_TAG:-main}`. The default tag is `main`. Set `IMAGE_TAG=develop` to pull the develop images. The Compose files stay the same on `main` and `develop`

@@ -22,7 +22,7 @@ Three Compose files. Each one is a complete stack and starts on its own:
 | `docker-compose.panel.yml` | bot, panel, MariaDB 11.4 |
 | `docker-compose.panel-external-db.yml` | bot, panel, external MariaDB |
 
-Images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:${IMAGE_TAG:-main}`.
+Images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:${IMAGE_TAG:-main}`. After a publish, the workflow deletes older GHCR versions. It keeps `main`, `develop`, `master`, release tags, the three newest `sha-` tags, and the untagged platform manifests those kept images reference.
 
 ## Bot image
 
