@@ -23,6 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
+- If the bot still cannot load ICU 70, the entrypoint starts it again with invariant globalization instead of leaving the process in a crash loop. ICU 70 is also copied onto `/usr/lib`, which the dynamic loader searches without `ld.so.cache`, and `CLR_ICU_VERSION_OVERRIDE=70.1` selects that build
 - Bot `/tmp` tmpfs is 256 MiB and executable. The .NET single-file host extracts about 68 MiB there and maps `libhostfxr.so` from it. 64 MiB failed the write, and Docker's default `noexec` then failed the map
 - Install Ubuntu 22.04 `libicu70` next to Debian 12's `libicu72`. .NET Core 3.1 only probes ICU through version 70, so the bot exited before the API listened
 - Install Debian 11 `libssl1.1` next to Bookworm's OpenSSL 3. .NET Core 3.1 only loads `libssl.so.1.1`

@@ -51,7 +51,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # and maps libhostfxr.so from there. Compose mounts /tmp as a 256 MiB tmpfs
 # with exec, because the root filesystem is read-only and Docker's tmpfs
 # default is noexec.
-ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
+# CLR_ICU_VERSION_OVERRIDE makes .NET Core 3.1 open libicuuc.so.70.1 directly.
+# LD_LIBRARY_PATH lists the multiarch directory so dlopen still finds it when
+# the loader does not use ld.so.cache.
+ENV CLR_ICU_VERSION_OVERRIDE=70.1 \
+    LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/lib/aarch64-linux-gnu:/usr/lib \
+    DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
     XDG_CACHE_HOME=/tmp/.cache \
     HOME=/tmp
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -91,7 +96,18 @@ RUN apt-get update && \
     curl -fL --retry 5 --retry-delay 5 "$ssl_url" -o /tmp/libssl1.1.deb && \
     echo "${ssl_sha}  /tmp/libssl1.1.deb" | sha256sum -c - && \
     dpkg-deb -x /tmp/libssl1.1.deb / && \
+    icu_real="$(find /usr/lib -name 'libicuuc.so.70.1' -print -quit)" && \
+    test -n "$icu_real" && \
+    icu_dir="$(dirname "$icu_real")" && \
+    for name in libicuuc libicui18n libicudata; do \
+      test -f "${icu_dir}/${name}.so.70.1" && \
+      cp -L "${icu_dir}/${name}.so.70.1" "/usr/lib/${name}.so.70.1" && \
+      ln -sfn "${name}.so.70.1" "/usr/lib/${name}.so.70" && \
+      ln -sfn "${name}.so.70.1" "${icu_dir}/${name}.so.70"; \
+    done && \
     ldconfig && \
+    LD_PRELOAD=libicuuc.so.70.1 /bin/true && \
+    LD_PRELOAD=libicui18n.so.70.1 /bin/true && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     find / -xdev -perm /6000 -type f -print0 | xargs -0 -r chmod a-s
 
@@ -102,6 +118,8 @@ RUN groupadd -g 9999 ts3audiobot && \
 
 COPY --from=builder --chown=root:root /usr/local/bin/yt-dlp /usr/local/bin/yt-dlp
 COPY --from=builder --chown=root:root /opt/TS3AudioBot /opt/TS3AudioBot
+COPY --chown=root:root ./scripts/bot-entrypoint.sh /usr/local/bin/ts3audiobot-entrypoint
+RUN chmod 755 /usr/local/bin/ts3audiobot-entrypoint
 
 WORKDIR /data
 COPY --chown=9999:9999 ./config .
@@ -113,4 +131,4 @@ EXPOSE 58913
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -sS http://127.0.0.1:58913/ > /dev/null || exit 1
 
-ENTRYPOINT ["/opt/TS3AudioBot/TS3AudioBot", "--non-interactive", "--stats-disabled"]
+ENTRYPOINT ["/usr/local/bin/ts3audiobot-entrypoint"]
