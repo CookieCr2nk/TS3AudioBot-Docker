@@ -5,6 +5,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- The panel is a host for TS3AudioBot. One Docker container is one instance, and one instance can hold several TeamSpeak bots. Administrators register containers, assign an owner, and grant other users. The owner can create and delete bots. Granted users can control playback. Accounts can be suspended. There is no billing and no ticket system
 - Agent guides in `AGENTS.md` and `panel/AGENTS.md`, in English, loaded at session start through those filenames plus `CLAUDE.md`, `.grok/rules/start.md`, and `.cursor/rules/project.mdc`
 - README is English. The panel UI stays English and still follows the browser when it prefers German
 - Numbered panel database migrations in `panel/sql/migrations`, recorded with a checksum in `schema_migrations`. Startup refuses a migration that changed after it was applied
@@ -12,10 +13,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Hosting fields on a bot template: nickname, default channel, server password, channel password, bitrate, start on launch, and a one-time TeamSpeak privilege key
 - Web panel (`panel/`) for the TS3AudioBot Web API, with MariaDB accounts and bot assignments (`docker-compose.panel.yml`)
 - Compose file for an external MariaDB (`docker-compose.panel-external-db.yml`)
-- Pushes to `main` publish both images to GHCR with the tag `:main`
+- Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
-- Compose pulls `ghcr.io/cookiecr2nk/ts3audiobot-docker:main` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main`. The publish workflow runs on `main` and tags those images `:main`
+- The panel database replaces `bots` with `instances` and `ts_bots`. An existing bot row becomes one instance and one TeamSpeak bot. `bots` and `bot_grants` are dropped after the copy
+- Compose pulls both GHCR images with `${IMAGE_TAG:-main}`. The default tag is `main`. Set `IMAGE_TAG=develop` to pull the develop images. The Compose files stay the same on `main` and `develop`
 - Compose no longer sets a PID limit on the bot or the panel
 - Bot data in every Compose file is the named volume `ts3audiobot-data` mounted at `/data`. An empty volume is filled from the image copy of `config/`
 - Each Compose file is a complete stack: `docker-compose.yml` is the bot only, `docker-compose.panel.yml` is the bot, the panel, and MariaDB, and `docker-compose.panel-external-db.yml` is the bot and the panel against an external MariaDB

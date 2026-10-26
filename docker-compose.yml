@@ -3,7 +3,7 @@
 
 services:
   ts3audiobot:
-    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:main
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}
     pull_policy: always
     container_name: ts3audiobot
     restart: unless-stopped

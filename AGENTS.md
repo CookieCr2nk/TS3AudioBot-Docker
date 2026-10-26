@@ -12,7 +12,7 @@ Write everything in English. That includes docs, commit messages, code, comments
 
 Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) and an optional web panel. Remote is `https://github.com/CookieCr2nk/TS3AudioBot-Docker`.
 
-`main` is the default branch. `develop` is the other long-lived branch. Pushes to `main` publish the GHCR tag `:main`. `BOT_REF` is a git ref of Splamy/TS3AudioBot. The default is `develop`.
+`main` is the default branch. `develop` is the other long-lived branch. A push to `main` publishes the GHCR tag `:main`. A push to `develop` publishes `:develop`. Compose reads `IMAGE_TAG` and defaults to `main`. Do not hardcode `:main` or `:develop` in the Compose files. `BOT_REF` is a git ref of Splamy/TS3AudioBot. The default is `develop`.
 
 Three Compose files. Each one is a complete stack and starts on its own:
 
@@ -22,7 +22,7 @@ Three Compose files. Each one is a complete stack and starts on its own:
 | `docker-compose.panel.yml` | bot, panel, MariaDB 11.4 |
 | `docker-compose.panel-external-db.yml` | bot, panel, external MariaDB |
 
-Images on `main`: `ghcr.io/cookiecr2nk/ts3audiobot-docker:main` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main`.
+Images: `ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:${IMAGE_TAG:-main}`.
 
 ## Bot image
 
@@ -47,6 +47,10 @@ Port 58913 is not published on the host. In the panel setup only the bot and the
 `config/rights.toml` sets `isapi = true` on the admin rule, so every API caller is an admin. That stays safe only while 58913 is not published. Do not remove that line and do not map the port unless the user asks for it and the rights are tightened first.
 
 An API token in the panel is required only when the bot sits outside this network. On the Compose network leave the UID and token empty.
+
+## Panel hosting
+
+One Docker container is one panel instance. One instance can hold several TeamSpeak bots. The panel does not create containers. An administrator registers the API address and can set an owner. The owner can create and delete bots on that instance. Other accounts get control through grants and cannot create bots. A suspended account cannot sign in. There is no billing and no ticket system. Passwords and privilege keys are not stored in the panel database.
 
 ## Checks
 

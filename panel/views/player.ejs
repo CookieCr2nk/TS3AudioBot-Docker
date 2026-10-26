@@ -3,6 +3,7 @@
   <div>
     <h1><%= bot.name %></h1>
     <p class="muted">
+      <% if (bot.instanceId) { %><a href="/instances/<%= bot.instanceId %>"><%= bot.instanceName || t("Instance") %></a> · <% } %>
       <% if (bot.instanceMode === "none") { %><%= t("No instance context") %><% } %>
       <% if (bot.instanceMode === "template") { %><%= t("Template {name}", { name: bot.instanceRef }) %><% } %>
       <% if (bot.instanceMode === "id") { %><%= t("Instance ID {name}", { name: bot.instanceRef }) %><% } %>

@@ -201,11 +201,20 @@ describe("secrets and schema", () => {
 
   it("loads ordered migrations and refuses a changed or unknown version", async () => {
     const migrations = loadMigrations();
-    assert.deepEqual(migrations.map((migration) => migration.version), ["001_baseline", "002_radio_streams"]);
+    assert.deepEqual(migrations.map((migration) => migration.version), [
+      "001_baseline",
+      "002_radio_streams",
+      "003_hosting",
+      "004_drop_legacy_bots",
+    ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
     assert.equal(migrations[0].statements.some((statement) => /MODIFY api_token_enc/i.test(statement)), true);
     assert.equal(migrations[1].statements.some((statement) => /CREATE TABLE IF NOT EXISTS radio_streams/i.test(statement)), true);
+    assert.equal(migrations[2].statements.some((statement) => /CREATE TABLE IF NOT EXISTS instances/i.test(statement)), true);
+    assert.equal(migrations[2].statements.some((statement) => /ADD COLUMN IF NOT EXISTS suspended/i.test(statement)), true);
+    assert.equal(migrations[2].statements.some((statement) => /FOREIGN KEY IF NOT EXISTS \(instance_id\)/i.test(statement)), true);
+    assert.equal(migrations[3].statements.some((statement) => /DROP TABLE IF EXISTS bots/i.test(statement)), true);
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);
@@ -226,9 +235,11 @@ describe("secrets and schema", () => {
     await applyMigrations(pool, migrations);
     const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
     assert.equal(inserts.length, migrations.length);
-    assert.equal(applied.length, 2);
+    assert.equal(applied.length, 4);
 
-    const changed = [{ ...migrations[0], checksum: "0".repeat(64) }, migrations[1]];
+    const changed = migrations.map((migration, index) =>
+      index === 0 ? { ...migration, checksum: "0".repeat(64) } : migration,
+    );
     await assert.rejects(() => applyMigrations(pool, changed), /changed after it was applied/);
     await assert.rejects(
       () => applyMigrations(pool, migrations.slice(1)),
@@ -316,6 +327,8 @@ describe("language", () => {
       bot: {
         id: 1,
         name: "bot",
+        instanceId: 1,
+        instanceName: "bot",
         instanceMode: "template",
         instanceRef: "default",
         enabled: true,
@@ -324,6 +337,19 @@ describe("language", () => {
         apiUser: "",
         hasToken: false,
       },
+      instance: {
+        id: 1,
+        name: "bot",
+        baseUrl: "http://ts3audiobot:58913",
+        ownerUserId: "",
+        ownerName: "admin",
+        apiUser: "",
+        hasToken: false,
+        enabled: true,
+        notes: "",
+      },
+      tsBots: [],
+      canManage: true,
       access: { canControl: true },
       editing: true,
       grantMap: {},

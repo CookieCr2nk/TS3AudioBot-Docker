@@ -34,7 +34,9 @@ Then:
 make compose-panel-up
 ```
 
-Open http://localhost:8080 and sign in. Add a bot. On the Compose network the API address is `http://ts3audiobot:58913`. Leave the UID and token empty.
+Open http://localhost:8080 and sign in. Add an instance. One instance is one Docker container. On the Compose network the API address is `http://ts3audiobot:58913`. Leave the UID and token empty. The owner of that instance can then create several TeamSpeak bots on it.
+
+Compose pulls `ghcr.io/cookiecr2nk/ts3audiobot-docker` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel` with the tag in `IMAGE_TAG`. The default is `main`. Put `IMAGE_TAG=develop` in the root `.env` to pull the images built from `develop`. The Compose files are the same on both branches.
 
 The UI is English. When the browser prefers German, the panel uses `panel/src/locales/de.js`.
 
@@ -73,7 +75,9 @@ Stop with `make compose-panel-external-down`. The external database is left as i
 
 Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when the bot volume is replaced.
 
-Under Instances, an administrator writes the nickname, default channel, server password, channel password, bitrate, and whether the bot connects when the process starts into the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the instance that currently controls playback and is not stored in the panel.
+An administrator registers each container as an instance and can assign an owner and extra users. The owner can create and delete TeamSpeak bots on that instance. Granted users can control playback and cannot create bots. A suspended account cannot sign in. The panel does not start containers, and it has no billing and no tickets.
+
+Under Connection, an administrator writes the nickname, default channel, server password, channel password, bitrate, and whether the bot connects when the process starts into the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the open bot and is not stored in the panel.
 
 ## Why there is no API token
 
@@ -114,14 +118,14 @@ docker build -t ts3audiobot-panel:local ./panel
 
 `BOT_REF` is a git ref of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot). The default is `develop`. Upstream does not publish a build for that branch, so the image follows the Linux steps in that README: clone the ref with submodules, run `dotnet build --framework net10.0 --configuration Release TS3AudioBot` on the .NET 10 SDK, and start `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`. The image installs ffmpeg, libopus, and a per-architecture `yt-dlp`. It does not build the upstream WebInterface.
 
-Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:main` and the panel as `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main`.
+Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel`, tagged `:main` from `main` and `:develop` from `develop`. Compose selects the tag with `IMAGE_TAG` and defaults to `main`.
 
 ## CI
 
 Two workflows:
 
 - `.github/workflows/ci.yml` checks the config and the panel tests on every push and pull request, builds both images, and starts the stack. The run passes only when the panel is healthy, the bot API answers from the panel, and port 58913 is not bound on the host.
-- `.github/workflows/docker-publish.yml` builds the bot image for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`, and the panel image for `linux/amd64` and `linux/arm64`, on `main` and `develop`, and pushes them to GHCR. `main` gets the tag `:main`. The images are scanned and signed.
+- `.github/workflows/docker-publish.yml` builds the bot image for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`, and the panel image for `linux/amd64` and `linux/arm64`, on `main` and `develop`, and pushes them to GHCR. `main` gets the tag `:main`. `develop` gets the tag `:develop`. The images are scanned and signed.
 
 Locally: `make test` and `make panel-test`.
 

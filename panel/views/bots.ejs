@@ -1,17 +1,24 @@
 <header class="page-head">
   <div>
-    <h1><%= t("Bots") %></h1>
-    <p class="muted"><%= t("Each entry is a TS3AudioBot with its own web API.") %></p>
+    <h1><%= t("Instances") %></h1>
+    <p class="muted"><%= t("Each entry is one Docker container. Several TeamSpeak bots can run inside it.") %></p>
   </div>
-  <a class="btn btn-primary" href="/admin/bots/new"><%= t("Add bot") %></a>
+  <a class="btn btn-primary" href="/admin/instances/new"><%= t("Add instance") %></a>
 </header>
 
-<% if (!bots.length) { %><p class="muted"><%= t("No bot has been added yet.") %></p><% } %>
+<% if (!bots.length) { %><p class="muted"><%= t("No instance has been added yet.") %></p><% } %>
 
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th><%= t("Name") %></th><th><%= t("API") %></th><th><%= t("Instance") %></th><th><%= t("Users") %></th><th></th></tr>
+      <tr>
+        <th><%= t("Name") %></th>
+        <th><%= t("API") %></th>
+        <th><%= t("Owner") %></th>
+        <th><%= t("Bots") %></th>
+        <th><%= t("Users") %></th>
+        <th></th>
+      </tr>
     </thead>
     <tbody>
       <% bots.forEach(function (item) { %>
@@ -21,9 +28,13 @@
             <% if (!item.enabled) { %><span class="pill pill-bad"><%= t("Off") %></span><% } %>
           </td>
           <td class="mono"><%= item.baseUrl %></td>
-          <td class="mono"><%= item.instanceMode %><% if (item.instanceRef) { %> / <%= item.instanceRef %><% } %></td>
+          <td><%= item.ownerName || "—" %></td>
+          <td><%= item.botCount %></td>
           <td><%= item.grantCount %></td>
-          <td><a class="btn btn-ghost" href="/admin/bots/<%= item.id %>"><%= t("Edit") %></a></td>
+          <td class="actions-cell">
+            <a class="btn btn-ghost" href="/instances/<%= item.id %>"><%= t("Open") %></a>
+            <a class="btn btn-ghost" href="/admin/instances/<%= item.id %>"><%= t("Edit") %></a>
+          </td>
         </tr>
       <% }) %>
     </tbody>

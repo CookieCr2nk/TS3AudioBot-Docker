@@ -44,6 +44,9 @@ authRouter.post(
 
     const user = await findUserByUsername(username);
     const valid = await verifyPassword(password, user?.password_hash);
+    if (user?.suspended) {
+      return fail(req.t("This account is suspended."));
+    }
     if (!user || !valid) {
       await addAudit({
         userId: user?.id ?? null,

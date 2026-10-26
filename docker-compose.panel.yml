@@ -1,6 +1,6 @@
 # Bot, web panel, and MariaDB.
 # Start: docker compose -f docker-compose.panel.yml up -d
-# Bot and panel images come from GHCR (:main).
+# Bot and panel images come from GHCR. IMAGE_TAG selects the tag. The default is main.
 #
 # botapi:   only the bot and the panel. The bot API is not published to the host.
 # paneldb:  only the panel and MariaDB, and it has no route to the internet.
@@ -8,7 +8,7 @@
 
 services:
   ts3audiobot:
-    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:main
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:${IMAGE_TAG:-main}
     pull_policy: always
     container_name: ts3audiobot
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
         max-file: "3"
 
   panel:
-    image: ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:${IMAGE_TAG:-main}
     pull_policy: always
     container_name: ts3panel
     restart: unless-stopped
