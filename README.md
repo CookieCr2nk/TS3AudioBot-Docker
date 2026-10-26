@@ -114,14 +114,14 @@ docker build -t ts3audiobot-panel:local ./panel
 
 `BOT_REF` is a git ref of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot). The default is `develop`. Upstream does not publish a build for that branch, so the image follows the Linux steps in that README: clone the ref with submodules, run `dotnet build --framework net10.0 --configuration Release TS3AudioBot` on the .NET 10 SDK, and start `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`. The image installs ffmpeg, libopus, and a per-architecture `yt-dlp`. It does not build the upstream WebInterface.
 
-Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:master` and `:develop`, and the panel as `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:master` and `:develop`.
+Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker:main` and the panel as `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main`.
 
 ## CI
 
 Two workflows:
 
 - `.github/workflows/ci.yml` checks the config and the panel tests on every push and pull request, builds both images, and starts the stack. The run passes only when the panel is healthy, the bot API answers from the panel, and port 58913 is not bound on the host.
-- `.github/workflows/docker-publish.yml` builds the bot image for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`, and the panel image for `linux/amd64` and `linux/arm64`, on `master` and `develop`, and pushes them to GHCR. `develop` gets the tag `:develop`. `master` keeps `:master`. The images are scanned and signed.
+- `.github/workflows/docker-publish.yml` builds the bot image for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`, and the panel image for `linux/amd64` and `linux/arm64`, on `main` and `develop`, and pushes them to GHCR. `main` gets the tag `:main`. The images are scanned and signed.
 
 Locally: `make test` and `make panel-test`.
 

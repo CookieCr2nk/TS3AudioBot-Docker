@@ -12,7 +12,7 @@ Write everything in English. That includes docs, commit messages, code, comments
 
 Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) and an optional web panel. Remote is `https://github.com/CookieCr2nk/TS3AudioBot-Docker`.
 
-`master` and `develop` are the long-lived branches. This panel and the GHCR tags `:develop` belong to `develop`. `BOT_REF` is a git ref of Splamy/TS3AudioBot. The default is `develop`.
+`main` is the default branch. `develop` is the other long-lived branch. Pushes to `main` publish the GHCR tag `:main`. `BOT_REF` is a git ref of Splamy/TS3AudioBot. The default is `develop`.
 
 Three Compose files. Each one is a complete stack and starts on its own:
 
@@ -22,7 +22,7 @@ Three Compose files. Each one is a complete stack and starts on its own:
 | `docker-compose.panel.yml` | bot, panel, MariaDB 11.4 |
 | `docker-compose.panel-external-db.yml` | bot, panel, external MariaDB |
 
-Images on `develop`: `ghcr.io/cookiecr2nk/ts3audiobot-docker:develop` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:develop`.
+Images on `main`: `ghcr.io/cookiecr2nk/ts3audiobot-docker:main` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel:main`.
 
 ## Bot image
 
