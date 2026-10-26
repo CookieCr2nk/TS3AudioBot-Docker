@@ -365,5 +365,7 @@ jobs:
 
       - name: Delete old GHCR image versions
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           KEEP_SHA: "3"
         run: node .github/scripts/prune-ghcr.mjs
