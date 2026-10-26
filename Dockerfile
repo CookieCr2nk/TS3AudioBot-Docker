@@ -16,6 +16,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # arm/v7 yt-dlp is an onedir zip, so _internal has to sit next to the binary.
+# This stage is the build machine. Do not run the target binary here.
 RUN mkdir -p /opt/yt-dlp && \
     case "$TARGETARCH" in \
       amd64) curl -fL --retry 5 --retry-delay 5 \
@@ -30,12 +31,13 @@ RUN mkdir -p /opt/yt-dlp && \
         unzip /tmp/yt-dlp.zip -d /tmp/yt-dlp && \
         mv /tmp/yt-dlp/yt-dlp_linux_armv7l /opt/yt-dlp/yt-dlp && \
         mv /tmp/yt-dlp/_internal /opt/yt-dlp/_internal && \
-        rm -rf /tmp/yt-dlp /tmp/yt-dlp.zip ;; \
+        rm -rf /tmp/yt-dlp /tmp/yt-dlp.zip && \
+        test -d /opt/yt-dlp/_internal ;; \
       *) echo "unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac && \
     chmod 755 /opt/yt-dlp/yt-dlp && \
-    ln -s /opt/yt-dlp/yt-dlp /usr/local/bin/yt-dlp && \
-    /usr/local/bin/yt-dlp --version
+    test -s /opt/yt-dlp/yt-dlp && \
+    ln -s /opt/yt-dlp/yt-dlp /usr/local/bin/yt-dlp
 
 # Upstream develop has no release build. The README builds net10.0 from a full clone.
 WORKDIR /src

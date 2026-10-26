@@ -32,7 +32,7 @@ The bot is built in the image from the latest `develop` commit of Splamy/TS3Audi
 - The runtime stage is `mcr.microsoft.com/dotnet/runtime:10.0` (Ubuntu 24.04). The builder is `mcr.microsoft.com/dotnet/sdk:10.0`. Do not set invariant globalization. Do not go back to the 0.12 single-file tarball. That binary is .NET Core 3.1 and exits when it cannot load the host ICU.
 - The image needs a `libopus.so` link to `libopus.so.0`.
 - The process runs as `ts3audiobot` (UID 9999), with a read-only root filesystem and no Linux capabilities.
-- `yt-dlp` is a self-contained binary per architecture. `linux/arm/v7` uses `yt-dlp_linux_armv7l.zip` and keeps its `_internal` directory next to the binary. The bot image is published for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`. The panel image stays `linux/amd64` and `linux/arm64`.
+- `yt-dlp` is a self-contained binary per architecture. `linux/arm/v7` uses `yt-dlp_linux_armv7l.zip` and keeps its `_internal` directory next to the binary. Download it in the builder and do not execute it there. The builder is the host architecture, so an arm64 binary fails with `ld-linux-aarch64.so.1` missing. The bot image is published for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`. The panel image stays `linux/amd64` and `linux/arm64`.
 
 ## Config and runtime data
 

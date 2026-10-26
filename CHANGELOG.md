@@ -24,6 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
+- The multi-arch build no longer runs `yt-dlp` inside the builder. That stage is the host architecture, so the arm64 binary exited because `ld-linux-aarch64.so.1` was missing
 - Build TS3AudioBot from the latest `develop` commit inside the image with the .NET 10 SDK, then run `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`. Upstream does not publish this build. Release 0.12 is .NET Core 3.1 and exited because it could not load the host ICU. `yt-dlp` stays the per-architecture binary
 - Report vulnerabilities as a GitHub issue. The previous contact address is gone
 - The panel finds its pages under the application directory. In the image that is `/app/views`. The previous lookup used `/views`, so opening the panel failed before the page rendered
