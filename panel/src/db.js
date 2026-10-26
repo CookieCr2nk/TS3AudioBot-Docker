@@ -3,7 +3,7 @@ import { config, databaseConfig } from "./config.js";
 import { decrypt, encrypt, randomToken } from "./crypto.js";
 import { HttpError } from "./errors.js";
 import { hashPassword } from "./passwords.js";
-import { applySchema } from "./schema.js";
+import { applyMigrations } from "./schema.js";
 import { parsePassword, parseUsername } from "./validate.js";
 
 export const pool = mysql.createPool({
@@ -39,7 +39,7 @@ export async function waitForDatabase(attempts = 30) {
 
 export async function migrate() {
   await waitForDatabase();
-  await applySchema(pool);
+  await applyMigrations(pool);
   await pool.query("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP(3)");
 }
 
@@ -168,7 +168,21 @@ export async function setRole(id, role) {
 }
 
 export async function deleteUser(id) {
-  await pool.query("DELETE FROM users WHERE id = ?", [id]);
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      "UPDATE radio_streams SET owner_user_id = NULL WHERE owner_user_id = ? AND shared = 1",
+      [id],
+    );
+    await connection.query("DELETE FROM users WHERE id = ?", [id]);
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function countAdmins() {
@@ -380,6 +394,67 @@ export async function addAudit({ userId = null, botId = null, action, detail = n
     String(action).slice(0, 64),
     clip(detail),
   ]);
+}
+
+function mapStream(row) {
+  return {
+    id: Number(row.id),
+    name: row.name,
+    url: row.url,
+    notes: row.notes || "",
+    shared: Boolean(row.shared),
+    ownerUserId: row.owner_user_id == null ? null : Number(row.owner_user_id),
+    ownerName: row.owner_name || "",
+    createdAt: row.created_at,
+  };
+}
+
+export async function listStreams(user) {
+  const admin = user.role === "admin" ? 1 : 0;
+  const [rows] = await pool.query(
+    `SELECT r.id, r.name, r.url, r.notes, r.shared, r.owner_user_id, r.created_at, u.username AS owner_name
+     FROM radio_streams r
+     LEFT JOIN users u ON u.id = r.owner_user_id
+     WHERE r.shared = 1 OR r.owner_user_id = ? OR ? = 1
+     ORDER BY r.shared DESC, r.name, r.id`,
+    [user.id, admin],
+  );
+  return rows.map(mapStream);
+}
+
+export async function getStream(id, user) {
+  const admin = user.role === "admin" ? 1 : 0;
+  const [rows] = await pool.query(
+    `SELECT r.id, r.name, r.url, r.notes, r.shared, r.owner_user_id, r.created_at, u.username AS owner_name
+     FROM radio_streams r
+     LEFT JOIN users u ON u.id = r.owner_user_id
+     WHERE r.id = ? AND (r.shared = 1 OR r.owner_user_id = ? OR ? = 1)
+     LIMIT 1`,
+    [id, user.id, admin],
+  );
+  return rows[0] ? mapStream(rows[0]) : null;
+}
+
+export async function insertStream({ name, url, notes, shared, ownerUserId }) {
+  try {
+    const [result] = await pool.query(
+      "INSERT INTO radio_streams (name, url, notes, shared, owner_user_id) VALUES (?, ?, ?, ?, ?)",
+      [name, url, notes || null, shared ? 1 : 0, ownerUserId],
+    );
+    return Number(result.insertId);
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") throw new HttpError("This stream is already saved", 400);
+    throw err;
+  }
+}
+
+export async function deleteStream(id, user) {
+  const admin = user.role === "admin" ? 1 : 0;
+  const [result] = await pool.query(
+    "DELETE FROM radio_streams WHERE id = ? AND (owner_user_id = ? OR ? = 1)",
+    [id, user.id, admin],
+  );
+  return result.affectedRows > 0;
 }
 
 export async function listAudit(limit = 200) {

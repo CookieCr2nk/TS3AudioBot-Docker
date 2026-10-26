@@ -74,6 +74,18 @@ export function formatTime(value, lang = "en") {
   return `${formatted} UTC`;
 }
 
+export function displayStreamUrl(value) {
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    url.username = "";
+    url.password = "";
+    return url.href;
+  } catch {
+    return "";
+  }
+}
+
 export function safeHttpUrl(value) {
   try {
     const url = new URL(String(value));

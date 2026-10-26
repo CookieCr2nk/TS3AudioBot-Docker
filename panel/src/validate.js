@@ -113,6 +113,68 @@ export function splitApiCredential(uid, token, { keepExisting = false, clear = f
   return { user, secret };
 }
 
+export function parseStreamUrl(value) {
+  const text = String(value ?? "").trim();
+  if (!text || text.length > 500) throw new ValidationError("Stream address is missing or too long");
+  rejectControls(text, "Stream address");
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    throw new ValidationError("Stream address is not a valid URL");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new ValidationError("Stream address must be http or https");
+  }
+  if (url.hash) throw new ValidationError("Stream address is not a valid URL");
+  if (!url.hostname || isBlockedHost(url.hostname)) {
+    throw new ValidationError("This stream address is not allowed");
+  }
+  if (url.href.length > 500) throw new ValidationError("Stream address is missing or too long");
+  return url.href;
+}
+
+export function parseBotNick(value) {
+  const name = rejectControls(clean(value), "Nickname");
+  if (!name || name.length > 30) throw new ValidationError("Nickname is missing or too long");
+  return name;
+}
+
+export function parsePrivilegeKey(value) {
+  const key = clean(value);
+  if (!/^[A-Za-z0-9+/=_-]{8,200}$/.test(key)) throw new ValidationError("Privilege key is invalid");
+  return key;
+}
+
+function parseOptionalSecret(value, label) {
+  const text = String(value ?? "");
+  if (!clean(text)) return null;
+  if (text.length > 128) throw new ValidationError("{label} is invalid", { label });
+  return rejectControls(text, label);
+}
+
+export function parseHostingSettings(input) {
+  const name = parseTemplateName(input.name);
+  const nickname = clean(input.nickname) ? parseBotNick(input.nickname) : null;
+  const channel = clean(input.channel) ? parseChannel(input.channel) : null;
+  const serverPassword = parseOptionalSecret(input.serverPassword, "Server password");
+  const channelPassword = parseOptionalSecret(input.channelPassword, "Channel password");
+  let bitrate = null;
+  if (clean(input.bitrate)) {
+    bitrate = parseIndex(input.bitrate, "Bitrate", 98);
+    if (bitrate < 8) throw new ValidationError("Bitrate must be between 8 and 98");
+  }
+  let run = null;
+  const runText = clean(input.run);
+  if (runText === "on") run = true;
+  else if (runText === "off") run = false;
+  else if (runText) throw new ValidationError("Start on launch is invalid");
+  if (!nickname && !channel && !serverPassword && !channelPassword && bitrate == null && run == null) {
+    throw new ValidationError("Enter at least one connection setting");
+  }
+  return { name, nickname, channel, serverPassword, channelPassword, bitrate, run };
+}
+
 export function parseResource(value) {
   const text = String(value ?? "").trim();
   if (!text || text.length > 2000) throw new ValidationError("Link is missing or too long");

@@ -8,12 +8,14 @@ import { actions, buildActionRequest } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
-import { presentBotList, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
-import { loadSchemaSql, statementsFromSchema } from "../src/schema.js";
+import { displayStreamUrl, presentBotList, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
+import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
+  parseHostingSettings,
   parsePassword,
+  parseStreamUrl,
   parseVolume,
   splitApiCredential,
 } from "../src/validate.js";
@@ -70,6 +72,25 @@ describe("action guard", () => {
   it("blocks playback without control and hosting actions for users", () => {
     assert.throws(() => buildActionRequest(templateBot, "play", { resource: "https://example.com/a" }, reader), /control rights/);
     assert.throws(() => buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, user), /Administrators only/);
+  });
+
+  it("keeps hosting secrets out of the audit text", () => {
+    const hosting = buildActionRequest(
+      templateBot,
+      "template-hosting",
+      { name: "lobby", nickname: "Music", serverPassword: "s3cret-pass", bitrate: "48", run: "on" },
+      admin,
+    );
+    assert.equal(hosting.parts, null);
+    assert.equal(JSON.stringify(hosting.action.detail(hosting.args)).includes("s3cret-pass"), false);
+    assert.equal(hosting.args.serverPassword, "s3cret-pass");
+    assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby" }, admin), /at least one/);
+    assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby", nickname: "Music" }, user), /Administrators only/);
+
+    const setup = buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin);
+    assert.equal(buildApiPath(setup.parts), "/bot/template/default/(/bot/setup/abcdefgh)");
+    assert.equal(JSON.stringify(setup.action.detail(setup.args)).includes("abcdefgh"), false);
+    assert.throws(() => buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, user), /Administrators only/);
   });
 
   it("requires an explicit confirm before deleting a playlist", () => {
@@ -136,6 +157,21 @@ describe("input", () => {
     assert.throws(() => splitApiCredential("uid", ""), /together/);
   });
 
+  it("accepts a stream address and hides credentials in the label", () => {
+    assert.equal(parseStreamUrl("https://example.com/live"), "https://example.com/live");
+    const stored = parseStreamUrl("https://user:pass@example.com/stream");
+    assert.equal(stored.includes("user:pass@"), true);
+    assert.equal(displayStreamUrl(stored).includes("user"), false);
+    assert.equal(displayStreamUrl(stored).includes("pass"), false);
+    assert.throws(() => parseStreamUrl("http://169.254.169.254/latest"), /not allowed/);
+    assert.throws(() => parseStreamUrl("file:///etc/passwd"), /http/);
+    const hosting = parseHostingSettings({ name: "lobby", channel: "/5", bitrate: "8", run: "off" });
+    assert.equal(hosting.channel, "/5");
+    assert.equal(hosting.bitrate, 8);
+    assert.equal(hosting.run, false);
+    assert.throws(() => parseHostingSettings({ name: "lobby", bitrate: "7" }), /8 and 98/);
+  });
+
   it("limits volume and passwords", () => {
     assert.equal(parseVolume("0"), 0);
     assert.equal(parseVolume("100"), 100);
@@ -158,11 +194,41 @@ describe("secrets and schema", () => {
     assert.equal(tokensEqual("", ""), false);
   });
 
-  it("loads five tables from the schema file", () => {
-    const statements = statementsFromSchema(loadSchemaSql());
-    const creates = statements.filter((statement) => /^CREATE TABLE/i.test(statement));
+  it("loads ordered migrations and refuses a changed or unknown version", async () => {
+    const migrations = loadMigrations();
+    assert.deepEqual(migrations.map((migration) => migration.version), ["001_baseline", "002_radio_streams"]);
+    const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
-    assert.equal(statements.some((statement) => /MODIFY api_token_enc/i.test(statement)), true);
+    assert.equal(migrations[0].statements.some((statement) => /MODIFY api_token_enc/i.test(statement)), true);
+    assert.equal(migrations[1].statements.some((statement) => /CREATE TABLE IF NOT EXISTS radio_streams/i.test(statement)), true);
+    const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
+    const lf = migrationFromSource("009_sample", "SELECT 1;\n");
+    assert.equal(crlf.checksum, lf.checksum);
+
+    const applied = [];
+    const calls = [];
+    const pool = {
+      async query(sql, params) {
+        calls.push(String(sql));
+        if (/FROM schema_migrations/i.test(sql)) return [applied.map((row) => ({ ...row }))];
+        if (/INSERT INTO schema_migrations/i.test(sql)) {
+          applied.push({ version: params[0], checksum: params[1] });
+        }
+        return [{ affectedRows: 1 }];
+      },
+    };
+    await applyMigrations(pool, migrations);
+    await applyMigrations(pool, migrations);
+    const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
+    assert.equal(inserts.length, migrations.length);
+    assert.equal(applied.length, 2);
+
+    const changed = [{ ...migrations[0], checksum: "0".repeat(64) }, migrations[1]];
+    await assert.rejects(() => applyMigrations(pool, changed), /changed after it was applied/);
+    await assert.rejects(
+      () => applyMigrations(pool, migrations.slice(1)),
+      /does not include/,
+    );
   });
 });
 
@@ -269,6 +335,7 @@ describe("language", () => {
       page: 1,
       perPage: 50,
       instances: [],
+      streams: [],
       encode: encodeURIComponent,
       formatTime: () => "",
       safeHttpUrl: () => null,

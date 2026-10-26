@@ -60,11 +60,19 @@ Liegt MariaDB auf demselben Rechner wie Docker, setze `PANEL_DB_HOST=host.docker
 
 Datenbank und Benutzer müssen existieren und von der Docker-Bridge aus Verbindungen annehmen. Das Panel legt seine Tabellen beim Start selbst an.
 
+Schemaänderungen liegen als nummerierte Dateien in `panel/sql/migrations/`. Jede neue Datei wird einmal ausgeführt und in `schema_migrations` mit einer Prüfsumme gespeichert. Eine Datei, die schon angewendet wurde, darf sich nicht mehr ändern. Die nächste Änderung ist eine neue Datei mit der nächsten Nummer, zum Beispiel `003_name.sql`. Die SQL-Anweisungen müssen sich erneut ausführen lassen, falls der Prozess zwischen zwei Anweisungen abbricht.
+
 ```bash
 make compose-panel-external-up
 ```
 
 Stoppen: `make compose-panel-external-down`. Die externe Datenbank bleibt dabei unangetastet.
+
+## Radio und Verbindung
+
+Radiosender stehen in der Panel-Datenbank, nicht in den Dateien des Bots. Unter Radio legt jeder Benutzer mit Steuerrecht private Sender an. Ein Administrator kann einen Sender für alle freigeben und sieht auch private Sender. Ein gemeinsamer Sender bleibt erhalten, wenn das Konto gelöscht wird, das ihn angelegt hat. Abspielen und Anhängen laufen über den gerade geöffneten Bot. Dieselbe Adresse bleibt erhalten, wenn `data/` ersetzt wird.
+
+Unter Instanzen schreibt ein Administrator Nickname, Standard-Channel, Serverpasswort, Channelpasswort, Bitrate und den Start mit dem Prozess in das Bot-Template. Leere Felder bleiben unverändert. Passwörter gehen an den Bot und werden nicht in der Panel-Datenbank gespeichert. Ein TeamSpeak-Privilege-Key wird einmal an die Instanz geschickt, die gerade die Wiedergabe steuert, und nicht im Panel gespeichert.
 
 ## Warum kein API-Token
 

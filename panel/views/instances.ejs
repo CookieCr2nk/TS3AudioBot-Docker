@@ -86,6 +86,58 @@
 
 <form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
   <%- include("partials/csrf") %>
+  <input type="hidden" name="op" value="template-hosting">
+  <h2><%= t("Connection settings") %></h2>
+  <p class="muted"><%= t("Saved on the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel.") %></p>
+  <div class="split">
+    <label><%= t("Name") %>
+      <input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" value="<%= bot.instanceMode === "template" ? bot.instanceRef : "" %>">
+    </label>
+    <label class="grow"><%= t("Nickname") %>
+      <input name="nickname" maxlength="30" placeholder="Music">
+    </label>
+  </div>
+  <div class="split">
+    <label class="grow"><%= t("Default channel") %>
+      <input name="channel" maxlength="200" placeholder="<%= t("/5 or Home/Lobby") %>">
+    </label>
+    <label><%= t("Bitrate (kbps)") %>
+      <input name="bitrate" inputmode="numeric" maxlength="2" placeholder="48">
+    </label>
+  </div>
+  <div class="split">
+    <label class="grow"><%= t("Server password") %>
+      <input name="serverPassword" type="password" maxlength="128" autocomplete="new-password">
+    </label>
+    <label class="grow"><%= t("Channel password") %>
+      <input name="channelPassword" type="password" maxlength="128" autocomplete="new-password">
+    </label>
+  </div>
+  <label><%= t("Start when the process launches") %>
+    <select name="run">
+      <option value=""><%= t("Leave unchanged") %></option>
+      <option value="on"><%= t("Yes") %></option>
+      <option value="off"><%= t("No") %></option>
+    </select>
+  </label>
+  <button class="btn btn-primary" type="submit"><%= t("Save") %></button>
+</form>
+
+<form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
+  <%- include("partials/csrf") %>
+  <input type="hidden" name="op" value="bot-setup">
+  <h2><%= t("Server admin") %></h2>
+  <p class="muted"><%= t("Paste a TeamSpeak privilege key once. It applies to the instance currently used for playback. The key is not stored.") %></p>
+  <div class="split">
+    <label class="grow"><%= t("Privilege key") %>
+      <input name="key" type="password" required maxlength="200" autocomplete="off">
+    </label>
+    <button class="btn" type="submit"><%= t("Apply") %></button>
+  </div>
+</form>
+
+<form method="post" action="/bots/<%= bot.id %>/action" class="card stack">
+  <%- include("partials/csrf") %>
   <input type="hidden" name="op" value="move">
   <h2><%= t("Channel") %></h2>
   <div class="split">

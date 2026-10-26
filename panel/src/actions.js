@@ -2,8 +2,10 @@ import { HttpError, ValidationError } from "./errors.js";
 import { callBot, scope } from "./ts3ab.js";
 import {
   parseChannel,
+  parseHostingSettings,
   parseIndex,
   parseListId,
+  parsePrivilegeKey,
   parseResource,
   parseSearchQuery,
   parseTemplateName,
@@ -301,6 +303,34 @@ export const actions = {
     parse: (input) => ({ name: parseTemplateName(input.name), address: parseTsAddress(input.address) }),
     build: (args) => ["settings", "bot", "set", args.name, "connect.address", args.address],
     detail: (args) => `${args.name} → ${args.address}`,
+  },
+  "template-hosting": {
+    admin: true,
+    audit: true,
+    scoped: false,
+    success: "Connection settings saved",
+    parse: (input) => parseHostingSettings(input),
+    async run(bot, args, call) {
+      const sets = [];
+      if (args.nickname) sets.push(["connect.name", args.nickname]);
+      if (args.channel) sets.push(["connect.channel", args.channel]);
+      if (args.serverPassword) sets.push(["connect.server_password.pw", args.serverPassword]);
+      if (args.channelPassword) sets.push(["connect.channel_password.pw", args.channelPassword]);
+      if (args.bitrate != null) sets.push(["audio.bitrate", String(args.bitrate)]);
+      if (args.run != null) sets.push(["run", args.run ? "true" : "false"]);
+      for (const [path, value] of sets) {
+        await call(["settings", "bot", "set", args.name, path, value], 15000);
+      }
+    },
+    detail: (args) => ({ key: "Connection settings for {name}", params: { name: args.name } }),
+  },
+  "bot-setup": {
+    admin: true,
+    audit: true,
+    success: "Privilege key applied",
+    parse: (input) => ({ key: parsePrivilegeKey(input.key) }),
+    build: (args) => ["bot", "setup", args.key],
+    detail: () => ({ key: "Applied a privilege key" }),
   },
 };
 

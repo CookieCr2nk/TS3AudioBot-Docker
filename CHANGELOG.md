@@ -5,6 +5,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Numbered panel database migrations in `panel/sql/migrations`, recorded with a checksum in `schema_migrations`. Startup refuses a migration that changed after it was applied
+- Radio stations stored in MariaDB. Users keep private stations, and an administrator can publish a station to everyone
+- Hosting fields on a bot template: nickname, default channel, server password, channel password, bitrate, start on launch, and a one-time TeamSpeak privilege key
 - Web panel (`panel/`) for the TS3AudioBot Web API, with MariaDB accounts and bot assignments (`docker-compose.panel.yml`)
 - Compose file for an external MariaDB (`docker-compose.panel-external-db.yml`)
 - Pushes to `develop` publish both images to GHCR with the tag `:develop`

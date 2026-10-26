@@ -2,19 +2,24 @@ import { Router } from "express";
 import { runAction } from "../actions.js";
 import { callBot, statusParts } from "../ts3ab.js";
 import {
+  accessToBot,
   addAudit,
+  deleteStream,
+  getStream,
+  insertStream,
   listBots,
   listBotsForUser,
+  listStreams,
   mapBot,
   publicBot,
   setFlash,
   updateInstance,
-  accessToBot,
 } from "../db.js";
 import { HttpError } from "../errors.js";
 import { numericId, rateLimit, safeReferrer, wantsJson, wrap } from "../http.js";
 import { errorText } from "../i18n.js";
 import {
+  displayStreamUrl,
   needsRightsHint,
   presentBotList,
   presentHistory,
@@ -25,7 +30,7 @@ import {
   presentVersion,
   safeHttpUrl,
 } from "../present.js";
-import { parseListId, parseUseInstance } from "../validate.js";
+import { parseListId, parseNotes, parseStreamUrl, parseTitle, parseUseInstance } from "../validate.js";
 
 export const panelRouter = Router();
 
@@ -279,6 +284,112 @@ panelRouter.get(
       error,
       rightsHint: needsRightsHint(error),
     });
+  }),
+);
+
+function viewStream(stream, user) {
+  return {
+    id: stream.id,
+    name: stream.name,
+    displayUrl: displayStreamUrl(stream.url),
+    notes: stream.notes,
+    shared: stream.shared,
+    ownerName: stream.ownerName,
+    canDelete: user.role === "admin" || stream.ownerUserId === user.id,
+  };
+}
+
+panelRouter.get(
+  "/bots/:id/streams",
+  wrap(async (req, res) => {
+    const access = await openBot(req, res);
+    if (!access) return;
+    const streams = (await listStreams(req.user)).map((stream) => viewStream(stream, req.user));
+    res.render("streams", {
+      title: req.t("Radio · {name}", { name: access.bot.name }),
+      tab: "streams",
+      bot: access.bot,
+      access,
+      streams,
+    });
+  }),
+);
+
+panelRouter.post(
+  "/bots/:id/streams",
+  wrap(async (req, res) => {
+    const access = await openBot(req, res);
+    if (!access) return;
+    if (!access.canControl) throw new HttpError("No control rights for this bot", 403);
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const name = parseTitle(req.body.name, "Name");
+    const url = parseStreamUrl(req.body.url);
+    const notes = parseNotes(req.body.notes);
+    const shared = req.user.role === "admin" && (req.body.shared === "on" || req.body.shared === "1");
+    await insertStream({ name, url, notes, shared, ownerUserId: req.user.id });
+    await addAudit({
+      userId: req.user.id,
+      botId: access.bot.id,
+      action: "stream-save",
+      detail: name,
+    });
+    await setFlash(req.sessionId, "ok", req.t("Station saved."));
+    return res.redirect(`/bots/${access.bot.id}/streams`);
+  }),
+);
+
+panelRouter.post(
+  "/bots/:id/streams/:streamId/play",
+  wrap(async (req, res) => {
+    const access = await openBot(req, res);
+    if (!access) return;
+    if (!access.canControl) throw new HttpError("No control rights for this bot", 403);
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const streamId = numericId(req.params.streamId);
+    const stream = streamId ? await getStream(streamId, req.user) : null;
+    if (!stream) throw new HttpError("That stream does not exist.", 404);
+    const queue = req.body.op === "add";
+    await runAction(access.bot, queue ? "add" : "play", { resource: stream.url }, authOf(req, access));
+    await addAudit({
+      userId: req.user.id,
+      botId: access.bot.id,
+      action: queue ? "stream-add" : "stream-play",
+      detail: stream.name,
+    });
+    await setFlash(
+      req.sessionId,
+      "ok",
+      queue ? req.t("Added {name} to the queue", { name: stream.name }) : req.t("Playing {name}", { name: stream.name }),
+    );
+    return res.redirect(safeReferrer(req));
+  }),
+);
+
+panelRouter.post(
+  "/bots/:id/streams/:streamId/delete",
+  wrap(async (req, res) => {
+    const access = await openBot(req, res);
+    if (!access) return;
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const streamId = numericId(req.params.streamId);
+    const stream = streamId ? await getStream(streamId, req.user) : null;
+    if (!stream) throw new HttpError("That stream does not exist.", 404);
+    const removed = await deleteStream(stream.id, req.user);
+    if (!removed) throw new HttpError("That stream does not exist.", 404);
+    await addAudit({
+      userId: req.user.id,
+      botId: access.bot.id,
+      action: "stream-delete",
+      detail: stream.name,
+    });
+    await setFlash(req.sessionId, "ok", req.t("Station deleted."));
+    return res.redirect(`/bots/${access.bot.id}/streams`);
   }),
 );
 

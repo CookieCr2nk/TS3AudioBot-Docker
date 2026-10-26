@@ -1,4 +1,6 @@
--- TS3 Panel schema. The app applies this on startup.
+-- Baseline panel schema.
+-- Applied migrations are recorded in schema_migrations. Do not edit a file after a release.
+-- Add panel/sql/migrations/003_*.sql instead.
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
