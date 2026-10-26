@@ -24,11 +24,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
-- Run the bot with `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` and `COMPlus_System_Globalization_Invariant=1`. .NET Core 3.1 exits on Debian 12 because it cannot load ICU 72, and it checks the `COMPlus_` switch before the `DOTNET_` variable
+- Run TS3AudioBot 0.12 on `mcr.microsoft.com/dotnet/runtime:3.1-bullseye-slim` (Debian 11). That image supplies ICU 67 and `libssl.so.1.1`, which .NET Core 3.1 can load
+- Report vulnerabilities as a GitHub issue. The previous contact address is gone
 - The panel finds its pages under the application directory. In the image that is `/app/views`. The previous lookup used `/views`, so opening the panel failed before the page rendered
 - When the database is down, the login is rejected, the database is missing, or the schema does not match, the panel states that on the page. It keeps listening after a failed startup so the message is visible, and `/healthz` stays unhealthy
 - Bot `/tmp` tmpfs is 256 MiB and executable. The .NET single-file host extracts about 68 MiB there and maps `libhostfxr.so` from it. 64 MiB failed the write, and Docker's default `noexec` then failed the map
-- Install Debian 11 `libssl1.1` next to Bookworm's OpenSSL 3. .NET Core 3.1 only loads `libssl.so.1.1`
 - Link `libopus.so` to `libopus.so.0`. The bot imports `libopus`, and the `libopus0` package only ships the versioned soname
 - `validate-config.sh` now checks the actual `bots/default/bot.toml` fields
 

@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Please do not open a public GitHub issue for security problems. Email **noa@joder.li** with a description, steps to reproduce, and expected impact. I aim to respond within a few days.
+Open a [GitHub issue](https://github.com/CookieCr2nk/TS3AudioBot-Docker/issues/new) with a description, steps to reproduce, and the impact.
 
 ## What this image does
 
