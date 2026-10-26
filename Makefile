@@ -11,7 +11,7 @@ build: ## Build image locally
 build-multiarch: ## Build amd64 + arm64 (requires buildx)
 	docker buildx build --platform linux/amd64,linux/arm64 -t ts3audiobot-docker:local .
 
-init-data: ## Copy seed config into ./data for bind-mount compose
+init-data: ## Copy seed config into ./data (not the Compose volume)
 	mkdir -p data
 	rsync -a --delete config/ data/
 

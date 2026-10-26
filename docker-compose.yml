@@ -10,7 +10,7 @@ services:
     # 58913 is not published. rights.toml treats every API caller as admin,
     # so the port must stay reachable only by containers on the bot network.
     volumes:
-      - ./data:/data
+      - ts3audiobot-data:/data
     # TS3AudioBot 0.12 is a .NET Core 3.1 single-file binary. It extracts
     # about 68 MiB into /tmp/.net and then maps libhostfxr.so from there.
     # Docker's tmpfs default is noexec, so exec is required. 64 MiB is too
@@ -28,3 +28,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  ts3audiobot-data:
+    name: ts3audiobot-data

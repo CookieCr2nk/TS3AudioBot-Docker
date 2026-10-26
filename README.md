@@ -20,7 +20,6 @@ The panel and the bot are separate containers. In `docker-compose.panel.yml` Mar
 ```bash
 git clone https://github.com/CookieCr2nk/TS3AudioBot-Docker.git
 cd TS3AudioBot-Docker
-make init-data
 cp panel/.env.example .env
 ```
 
@@ -39,7 +38,7 @@ Open http://localhost:8080 and sign in. Add a bot. On the Compose network the AP
 
 The UI is English. When the browser prefers German, the panel uses `panel/src/locales/de.js`.
 
-Put the TeamSpeak server in `data/bots/default/bot.toml` (`address`, then restart the bot). The bot creates its identity on the first connection attempt.
+Bot files live in the named volume `ts3audiobot-data`, mounted at `/data`. The first start copies `config/` from the image into an empty volume. Put the TeamSpeak server in `bots/default/bot.toml` on that volume (`address`, then restart the bot). The bot creates its identity on the first connection attempt.
 
 Logs: `make compose-panel-logs` and `docker compose -f docker-compose.panel.yml logs -f ts3audiobot`
 
@@ -72,7 +71,7 @@ Stop with `make compose-panel-external-down`. The external database is left as i
 
 ## Radio and connection
 
-Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when `data/` is replaced.
+Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when the bot volume is replaced.
 
 Under Instances, an administrator writes the nickname, default channel, server password, channel password, bitrate, and whether the bot connects when the process starts into the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the instance that currently controls playback and is not stored in the panel.
 
@@ -80,30 +79,29 @@ Under Instances, an administrator writes the nickname, default channel, server p
 
 The bot API listens on port 58913 inside the container. Compose does not publish that port. In the panel setup only the bot and the panel are on the `botapi` network. MariaDB is on a second network, `paneldb`, with no route to the internet.
 
-`data/rights.toml` therefore allows every API call (`isapi = true`). That is safe as long as port 58913 is not mapped to the host. There is no fixed container IP, because it changes with the Docker install.
+`rights.toml` on the bot volume therefore allows every API call (`isapi = true`). That is safe as long as port 58913 is not mapped to the host. There is no fixed container IP, because it changes with the Docker install.
 
-If `data/rights.toml` is left from an older start, set `isapi = true` on the admin rule, remove old panel IPs, and restart the bot.
+If `rights.toml` is left from an older start, set `isapi = true` on the admin rule, remove old panel IPs, and restart the bot.
 
 An API token in the panel is required only when the bot is deliberately outside this network.
 
 ## Start the bot only
 
 ```bash
-make init-data
 docker compose up -d
 ```
 
-There is no web UI. The API stays inside the container. Publishing port 58913 anyway makes everyone who can reach the port a bot admin. Remove `isapi = true` from `data/rights.toml` before doing that.
+There is no web UI. The API stays inside the container. Publishing port 58913 anyway makes everyone who can reach the port a bot admin. Remove `isapi = true` from `rights.toml` on the bot volume before doing that.
 
 ## Configuration
 
-`make init-data` copies `config/` to `data/`. After that only `data/` counts. A later image update does not change an existing `data/` directory.
+The image copies `config/` to `/data`. Compose mounts the named volume `ts3audiobot-data` there. Docker fills the volume from the image only while it is empty. A later image update does not change an existing volume. `make init-data` copies `config/` to a host directory `data/` and does not update this volume.
 
-| File | Contents |
+| File on the volume | Contents |
 |---|---|
-| `data/bots/default/bot.toml` | TeamSpeak address, name, identity |
-| `data/ts3audiobot.toml` | Global defaults, web API on port 58913 |
-| `data/rights.toml` | Who may run which commands |
+| `bots/default/bot.toml` | TeamSpeak address, name, identity |
+| `ts3audiobot.toml` | Global defaults, web API on port 58913 |
+| `rights.toml` | Who may run which commands |
 
 Options: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build the bot and the panel, start them, and check that the bot API
 # is reachable from the panel only. Refuses to run outside CI because
-# init-data replaces ./data.
+# cleanup deletes the named volume ts3audiobot-data.
 set -euo pipefail
 
 if [ "${CI:-}" != "true" ]; then
-  echo "scripts/ci-stack.sh replaces ./data and is only for GitHub Actions." >&2
+  echo "scripts/ci-stack.sh deletes the ts3audiobot-data volume and is only for GitHub Actions." >&2
   exit 1
 fi
 
@@ -34,10 +34,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-make init-data
-# ./data hides the image directory and is owned by the runner. The bot
-# writes its database and log there as uid 9999.
-sudo chown -R 9999:9999 data
 BOT_IMAGE="$(awk '/image: ghcr.io\/cookiecr2nk\/ts3audiobot-docker:/{print $2; exit}' docker-compose.yml)"
 PANEL_IMAGE="$(awk '/image: ghcr.io\/cookiecr2nk\/ts3audiobot-docker-panel:/{print $2; exit}' docker-compose.panel.yml)"
 docker build -t "$BOT_IMAGE" .

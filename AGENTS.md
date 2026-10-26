@@ -35,9 +35,9 @@ The bot is a .NET Core 3.1 single-file binary. Do not break these limits:
 
 ## Config and runtime data
 
-`config/` is the seed. `make init-data` copies it to `data/`. After that, only `data/` counts. `data/` is gitignored and is not committed.
+`config/` is the seed. The image copies it to `/data`. Compose mounts the named volume `ts3audiobot-data` there. Docker fills that volume from the image only while the volume is empty. After that, only the volume counts. `make init-data` still copies `config/` to the gitignored host directory `data/` and does not change the volume.
 
-The TeamSpeak address, name, and identity live in `data/bots/<name>/bot.toml`. The identity stays a file. The panel does not write it.
+The TeamSpeak address, name, and identity live in `/data/bots/<name>/bot.toml` on that volume. The identity stays a file. The panel does not write it.
 
 ## Network and rights
 

@@ -15,11 +15,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `develop` publish both images to GHCR with the tag `:develop`
 
 ### Changed
+- Bot data in every Compose file is the named volume `ts3audiobot-data` mounted at `/data`. An empty volume is filled from the image copy of `config/`
 - Each Compose file is a complete stack: `docker-compose.yml` is the bot only, `docker-compose.panel.yml` is the bot, the panel, and MariaDB, and `docker-compose.panel-external-db.yml` is the bot and the panel against an external MariaDB
 - The web panel is English. `panel/src/locales/de.js` is used when the browser prefers German
 - The panel calls the bot API without `!api token`. Port 58913 is not published, and `rights.toml` allows every API caller (`isapi = true`)
 - Trimmed documentation and removed unused tooling added during an automated refactor
-- Simplified `docker-compose.yml` volume setup (bind mount to `./data`)
 - Rewrote README and SECURITY.md without compliance marketing language
 
 ### Fixed
