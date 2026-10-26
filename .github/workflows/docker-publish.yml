@@ -343,3 +343,27 @@ jobs:
           done
           echo "cosign sign failed after 5 attempts"
           exit 1
+
+  # Drop old GHCR versions after both images have been published.
+  # main, develop, master, and release tags stay. The three newest sha tags
+  # stay. Untagged platform manifests of a kept image stay.
+  prune:
+    needs: [build, panel]
+    if: github.event_name != 'pull_request' && needs.build.result == 'success' && needs.panel.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Delete old GHCR image versions
+        env:
+          KEEP_SHA: "3"
+        run: node .github/scripts/prune-ghcr.mjs
