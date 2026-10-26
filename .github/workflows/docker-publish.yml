@@ -119,18 +119,72 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
 
-      # Install cosign for image signing
+      # Install cosign for image signing. v3.10.1 installs Cosign 2.6.1.
       - name: Install cosign
         if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v3.10.1
+        with:
+          cosign-release: v2.6.1
 
-      # Sign the published Docker image
+      # GitHub's OIDC endpoint sometimes returns plain text. Cosign 2.6.1
+      # parses that body as JSON and stops. Fetch the token here and retry.
       - name: Sign Docker image with cosign
         if: github.event_name != 'pull_request'
         env:
           COSIGN_EXPERIMENTAL: true
+          IMAGE_REF: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          cosign sign --yes ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          set -euo pipefail
+          case "${DIGEST}" in
+            sha256:*) ;;
+            *) echo "build did not publish a digest"; exit 1 ;;
+          esac
+          image="${IMAGE_REF%:*}@${DIGEST}"
+          case "${ACTIONS_ID_TOKEN_REQUEST_URL}" in
+            *\?*) sep='&' ;;
+            *) sep='?' ;;
+          esac
+          url="${ACTIONS_ID_TOKEN_REQUEST_URL}${sep}audience=sigstore"
+          body=""
+          token_file=""
+          cleanup() {
+            if [ -n "${body}" ]; then rm -f "${body}"; fi
+            if [ -n "${token_file}" ]; then rm -f "${token_file}"; fi
+          }
+          trap cleanup EXIT
+          for attempt in 1 2 3 4 5; do
+            cleanup
+            body="$(mktemp)"
+            token_file="$(mktemp)"
+            chmod 600 "${token_file}"
+            status="$(curl -sS -o "${body}" -w '%{http_code}' --max-time 20 \
+              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${url}" || true)"
+            token=""
+            if [ "${status}" = "200" ]; then
+              token="$(jq -er .value "${body}" || true)"
+            fi
+            if [ -n "${token}" ]; then
+              echo "::add-mask::${token}"
+              printf '%s' "${token}" > "${token_file}"
+              if cosign sign --yes --identity-token "${token_file}" "${image}"; then
+                exit 0
+              fi
+              echo "cosign sign attempt ${attempt} failed"
+            else
+              echo "OIDC token request attempt ${attempt} returned HTTP ${status}"
+              if ! grep -q 'eyJ' "${body}"; then
+                head -c 160 "${body}" || true
+                echo
+              fi
+            fi
+            if [ "${attempt}" -lt 5 ]; then
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "cosign sign failed after 5 attempts"
+          exit 1
 
       # Generate SBOM using syft
       - name: Generate SBOM (CycloneDX format)
@@ -227,11 +281,65 @@ jobs:
 
       - name: Install cosign
         if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v3.10.1
+        with:
+          cosign-release: v2.6.1
 
+      # Same OIDC retry as the bot job. The panel image is signed by digest.
       - name: Sign panel image with cosign
         if: github.event_name != 'pull_request'
         env:
           COSIGN_EXPERIMENTAL: true
+          IMAGE_REF: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          cosign sign --yes ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          set -euo pipefail
+          case "${DIGEST}" in
+            sha256:*) ;;
+            *) echo "build did not publish a digest"; exit 1 ;;
+          esac
+          image="${IMAGE_REF%:*}@${DIGEST}"
+          case "${ACTIONS_ID_TOKEN_REQUEST_URL}" in
+            *\?*) sep='&' ;;
+            *) sep='?' ;;
+          esac
+          url="${ACTIONS_ID_TOKEN_REQUEST_URL}${sep}audience=sigstore"
+          body=""
+          token_file=""
+          cleanup() {
+            if [ -n "${body}" ]; then rm -f "${body}"; fi
+            if [ -n "${token_file}" ]; then rm -f "${token_file}"; fi
+          }
+          trap cleanup EXIT
+          for attempt in 1 2 3 4 5; do
+            cleanup
+            body="$(mktemp)"
+            token_file="$(mktemp)"
+            chmod 600 "${token_file}"
+            status="$(curl -sS -o "${body}" -w '%{http_code}' --max-time 20 \
+              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${url}" || true)"
+            token=""
+            if [ "${status}" = "200" ]; then
+              token="$(jq -er .value "${body}" || true)"
+            fi
+            if [ -n "${token}" ]; then
+              echo "::add-mask::${token}"
+              printf '%s' "${token}" > "${token_file}"
+              if cosign sign --yes --identity-token "${token_file}" "${image}"; then
+                exit 0
+              fi
+              echo "cosign sign attempt ${attempt} failed"
+            else
+              echo "OIDC token request attempt ${attempt} returned HTTP ${status}"
+              if ! grep -q 'eyJ' "${body}"; then
+                head -c 160 "${body}" || true
+                echo
+              fi
+            fi
+            if [ "${attempt}" -lt 5 ]; then
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "cosign sign failed after 5 attempts"
+          exit 1
