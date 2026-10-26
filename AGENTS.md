@@ -29,7 +29,7 @@ Images on `develop`: `ghcr.io/cookiecr2nk/ts3audiobot-docker:develop` and `ghcr.
 The bot is a .NET Core 3.1 single-file binary. Do not break these limits:
 
 - `/tmp` is a tmpfs of 256 MiB with `exec`. 64 MiB or `noexec` exits the process before the API listens.
-- The runtime stage is `mcr.microsoft.com/dotnet/runtime:3.1-bullseye-slim` (Debian 11). There is no .NET Core 3.1 image for Debian 12 or 13. Release 0.12 is a self-contained .NET Core 3.1 binary. It loads ICU through version 70 and `libssl.so.1.1`, which that image already has. Do not set invariant globalization.
+- The runtime stage is `mcr.microsoft.com/dotnet/runtime:3.1-bullseye-slim` (Debian 11). There is no .NET Core 3.1 image for Debian 12 or 13. Release 0.12 is a self-contained .NET Core 3.1 binary. It loads ICU through version 70 and `libssl.so.1.1`, which that image already has. Do not set invariant globalization. Extra apt packages come from `archive.debian.org`. The bullseye-security pool on `deb.debian.org` returns 404.
 - The image needs a `libopus.so` link to `libopus.so.0`.
 - The process runs as `ts3audiobot` (UID 9999), with a read-only root filesystem and no Linux capabilities.
 - `yt-dlp` is a self-contained binary per architecture. There is no `linux/arm/v7`.

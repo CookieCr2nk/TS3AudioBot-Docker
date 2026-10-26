@@ -1,5 +1,5 @@
 # --- Builder ---
-FROM mcr.microsoft.com/dotnet/runtime:3.1-bullseye-slim AS builder
+FROM debian:bookworm-slim AS builder
 
 ARG TARGETARCH
 ARG BOT_RELEASE="0.12.0"
@@ -46,7 +46,11 @@ ENV DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/.net \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # libopus0 ships libopus.so.0. The bot imports libopus.so.
-RUN apt-get update && \
+# Bullseye security debs 404 on deb.debian.org. The files are on the archive.
+RUN printf 'deb http://archive.debian.org/debian bullseye main\ndeb http://archive.debian.org/debian-security bullseye-security main\n' > /etc/apt/sources.list && \
+    printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99no-check-valid && \
+    rm -f /etc/apt/sources.list.d/* && \
+    apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libopus0 && \
     opus_dir="$(dirname "$(find /usr/lib -name 'libopus.so.0' -print -quit)")" && \
     ln -sfn libopus.so.0 "${opus_dir}/libopus.so" && \
