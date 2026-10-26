@@ -30,7 +30,7 @@
 <div class="table-wrap">
   <table>
     <thead>
-      <tr><th><%= t("Name") %></th><th><%= t("Role") %></th><th><%= t("Last login") %></th><th><%= t("Password") %></th><th></th></tr>
+      <tr><th><%= t("Name") %></th><th><%= t("Role") %></th><th><%= t("Status") %></th><th><%= t("Last login") %></th><th><%= t("Password") %></th><th></th></tr>
     </thead>
     <tbody>
       <% users.forEach(function (account) { %>
@@ -45,6 +45,17 @@
               </select>
               <button class="btn btn-ghost" type="submit"><%= t("Save") %></button>
             </form>
+          </td>
+          <td>
+            <% if (account.suspended) { %><span class="pill pill-bad"><%= t("Suspended") %></span>
+            <% } else { %><span class="pill pill-ok"><%= t("Active") %></span><% } %>
+            <% if (account.id !== user.id) { %>
+              <form method="post" action="/admin/users/<%= account.id %>/suspend" class="inline">
+                <%- include("partials/csrf") %>
+                <input type="hidden" name="suspended" value="<%= account.suspended ? "0" : "1" %>">
+                <button class="btn btn-ghost" type="submit"><%= account.suspended ? t("Restore") : t("Suspend") %></button>
+              </form>
+            <% } %>
           </td>
           <td><%= account.lastLoginAt ? formatTime(account.lastLoginAt) : "—" %></td>
           <td>

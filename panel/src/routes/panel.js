@@ -3,19 +3,23 @@ import { runAction } from "../actions.js";
 import { callBot, statusParts } from "../ts3ab.js";
 import {
   accessToBot,
+  accessToInstance,
   addAudit,
   deleteStream,
+  deleteTsBotByName,
+  ensureTsBot,
+  getInstanceRow,
   getStream,
   insertStream,
-  listBots,
-  listBotsForUser,
+  instanceClient,
+  listInstances,
+  listInstancesForUser,
   listStreams,
+  listTsBots,
   mapBot,
-  publicBot,
   setFlash,
-  updateInstance,
 } from "../db.js";
-import { HttpError } from "../errors.js";
+import { HttpError, ValidationError } from "../errors.js";
 import { numericId, rateLimit, safeReferrer, wantsJson, wrap } from "../http.js";
 import { errorText } from "../i18n.js";
 import {
@@ -30,7 +34,7 @@ import {
   presentVersion,
   safeHttpUrl,
 } from "../present.js";
-import { parseListId, parseNotes, parseStreamUrl, parseTitle, parseUseInstance } from "../validate.js";
+import { parseListId, parseNotes, parseStreamUrl, parseTemplateName, parseTitle, parseUseInstance } from "../validate.js";
 
 export const panelRouter = Router();
 
@@ -58,33 +62,35 @@ async function openBot(req, res) {
   return access;
 }
 
+function instanceCard(row, admin) {
+  return {
+    id: row.id,
+    name: row.name,
+    enabled: row.enabled,
+    notes: row.notes,
+    ownerName: row.ownerName || "",
+    botCount: row.botCount,
+    baseUrl: admin ? row.baseUrl : "",
+  };
+}
+
 panelRouter.get(
   "/",
   wrap(async (req, res) => {
     const admin = req.user.role === "admin";
-    const rows = admin ? await listBots() : await listBotsForUser(req.user.id);
+    const rows = admin ? await listInstances() : await listInstancesForUser(req.user.id);
     const cards = await Promise.all(
       rows.map(async (row) => {
-        const canControl = admin ? true : Boolean(row.can_control);
-        let bot;
+        const card = {
+          ...instanceCard(row, admin),
+          canControl: admin ? true : Boolean(row.canControl),
+          online: false,
+          error: null,
+          version: null,
+        };
         try {
-          bot = mapBot(row, { token: true });
-        } catch (err) {
-          return {
-            id: Number(row.id),
-            name: row.name,
-            enabled: Boolean(row.enabled),
-            notes: row.notes || "",
-            baseUrl: admin ? row.base_url : null,
-            online: false,
-            error: errorText(err, req.t),
-            canControl,
-            version: null,
-          };
-        }
-        const card = { ...publicBot(bot, { admin }), canControl, online: false, error: null, version: null };
-        try {
-          card.version = presentVersion(await callBot(bot, ["version"], { timeoutMs: 4000 }));
+          const full = await getInstanceRow(row.id);
+          card.version = presentVersion(await callBot(instanceClient(full), ["version"], { timeoutMs: 4000 }));
           card.online = true;
         } catch (err) {
           card.error = errorText(err, req.t);
@@ -93,6 +99,157 @@ panelRouter.get(
       }),
     );
     res.render("dashboard", { title: req.t("Overview"), active: "dash", cards, admin });
+  }),
+);
+
+panelRouter.get(
+  "/instances",
+  wrap(async (req, res) => {
+    const admin = req.user.role === "admin";
+    const rows = admin ? await listInstances() : await listInstancesForUser(req.user.id);
+    res.render("instance-list", {
+      title: req.t("Instances"),
+      active: "instances",
+      instances: rows.map((row) => instanceCard(row, admin)),
+      admin,
+    });
+  }),
+);
+
+async function openInstance(req, res) {
+  const id = numericId(req.params.id);
+  if (!id) return null;
+  const access = await accessToInstance(req.user, id);
+  if (!access) {
+    const message = req.t("That instance does not exist or is not assigned to you.");
+    res.status(404).render("error", { title: req.t("Not found"), message });
+    return null;
+  }
+  return access;
+}
+
+function manageable(access) {
+  if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
+}
+
+panelRouter.get(
+  "/instances/:id",
+  wrap(async (req, res) => {
+    const access = await openInstance(req, res);
+    if (!access) return;
+    const tsBots = (await listTsBots(access.instance.id)).map((row) => {
+      const bot = mapBot(row);
+      return { id: bot.id, name: bot.name };
+    });
+    const instance = access.instance;
+    res.render("instance", {
+      title: instance.name,
+      active: "instances",
+      instance: {
+        id: instance.id,
+        name: instance.name,
+        baseUrl: req.user.role === "admin" ? instance.baseUrl : "",
+        enabled: instance.enabled,
+        notes: instance.notes,
+        ownerName: instance.ownerName,
+      },
+      tsBots,
+      canManage: access.canManage,
+    });
+  }),
+);
+
+panelRouter.post(
+  "/instances/:id/bots",
+  wrap(async (req, res) => {
+    const access = await openInstance(req, res);
+    if (!access) return;
+    manageable(access);
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const back = `/instances/${access.instance.id}`;
+    try {
+      const name = parseTemplateName(req.body.name);
+      await callBot(instanceClient(access.instance), ["settings", "create", name]);
+      const botId = await ensureTsBot(access.instance.id, name);
+      await addAudit({
+        userId: req.user.id,
+        botId,
+        instanceId: access.instance.id,
+        action: "bot-create",
+        detail: name,
+      });
+      await setFlash(req.sessionId, "ok", req.t("Bot created."));
+      return res.redirect(`/bots/${botId}`);
+    } catch (err) {
+      if (!(err instanceof HttpError)) throw err;
+      await setFlash(req.sessionId, "error", errorText(err, req.t));
+      return res.redirect(back);
+    }
+  }),
+);
+
+panelRouter.post(
+  "/instances/:id/bots/attach",
+  wrap(async (req, res) => {
+    const access = await openInstance(req, res);
+    if (!access) return;
+    manageable(access);
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const back = `/instances/${access.instance.id}`;
+    try {
+      const name = parseTemplateName(req.body.name);
+      const botId = await ensureTsBot(access.instance.id, name);
+      await addAudit({
+        userId: req.user.id,
+        botId,
+        instanceId: access.instance.id,
+        action: "bot-attach",
+        detail: name,
+      });
+      await setFlash(req.sessionId, "ok", req.t("Bot added."));
+      return res.redirect(`/bots/${botId}`);
+    } catch (err) {
+      if (!(err instanceof HttpError)) throw err;
+      await setFlash(req.sessionId, "error", errorText(err, req.t));
+      return res.redirect(back);
+    }
+  }),
+);
+
+panelRouter.post(
+  "/instances/:id/bots/delete",
+  wrap(async (req, res) => {
+    const access = await openInstance(req, res);
+    if (!access) return;
+    manageable(access);
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const back = `/instances/${access.instance.id}`;
+    try {
+      const name = parseTemplateName(req.body.name);
+      if (String(req.body.confirm || "").trim() !== name) {
+        throw new HttpError("Type the bot name exactly to confirm.", 400);
+      }
+      await callBot(instanceClient(access.instance), ["settings", "delete", name]);
+      await deleteTsBotByName(access.instance.id, name);
+      await addAudit({
+        userId: req.user.id,
+        instanceId: access.instance.id,
+        action: "bot-delete",
+        detail: name,
+      });
+      await setFlash(req.sessionId, "ok", req.t("Bot removed."));
+      return res.redirect(back);
+    } catch (err) {
+      if (!(err instanceof HttpError)) throw err;
+      await setFlash(req.sessionId, "error", errorText(err, req.t));
+      return res.redirect(back);
+    }
   }),
 );
 
@@ -257,7 +414,7 @@ panelRouter.get(
 );
 
 panelRouter.get(
-  "/bots/:id/instances",
+  "/bots/:id/connection",
   wrap(async (req, res) => {
     if (req.user.role !== "admin") throw new HttpError("Administrators only", 403);
     const access = await openBot(req, res);
@@ -268,16 +425,14 @@ panelRouter.get(
       const { data } = await runAction(access.bot, "bot-list", {}, authOf(req, access));
       instances = presentBotList(data, req.t).map((item) => ({
         ...item,
-        current:
-          (access.bot.instanceMode === "template" && item.name === access.bot.instanceRef) ||
-          (access.bot.instanceMode === "id" && String(item.id) === access.bot.instanceRef),
+        current: access.bot.instanceMode === "template" && item.name === access.bot.instanceRef,
       }));
     } catch (err) {
       error = errorText(err, req.t);
     }
     res.render("instances", {
-      title: req.t("Instances · {name}", { name: access.bot.name }),
-      tab: "instances",
+      title: req.t("Connection · {name}", { name: access.bot.name }),
+      tab: "connection",
       bot: access.bot,
       access,
       instances,
@@ -332,6 +487,7 @@ panelRouter.post(
     await addAudit({
       userId: req.user.id,
       botId: access.bot.id,
+      instanceId: access.bot.instanceId,
       action: "stream-save",
       detail: name,
     });
@@ -357,6 +513,7 @@ panelRouter.post(
     await addAudit({
       userId: req.user.id,
       botId: access.bot.id,
+      instanceId: access.bot.instanceId,
       action: queue ? "stream-add" : "stream-play",
       detail: stream.name,
     });
@@ -385,6 +542,7 @@ panelRouter.post(
     await addAudit({
       userId: req.user.id,
       botId: access.bot.id,
+      instanceId: access.bot.instanceId,
       action: "stream-delete",
       detail: stream.name,
     });
@@ -403,27 +561,41 @@ panelRouter.post(
     }
 
     if (req.body.op === "use-instance") {
-      if (req.user.role !== "admin") throw new HttpError("Administrators only", 403);
-      const instance = parseUseInstance(req.body);
-      await updateInstance(access.bot.id, instance);
+      if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
+      const picked = parseUseInstance(req.body);
+      if (picked.mode !== "template") throw new ValidationError("This instance has no usable name");
+      const tsBotId = await ensureTsBot(access.bot.instanceId, picked.ref);
       await addAudit({
         userId: req.user.id,
-        botId: access.bot.id,
+        botId: tsBotId,
+        instanceId: access.bot.instanceId,
         action: "use-instance",
-        detail: `${instance.mode} ${instance.ref}`.trim(),
+        detail: picked.ref,
       });
-      await setFlash(req.sessionId, "ok", req.t("This instance now controls playback."));
-      return res.redirect(safeReferrer(req));
+      await setFlash(req.sessionId, "ok", req.t("This bot is ready."));
+      return res.redirect(`/bots/${tsBotId}`);
     }
 
     const { action, args } = await runAction(access.bot, String(req.body.op || ""), req.body, authOf(req, access));
+    let botId = access.bot.id;
+    if (req.body.op === "template-create") {
+      botId = await ensureTsBot(access.bot.instanceId, args.name);
+    } else if (req.body.op === "template-delete") {
+      await deleteTsBotByName(access.bot.instanceId, args.name);
+      botId = null;
+    }
     if (action.audit) {
       await addAudit({
         userId: req.user.id,
-        botId: access.bot.id,
+        botId,
+        instanceId: access.bot.instanceId,
         action: req.body.op,
         detail: detailText(req.t, action, args),
       });
+    }
+    if (req.body.op === "template-delete" && args.name === access.bot.name) {
+      await setFlash(req.sessionId, "ok", req.t(action.success || "Done"));
+      return res.redirect(`/instances/${access.bot.instanceId}`);
     }
     if (wantsJson(req)) return res.json({ ok: true });
     await setFlash(req.sessionId, "ok", req.t(action.success || "Done"));

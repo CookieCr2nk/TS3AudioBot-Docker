@@ -56,6 +56,8 @@ export function mapBot(row, { token = false } = {}) {
     id: Number(row.id),
     name: row.name,
     baseUrl: row.base_url,
+    instanceId: Number(row.instance_id),
+    instanceName: row.instance_name || "",
     instanceMode: row.instance_mode,
     instanceRef: row.instance_ref,
     useInstance: row.instance_mode !== "none",
@@ -74,6 +76,8 @@ export function publicBot(bot, { admin = false } = {}) {
     name: bot.name,
     enabled: bot.enabled,
     notes: bot.notes,
+    instanceId: bot.instanceId,
+    instanceName: bot.instanceName,
     instanceMode: bot.instanceMode,
     instanceRef: bot.instanceRef,
     baseUrl: admin ? bot.baseUrl : null,
@@ -117,25 +121,29 @@ export async function ensureAdmin() {
 
 export async function findUserByUsername(username) {
   const [rows] = await pool.query(
-    "SELECT id, username, password_hash, role FROM users WHERE username = ? LIMIT 1",
+    "SELECT id, username, password_hash, role, suspended FROM users WHERE username = ? LIMIT 1",
     [username],
   );
   return rows[0] || null;
 }
 
 export async function findUserById(id) {
-  const [rows] = await pool.query("SELECT id, username, password_hash, role FROM users WHERE id = ? LIMIT 1", [id]);
+  const [rows] = await pool.query(
+    "SELECT id, username, password_hash, role, suspended FROM users WHERE id = ? LIMIT 1",
+    [id],
+  );
   return rows[0] || null;
 }
 
 export async function listUsers() {
   const [rows] = await pool.query(
-    "SELECT id, username, role, created_at, last_login_at FROM users ORDER BY username",
+    "SELECT id, username, role, suspended, created_at, last_login_at FROM users ORDER BY username",
   );
   return rows.map((row) => ({
     id: Number(row.id),
     username: row.username,
     role: row.role,
+    suspended: Boolean(row.suspended),
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at,
   }));
@@ -167,6 +175,10 @@ export async function setRole(id, role) {
   await pool.query("UPDATE users SET role = ? WHERE id = ?", [role, id]);
 }
 
+export async function setSuspended(id, suspended) {
+  await pool.query("UPDATE users SET suspended = ? WHERE id = ?", [suspended ? 1 : 0, id]);
+}
+
 export async function deleteUser(id) {
   const connection = await pool.getConnection();
   try {
@@ -190,6 +202,13 @@ export async function countAdmins() {
   return Number(rows[0].total);
 }
 
+export async function countActiveAdmins() {
+  const [rows] = await pool.query(
+    "SELECT COUNT(*) AS total FROM users WHERE role = 'admin' AND suspended = 0",
+  );
+  return Number(rows[0].total);
+}
+
 export async function touchLogin(id) {
   await pool.query("UPDATE users SET last_login_at = CURRENT_TIMESTAMP(3) WHERE id = ?", [id]);
 }
@@ -209,7 +228,7 @@ export async function getSession(id) {
     `SELECT s.csrf_token, u.id AS user_id, u.username, u.role
      FROM sessions s
      JOIN users u ON u.id = s.user_id
-     WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP(3)
+     WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP(3) AND u.suspended = 0
      LIMIT 1`,
     [id],
   );
@@ -245,68 +264,110 @@ export async function takeFlash(id) {
   return { type: rows[0].flash_type || "info", message: rows[0].flash_message };
 }
 
-const BOT_COLUMNS = `id, name, base_url, instance_mode, instance_ref, api_user, api_token_enc, enabled, notes, created_at`;
+const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user, i.api_token_enc, i.enabled, i.notes, i.created_at`;
 
-export async function listBots() {
-  const [rows] = await pool.query(`SELECT ${BOT_COLUMNS} FROM bots ORDER BY name`);
-  return rows;
-}
+const TS_BOT_JOIN = `t.id, t.name, i.base_url, 'template' AS instance_mode, t.name AS instance_ref,
+            i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
+            i.id AS instance_id, i.name AS instance_name, i.owner_user_id`;
 
-export async function listBotsForUser(userId) {
-  const [rows] = await pool.query(
-    `SELECT b.id, b.name, b.base_url, b.instance_mode, b.instance_ref, b.api_user, b.api_token_enc,
-            b.enabled, b.notes, b.created_at, g.can_control
-     FROM bots b
-     JOIN bot_grants g ON g.bot_id = b.id
-     WHERE g.user_id = ? AND b.enabled = 1
-     ORDER BY b.name`,
-    [userId],
-  );
-  return rows;
-}
-
-export async function listBotSummaries() {
-  const [rows] = await pool.query(
-    `SELECT b.id, b.name, b.enabled, b.instance_mode, b.instance_ref, b.base_url,
-            (SELECT COUNT(*) FROM bot_grants g WHERE g.bot_id = b.id) AS grant_count
-     FROM bots b
-     ORDER BY b.name`,
-  );
-  return rows.map((row) => ({
+function mapInstance(row, { token = false } = {}) {
+  let apiToken = null;
+  if (token && row.api_token_enc) {
+    try {
+      apiToken = decrypt(row.api_token_enc);
+    } catch {
+      throw new HttpError("Cannot read the API token. Check TOKEN_KEY.", 422);
+    }
+  }
+  return {
     id: Number(row.id),
     name: row.name,
-    enabled: Boolean(row.enabled),
-    instanceMode: row.instance_mode,
-    instanceRef: row.instance_ref,
     baseUrl: row.base_url,
-    grantCount: Number(row.grant_count),
-  }));
+    ownerUserId: row.owner_user_id == null ? null : Number(row.owner_user_id),
+    ownerName: row.owner_name || "",
+    apiUser: row.api_user || "",
+    apiToken,
+    hasToken: Boolean(row.api_token_enc),
+    enabled: Boolean(row.enabled),
+    notes: row.notes || "",
+    botCount: Number(row.bot_count || 0),
+    grantCount: Number(row.grant_count || 0),
+    createdAt: row.created_at,
+  };
 }
 
-export async function getBotRow(id) {
-  const [rows] = await pool.query(`SELECT ${BOT_COLUMNS} FROM bots WHERE id = ? LIMIT 1`, [id]);
-  return rows[0] || null;
+export function instanceClient(instance) {
+  return {
+    id: instance.id,
+    name: instance.name,
+    baseUrl: instance.baseUrl,
+    instanceMode: "none",
+    instanceRef: "",
+    useInstance: false,
+    apiUser: instance.apiUser,
+    apiToken: instance.apiToken,
+  };
 }
 
-export async function accessToBot(user, botId) {
-  const row = await getBotRow(botId);
-  if (!row) return null;
-  if (user.role === "admin") return { bot: mapBot(row, { token: true }), canControl: true };
-  if (!row.enabled) return null;
-  const grant = await getGrant(botId, user.id);
+export async function listInstances() {
+  const [rows] = await pool.query(
+    `SELECT ${INSTANCE_COLUMNS}, u.username AS owner_name,
+            (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id) AS bot_count,
+            (SELECT COUNT(*) FROM instance_grants g WHERE g.instance_id = i.id) AS grant_count
+     FROM instances i
+     LEFT JOIN users u ON u.id = i.owner_user_id
+     ORDER BY i.name`,
+  );
+  return rows.map((row) => mapInstance(row));
+}
+
+export async function listInstancesForUser(userId) {
+  const [rows] = await pool.query(
+    `SELECT ${INSTANCE_COLUMNS}, u.username AS owner_name,
+            (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id) AS bot_count,
+            (SELECT COUNT(*) FROM instance_grants g2 WHERE g2.instance_id = i.id) AS grant_count,
+            CASE WHEN i.owner_user_id = ? THEN 1 ELSE IFNULL(g.can_control, 0) END AS can_control
+     FROM instances i
+     LEFT JOIN users u ON u.id = i.owner_user_id
+     LEFT JOIN instance_grants g ON g.instance_id = i.id AND g.user_id = ?
+     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR g.user_id = ?)
+     ORDER BY i.name`,
+    [userId, userId, userId, userId],
+  );
+  return rows.map((row) => ({ ...mapInstance(row), canControl: Boolean(row.can_control) }));
+}
+
+export async function getInstanceRow(id) {
+  const [rows] = await pool.query(
+    `SELECT ${INSTANCE_COLUMNS}, u.username AS owner_name,
+            (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id) AS bot_count
+     FROM instances i
+     LEFT JOIN users u ON u.id = i.owner_user_id
+     WHERE i.id = ? LIMIT 1`,
+    [id],
+  );
+  return rows[0] ? mapInstance(rows[0], { token: true }) : null;
+}
+
+export async function accessToInstance(user, instanceId) {
+  const instance = await getInstanceRow(instanceId);
+  if (!instance) return null;
+  if (user.role === "admin") return { instance, canControl: true, canManage: true };
+  if (!instance.enabled) return null;
+  if (instance.ownerUserId === user.id) return { instance, canControl: true, canManage: true };
+  const grant = await getGrant(instance.id, user.id);
   if (!grant) return null;
-  return { bot: mapBot(row, { token: true }), canControl: Boolean(grant.can_control) };
+  return { instance, canControl: Boolean(grant.canControl), canManage: false };
 }
 
-export async function insertBot(fields) {
+export async function insertInstance(fields) {
   const [result] = await pool.query(
-    `INSERT INTO bots (name, base_url, instance_mode, instance_ref, api_user, api_token_enc, enabled, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO instances (name, base_url, owner_user_id, api_user, api_token_enc, enabled, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       fields.name,
       fields.baseUrl,
-      fields.instanceMode,
-      fields.instanceRef,
+      fields.ownerUserId,
       fields.apiToken ? fields.apiUser : null,
       fields.apiToken ? encrypt(fields.apiToken) : null,
       fields.enabled ? 1 : 0,
@@ -316,17 +377,10 @@ export async function insertBot(fields) {
   return Number(result.insertId);
 }
 
-export async function updateBot(id, fields) {
-  const params = [
-    fields.name,
-    fields.baseUrl,
-    fields.instanceMode,
-    fields.instanceRef,
-    fields.enabled ? 1 : 0,
-    fields.notes || null,
-  ];
-  let sql = `UPDATE bots
-     SET name = ?, base_url = ?, instance_mode = ?, instance_ref = ?, enabled = ?, notes = ?`;
+export async function updateInstanceRecord(id, fields) {
+  const params = [fields.name, fields.baseUrl, fields.ownerUserId, fields.enabled ? 1 : 0, fields.notes || null];
+  let sql = `UPDATE instances
+     SET name = ?, base_url = ?, owner_user_id = ?, enabled = ?, notes = ?`;
   if (fields.apiToken === "") {
     sql += ", api_user = NULL, api_token_enc = NULL";
   } else if (fields.apiToken) {
@@ -338,45 +392,97 @@ export async function updateBot(id, fields) {
   await pool.query(sql, params);
 }
 
-export async function updateInstance(id, instance) {
-  await pool.query("UPDATE bots SET instance_mode = ?, instance_ref = ? WHERE id = ?", [
-    instance.mode,
-    instance.ref,
-    id,
-  ]);
+export async function deleteInstance(id) {
+  await pool.query("DELETE FROM instances WHERE id = ?", [id]);
 }
 
-export async function deleteBot(id) {
-  await pool.query("DELETE FROM bots WHERE id = ?", [id]);
-}
-
-export async function getGrant(botId, userId) {
+export async function listTsBots(instanceId) {
   const [rows] = await pool.query(
-    "SELECT can_control FROM bot_grants WHERE bot_id = ? AND user_id = ? LIMIT 1",
-    [botId, userId],
+    `SELECT ${TS_BOT_JOIN}
+     FROM ts_bots t
+     JOIN instances i ON i.id = t.instance_id
+     WHERE t.instance_id = ?
+     ORDER BY t.name`,
+    [instanceId],
+  );
+  return rows;
+}
+
+export async function getTsBotRow(id) {
+  const [rows] = await pool.query(
+    `SELECT ${TS_BOT_JOIN}
+     FROM ts_bots t
+     JOIN instances i ON i.id = t.instance_id
+     WHERE t.id = ?
+     LIMIT 1`,
+    [id],
   );
   return rows[0] || null;
 }
 
-export async function listGrants(botId) {
+export async function ensureTsBot(instanceId, name) {
   const [rows] = await pool.query(
-    "SELECT user_id, can_control FROM bot_grants WHERE bot_id = ?",
-    [botId],
+    "SELECT id FROM ts_bots WHERE instance_id = ? AND name = ? LIMIT 1",
+    [instanceId, name],
+  );
+  if (rows[0]) return Number(rows[0].id);
+  try {
+    const [result] = await pool.query("INSERT INTO ts_bots (instance_id, name) VALUES (?, ?)", [instanceId, name]);
+    return Number(result.insertId);
+  } catch (err) {
+    if (err.code !== "ER_DUP_ENTRY") throw err;
+    const [again] = await pool.query(
+      "SELECT id FROM ts_bots WHERE instance_id = ? AND name = ? LIMIT 1",
+      [instanceId, name],
+    );
+    return Number(again[0].id);
+  }
+}
+
+export async function deleteTsBotByName(instanceId, name) {
+  await pool.query("DELETE FROM ts_bots WHERE instance_id = ? AND name = ?", [instanceId, name]);
+}
+
+export async function accessToBot(user, botId) {
+  const row = await getTsBotRow(botId);
+  if (!row) return null;
+  const bot = mapBot(row, { token: true });
+  if (user.role === "admin") return { bot, canControl: true, canManage: true };
+  if (!row.enabled) return null;
+  if (row.owner_user_id != null && Number(row.owner_user_id) === user.id) {
+    return { bot, canControl: true, canManage: true };
+  }
+  const grant = await getGrant(row.instance_id, user.id);
+  if (!grant) return null;
+  return { bot, canControl: Boolean(grant.canControl), canManage: false };
+}
+
+export async function getGrant(instanceId, userId) {
+  const [rows] = await pool.query(
+    "SELECT can_control FROM instance_grants WHERE instance_id = ? AND user_id = ? LIMIT 1",
+    [instanceId, userId],
+  );
+  return rows[0] ? { canControl: Boolean(rows[0].can_control) } : null;
+}
+
+export async function listGrants(instanceId) {
+  const [rows] = await pool.query(
+    "SELECT user_id, can_control FROM instance_grants WHERE instance_id = ?",
+    [instanceId],
   );
   return rows.map((row) => ({ userId: Number(row.user_id), canControl: Boolean(row.can_control) }));
 }
 
-export async function replaceGrants(botId, grants) {
+export async function replaceGrants(instanceId, grants) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.query("DELETE FROM bot_grants WHERE bot_id = ?", [botId]);
+    await connection.query("DELETE FROM instance_grants WHERE instance_id = ?", [instanceId]);
     for (const grant of grants) {
-      await connection.query("INSERT INTO bot_grants (bot_id, user_id, can_control) VALUES (?, ?, ?)", [
-        botId,
-        grant.userId,
-        grant.canControl ? 1 : 0,
-      ]);
+      await connection.query(
+        "INSERT INTO instance_grants (instance_id, user_id, can_control) VALUES (?, ?, ?)",
+        [instanceId, grant.userId, grant.canControl ? 1 : 0],
+      );
     }
     await connection.commit();
   } catch (err) {
@@ -387,13 +493,11 @@ export async function replaceGrants(botId, grants) {
   }
 }
 
-export async function addAudit({ userId = null, botId = null, action, detail = null }) {
-  await pool.query("INSERT INTO audit_log (user_id, bot_id, action, detail) VALUES (?, ?, ?, ?)", [
-    userId,
-    botId,
-    String(action).slice(0, 64),
-    clip(detail),
-  ]);
+export async function addAudit({ userId = null, botId = null, instanceId = null, action, detail = null }) {
+  await pool.query(
+    "INSERT INTO audit_log (user_id, bot_id, instance_id, action, detail) VALUES (?, ?, ?, ?, ?)",
+    [userId, botId, instanceId, String(action).slice(0, 64), clip(detail)],
+  );
 }
 
 function mapStream(row) {
@@ -460,10 +564,11 @@ export async function deleteStream(id, user) {
 export async function listAudit(limit = 200) {
   const safeLimit = Math.min(500, Math.max(1, Math.trunc(Number(limit)) || 200));
   const [rows] = await pool.query(
-    `SELECT a.created_at, a.action, a.detail, u.username, b.name AS bot_name
+    `SELECT a.created_at, a.action, a.detail, u.username, i.name AS instance_name, t.name AS bot_name
      FROM audit_log a
      LEFT JOIN users u ON u.id = a.user_id
-     LEFT JOIN bots b ON b.id = a.bot_id
+     LEFT JOIN instances i ON i.id = a.instance_id
+     LEFT JOIN ts_bots t ON t.id = a.bot_id
      ORDER BY a.id DESC
      LIMIT ${safeLimit}`,
   );
@@ -472,6 +577,6 @@ export async function listAudit(limit = 200) {
     action: row.action,
     detail: row.detail || "",
     username: row.username || "",
-    botName: row.bot_name || "",
+    botName: [row.instance_name, row.bot_name].filter(Boolean).join(" / "),
   }));
 }

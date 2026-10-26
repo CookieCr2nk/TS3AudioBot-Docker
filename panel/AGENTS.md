@@ -29,15 +29,19 @@ Commands to the bot go only through `actions.js`. There is no free-form command 
 
 ## Database
 
-Schema changes are new files `sql/migrations/003_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. Startup refuses a different checksum and a version this image no longer ships.
+Schema changes are new files `sql/migrations/005_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. Startup refuses a different checksum and a version this image no longer ships.
 
 Statements must be safe to run again. MariaDB commits DDL one statement at a time. The version row is inserted only after the last statement. `001_baseline.sql` is the old `schema.sql`. Do not bring that file back as a second source.
+
+One Docker container is one row in `instances` (address, encrypted token, owner, enabled). TeamSpeak bots inside that process are rows in `ts_bots`, unique by instance and template name. `instance_grants` lets other accounts control those bots. The owner and administrators can create and delete bots. Granted users cannot. The panel does not start containers. `users.suspended` blocks sign-in and the suspend action deletes that account's sessions.
+
+`003_hosting.sql` copies old `bots` rows and is safe to run again until it is recorded. `004_drop_legacy_bots.sql` drops `bots` and `bot_grants` after that copy.
 
 Radio stations live in `radio_streams`, not in the bot files. `shared = 1` is the catalog everyone can see. A private station is visible to its owner. Administrators see all of them. Deleting an account keeps a shared station (`owner_user_id` becomes NULL). The URL shown in the list has no credentials. The stored URL the bot plays still does.
 
 ## Hosting fields
 
-On Instances, `template-hosting` writes nickname, channel, server password, channel password, bitrate, and start-on-launch into the bot template. Empty fields stay as they are. Passwords and the privilege key are not stored in the panel database and are not written into the audit text. `bot setup` applies to the instance that currently controls playback.
+On Connection, `template-hosting` writes nickname, channel, server password, channel password, bitrate, and start-on-launch into the bot template. Empty fields stay as they are. Passwords and the privilege key are not stored in the panel database and are not written into the audit text. `bot setup` applies to the TeamSpeak bot that is open. Creating a bot calls `settings/create` on the instance and inserts a `ts_bots` row only after the API accepts it. Attaching an existing template name, such as `default`, inserts the row without calling the API.
 
 ## Security
 

@@ -1,24 +1,24 @@
 <header class="page-head">
   <div>
     <h1><%= t("Overview") %></h1>
-    <p class="muted"><%= t("Each card is one TS3AudioBot process.") %></p>
+    <p class="muted"><%= t("Each card is one Docker container.") %></p>
   </div>
-  <% if (admin) { %><a class="btn btn-primary" href="/admin/bots/new"><%= t("Add bot") %></a><% } %>
+  <% if (admin) { %><a class="btn btn-primary" href="/admin/instances/new"><%= t("Add instance") %></a><% } %>
 </header>
 
 <% if (!cards.length) { %>
   <section class="card">
     <% if (admin) { %>
-      <h2><%= t("No bot yet") %></h2>
+      <h2><%= t("No instance yet") %></h2>
       <ol class="steps">
-        <li><%= t("Add a bot. On the Compose network the API is http://ts3audiobot:58913. An API token is not required.") %></li>
+        <li><%= t("Add an instance. On the Compose network the API is http://ts3audiobot:58913. One container is one instance. An API token is not required.") %></li>
         <li><%= t("If data/rights.toml is left from an older start, set isapi = true on the admin rule and restart the bot.") %></li>
-        <li><%= t("Create users and assign the bot.") %></li>
+        <li><%= t("Assign an owner. That account can create several TeamSpeak bots on the instance.") %></li>
       </ol>
       <%- include("partials/rights") %>
     <% } else { %>
-      <h2><%= t("No bot assigned") %></h2>
-      <p><%= t("An administrator has to grant you a bot.") %></p>
+      <h2><%= t("No instance assigned") %></h2>
+      <p><%= t("An administrator has to assign you an instance.") %></p>
     <% } %>
   </section>
 <% } %>
@@ -27,15 +27,17 @@
   <% cards.forEach(function (card) { %>
     <article class="card bot-card">
       <div class="row">
-        <h2><a href="/bots/<%= card.id %>"><%= card.name %></a></h2>
+        <h2><a href="/instances/<%= card.id %>"><%= card.name %></a></h2>
         <% if (card.online) { %><span class="pill pill-ok"><%= t("Reachable") %></span>
         <% } else { %><span class="pill pill-bad"><%= t("No connection") %></span><% } %>
       </div>
       <p class="muted">
-        <% if (card.canControl) { %><%= t("Control") %><% } else { %><%= t("Read only") %><% } %>
+        <%= t("{count} bots", { count: card.botCount }) %>
+        · <% if (card.canControl) { %><%= t("Control") %><% } else { %><%= t("Read only") %><% } %>
         <% if (!card.enabled) { %> · <%= t("disabled") %><% } %>
         <% if (card.version) { %> · <%= card.version %><% } %>
       </p>
+      <% if (card.ownerName) { %><p class="muted"><%= t("by {name}", { name: card.ownerName }) %></p><% } %>
       <% if (card.baseUrl) { %><p class="mono"><%= card.baseUrl %></p><% } %>
       <% if (card.notes) { %><p><%= card.notes %></p><% } %>
       <% if (card.error) { %><p class="warn"><%= card.error %></p><% } %>

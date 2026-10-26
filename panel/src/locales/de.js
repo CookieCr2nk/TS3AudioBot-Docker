@@ -375,6 +375,70 @@ const de = {
   "Start on launch is invalid": "Die Startoption ist ungültig",
   "Enter at least one connection setting": "Mindestens eine Verbindungseinstellung eintragen",
   "Privilege key is invalid": "Der Privilege-Key ist ungültig",
+  "Each card is one Docker container.": "Jede Karte ist ein Docker-Container.",
+  "Add instance": "Instanz anlegen",
+  "No instance yet": "Noch keine Instanz",
+  "Add an instance. On the Compose network the API is http://ts3audiobot:58913. One container is one instance. An API token is not required.":
+    "Instanz anlegen. Im Compose-Netz ist die API http://ts3audiobot:58913. Ein Container ist eine Instanz. Ein API-Token ist nicht nötig.",
+  "Assign an owner. That account can create several TeamSpeak bots on the instance.":
+    "Einen Besitzer zuweisen. Dieses Konto kann auf der Instanz mehrere TeamSpeak-Bots anlegen.",
+  "No instance assigned": "Keine Instanz zugewiesen",
+  "An administrator has to assign you an instance.": "Ein Administrator muss dir eine Instanz zuweisen.",
+  "{count} bots": "{count} Bots",
+  "Each entry is one Docker container. Several TeamSpeak bots can run inside it.":
+    "Jeder Eintrag ist ein Docker-Container. Darin können mehrere TeamSpeak-Bots laufen.",
+  "No instance has been added yet.": "Noch keine Instanz angelegt.",
+  Owner: "Besitzer",
+  "No owner": "Kein Besitzer",
+  Open: "Öffnen",
+  "The owner can create and delete TeamSpeak bots. Granted users can control playback.":
+    "Der Besitzer kann TeamSpeak-Bots anlegen und löschen. Freigegebene Benutzer können die Wiedergabe steuern.",
+  "Open instance": "Instanz öffnen",
+  "Instance is enabled": "Instanz ist aktiv",
+  "Administrators and the owner already have access. Assign other users here. They can control bots, not create them.":
+    "Administratoren und der Besitzer haben schon Zugriff. Hier weitere Benutzer zuweisen. Sie können Bots steuern, aber nicht anlegen.",
+  "Delete instance": "Instanz löschen",
+  "Removes this instance from the panel. The container and the bot files stay.":
+    "Entfernt diese Instanz aus dem Panel. Der Container und die Bot-Dateien bleiben.",
+  "Type the instance name to confirm": "Instanznamen zur Bestätigung eingeben",
+  "TeamSpeak bots on this instance. The panel does not start the container.":
+    "TeamSpeak-Bots auf dieser Instanz. Das Panel startet den Container nicht.",
+  "Create a bot": "Bot anlegen",
+  "The panel asks the process to create the template, then lists it here.":
+    "Das Panel lässt den Prozess die Vorlage anlegen und führt sie dann hier auf.",
+  "Add existing template": "Vorhandene Vorlage hinzufügen",
+  Attach: "Übernehmen",
+  "Use this when the template already exists, for example default. Nothing is created on the bot.":
+    "Nutzen, wenn die Vorlage schon existiert, zum Beispiel default. Auf dem Bot wird nichts angelegt.",
+  "Deletes the template on the bot. The panel row stays if the process rejects the delete.":
+    "Löscht die Vorlage auf dem Bot. Der Eintrag im Panel bleibt, wenn der Prozess das Löschen ablehnt.",
+  "No bots on this instance yet.": "Auf dieser Instanz sind noch keine Bots.",
+  Suspended: "Gesperrt",
+  Restore: "Freigeben",
+  Suspend: "Sperren",
+  Connection: "Verbindung",
+  "TeamSpeak bots in this process. Open one to control its playback.":
+    "TeamSpeak-Bots in diesem Prozess. Einen öffnen, um seine Wiedergabe zu steuern.",
+  "That instance does not exist or is not assigned to you.":
+    "Die Instanz ist nicht vorhanden oder dir nicht zugewiesen.",
+  "You cannot manage bots on this instance.": "Du kannst auf dieser Instanz keine Bots verwalten.",
+  "Bot created.": "Bot angelegt.",
+  "Bot added.": "Bot hinzugefügt.",
+  "Bot removed.": "Bot entfernt.",
+  "This bot is ready.": "Dieser Bot ist bereit.",
+  "Instance saved.": "Instanz gespeichert.",
+  "Instance not found.": "Instanz nicht gefunden.",
+  "Type the instance name exactly to confirm.": "Zur Bestätigung den Instanznamen exakt eingeben.",
+  "Instance deleted.": "Instanz gelöscht.",
+  "Instance not found": "Instanz nicht gefunden",
+  "API reachable{version}.": "API erreichbar{version}.",
+  "You cannot suspend yourself.": "Du kannst dich nicht selbst sperren.",
+  "The last administrator cannot be suspended.": "Der letzte Administrator kann nicht gesperrt werden.",
+  "Account suspended.": "Konto gesperrt.",
+  "Account restored.": "Konto freigegeben.",
+  "Owner is invalid": "Der Besitzer ist ungültig",
+  "This account is suspended.": "Dieses Konto ist gesperrt.",
+  "Connection · {name}": "Verbindung · {name}",
 };
 
 export default de;

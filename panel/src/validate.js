@@ -241,6 +241,28 @@ export function parseUseInstance(body) {
   throw new ValidationError("This instance has no usable name");
 }
 
+export function parseInstanceForm(body, { keepExisting = false } = {}) {
+  const credential = splitApiCredential(body.apiUser, body.apiToken, {
+    keepExisting,
+    clear: body.clearToken === "on",
+  });
+  const ownerRaw = clean(body.ownerUserId);
+  let ownerUserId = null;
+  if (ownerRaw) {
+    ownerUserId = Number(ownerRaw);
+    if (!Number.isInteger(ownerUserId) || ownerUserId <= 0) throw new ValidationError("Owner is invalid");
+  }
+  return {
+    name: parseName(body.name),
+    baseUrl: assertBaseUrl(body.baseUrl),
+    ownerUserId,
+    apiUser: credential.user,
+    apiToken: credential.secret,
+    enabled: body.enabled === "on" || body.enabled === "1",
+    notes: parseNotes(body.notes),
+  };
+}
+
 export function parseBotForm(body, { keepExisting = false } = {}) {
   const instance = parseInstance(clean(body.instanceMode), body.instanceRef);
   const credential = splitApiCredential(body.apiUser, body.apiToken, {

@@ -1,10 +1,7 @@
 <header class="page-head">
   <div>
-    <h1><%= t("Instances") %></h1>
-    <p class="muted">
-      <%= t("Templates in this TS3AudioBot process. Playback is controlled by:") %>
-      <% if (bot.instanceMode === "none") { %><%= t("no context") %><% } else { %><%= bot.instanceMode %> <span class="mono"><%= bot.instanceRef %></span><% } %>
-    </p>
+    <h1><%= t("Connection") %></h1>
+    <p class="muted"><%= t("TeamSpeak bots in this process. Open one to control its playback.") %></p>
   </div>
 </header>
 <%- include("partials/botnav") %>
@@ -73,7 +70,7 @@
                   <input type="hidden" name="op" value="use-instance">
                   <input type="hidden" name="name" value="<%= item.name %>">
                   <input type="hidden" name="instanceId" value="<%= item.id == null ? "" : item.id %>">
-                  <button class="btn btn-ghost" type="submit"><%= t("Use for playback") %></button>
+                  <button class="btn btn-ghost" type="submit"><%= t("Open") %></button>
                 </form>
               <% } %>
             </td>

@@ -1,0 +1,70 @@
+<header class="page-head">
+  <div>
+    <h1><%= instance.name %></h1>
+    <p class="muted"><%= t("TeamSpeak bots on this instance. The panel does not start the container.") %></p>
+  </div>
+</header>
+
+<p class="muted">
+  <% if (instance.ownerName) { %><%= t("by {name}", { name: instance.ownerName }) %><% } %>
+  <% if (!instance.enabled) { %> · <%= t("disabled") %><% } %>
+</p>
+<% if (instance.baseUrl) { %><p class="mono"><%= instance.baseUrl %></p><% } %>
+<% if (instance.notes) { %><p class="note"><%= instance.notes %></p><% } %>
+
+<% if (canManage) { %>
+  <form method="post" action="/instances/<%= instance.id %>/bots" class="card stack">
+    <%- include("partials/csrf") %>
+    <h2><%= t("Create a bot") %></h2>
+    <div class="split">
+      <label class="grow"><%= t("Name") %>
+        <input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="lobby">
+      </label>
+      <button class="btn btn-primary" type="submit"><%= t("Create") %></button>
+    </div>
+    <p class="muted"><%= t("The panel asks the process to create the template, then lists it here.") %> <%= t("Identity and password stay in data/bots/<name>/bot.toml.") %></p>
+  </form>
+
+  <form method="post" action="/instances/<%= instance.id %>/bots/attach" class="card stack">
+    <%- include("partials/csrf") %>
+    <h2><%= t("Add existing template") %></h2>
+    <div class="split">
+      <label class="grow"><%= t("Name") %>
+        <input name="name" required maxlength="64" pattern="[A-Za-z0-9_.\-]+" placeholder="default">
+      </label>
+      <button class="btn" type="submit"><%= t("Attach") %></button>
+    </div>
+    <p class="muted"><%= t("Use this when the template already exists, for example default. Nothing is created on the bot.") %></p>
+  </form>
+<% } %>
+
+<% if (tsBots.length) { %>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th><%= t("Name") %></th><th></th></tr>
+      </thead>
+      <tbody>
+        <% tsBots.forEach(function (item) { %>
+          <tr>
+            <td><%= item.name %></td>
+            <td class="actions-cell">
+              <a class="btn" href="/bots/<%= item.id %>"><%= t("Open") %></a>
+              <% if (canManage) { %>
+                <form method="post" action="/instances/<%= instance.id %>/bots/delete" class="inline">
+                  <%- include("partials/csrf") %>
+                  <input type="hidden" name="name" value="<%= item.name %>">
+                  <input name="confirm" required maxlength="64" placeholder="<%= t("Type the bot name to confirm") %>" aria-label="<%= t("Type the bot name to confirm") %>">
+                  <button class="btn btn-danger" type="submit"><%= t("Delete") %></button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% if (canManage) { %><p class="muted"><%= t("Deletes the template on the bot. The panel row stays if the process rejects the delete.") %></p><% } %>
+<% } else { %>
+  <p class="muted"><%= t("No bots on this instance yet.") %></p>
+<% } %>

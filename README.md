@@ -34,7 +34,7 @@ Then:
 make compose-panel-up
 ```
 
-Open http://localhost:8080 and sign in. Add a bot. On the Compose network the API address is `http://ts3audiobot:58913`. Leave the UID and token empty.
+Open http://localhost:8080 and sign in. Add an instance. One instance is one Docker container. On the Compose network the API address is `http://ts3audiobot:58913`. Leave the UID and token empty. The owner of that instance can then create several TeamSpeak bots on it.
 
 The UI is English. When the browser prefers German, the panel uses `panel/src/locales/de.js`.
 
@@ -73,7 +73,9 @@ Stop with `make compose-panel-external-down`. The external database is left as i
 
 Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when the bot volume is replaced.
 
-Under Instances, an administrator writes the nickname, default channel, server password, channel password, bitrate, and whether the bot connects when the process starts into the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the instance that currently controls playback and is not stored in the panel.
+An administrator registers each container as an instance and can assign an owner and extra users. The owner can create and delete TeamSpeak bots on that instance. Granted users can control playback and cannot create bots. A suspended account cannot sign in. The panel does not start containers, and it has no billing and no tickets.
+
+Under Connection, an administrator writes the nickname, default channel, server password, channel password, bitrate, and whether the bot connects when the process starts into the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the open bot and is not stored in the panel.
 
 ## Why there is no API token
 

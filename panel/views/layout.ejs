@@ -24,9 +24,11 @@
           <nav class="nav" aria-label="<%= t("Main") %>">
             <a href="/" <%= active === "dash" ? 'aria-current="page"' : "" %>><%= t("Overview") %></a>
             <% if (user.role === "admin") { %>
-              <a href="/admin/bots" <%= active === "bots" ? 'aria-current="page"' : "" %>><%= t("Bots") %></a>
+              <a href="/admin/instances" <%= active === "instances" ? 'aria-current="page"' : "" %>><%= t("Instances") %></a>
               <a href="/admin/users" <%= active === "users" ? 'aria-current="page"' : "" %>><%= t("Users") %></a>
               <a href="/admin/audit" <%= active === "audit" ? 'aria-current="page"' : "" %>><%= t("Audit") %></a>
+            <% } else { %>
+              <a href="/instances" <%= active === "instances" ? 'aria-current="page"' : "" %>><%= t("Instances") %></a>
             <% } %>
             <a href="/account" <%= active === "account" ? 'aria-current="page"' : "" %>><%= t("Account") %></a>
           </nav>
