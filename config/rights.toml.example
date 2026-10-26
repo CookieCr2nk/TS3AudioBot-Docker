@@ -1,7 +1,13 @@
 # Rights declaration — see https://github.com/Splamy/TS3AudioBot/wiki/Rights
 
 "+" = [
+	"cmd.help.*",
+	"cmd.pm",
+	"cmd.subscribe",
+	"cmd.unsubscribe",
+	"cmd.kickme.*",
 	"cmd.version",
+	"cmd.song",
 ]
 
 [[rule]]
@@ -11,3 +17,28 @@
 	# Every API caller. Only safe while port 58913 is not published.
 	isapi = true
 	"+" = "*"
+
+# No groupid and no useruid: this rule matches everyone.
+[[rule]]
+	"+" = [
+		"cmd.play",
+		"cmd.pause",
+		"cmd.stop",
+		"cmd.seek",
+		"cmd.volume",
+		"cmd.list.*",
+		"cmd.add",
+		"cmd.clear",
+		"cmd.previous",
+		"cmd.next",
+		"cmd.random.*",
+		"cmd.repeat.*",
+		"cmd.history.add",
+		"cmd.history.from",
+		"cmd.history.id",
+		"cmd.history.last",
+		"cmd.history.play",
+		"cmd.history.till",
+		"cmd.history.title",
+	]
+	"-" = [ "cmd.list.save" ]

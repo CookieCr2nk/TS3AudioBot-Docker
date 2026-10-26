@@ -10,9 +10,9 @@
 #You can set this field manually if you already have a preexisting group the bot should add himself to.
 bot_group_id = 0
 #Tries to fetch a cover image when playing.
-generate_status_avatar = false
+generate_status_avatar = true
 #Sets the description of the bot to the current song title.
-set_status_description = false
+set_status_description = true
 #The language the bot should use to respond to users. (Make sure you have added the required language packs)
 language = "en"
 #Starts the instance when the TS3AudioBot is launched.
@@ -76,11 +76,12 @@ onshutdown = ["5m"]
 #To completely or partially disable this feature, set min to 0 and/or max to 100.
 volume = { default = 50.0, min = 25.0, max = 75.0 }
 #The maximum volume a normal user can request. Only user with the 'ts3ab.admin.volume' permission can request higher volumes.
-max_user_volume = 100.0
+#70-100 is the useful range after the logarithmic scale. 100 disables the cap.
+max_user_volume = 80.0
 #Specifies the bitrate (in kbps) for sending audio.
 #Values between 8 and 98 are supported, more or less can work but without guarantees.
 #Reference values: 16 - very poor (~3KiB/s), 24 - poor (~4KiB/s), 32 - okay (~5KiB/s), 48 - good (~7KiB/s), 64 - very good (~9KiB/s), 96 - deluxe (~13KiB/s)
-bitrate = 64
+bitrate = 96
 #How the bot should play music. Options are:
 # - whisper : Whispers to the channel where the request came from. Other users can join with '!subscribe'.
 # - voice : Sends via normal voice to the current channel. '!subscribe' will not work in this mode.
@@ -170,7 +171,7 @@ command_complexity = 64
 matcher = "exact"
 
 [web.interface]
-#If you want to enable the webinterface.
-enabled = true
+#The image does not build the upstream WebInterface. The panel uses the API.
+enabled = false
 #The webinterface folder to host. Leave empty to let the bot look for default locations.
 path = "/opt/TS3AudioBot/WebInterface"

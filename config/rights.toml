@@ -3,30 +3,14 @@
 # https://github.com/Splamy/TS3AudioBot/wiki/Rights
 
 "+" = [
-	# Basic stuff
-#	"cmd.help.*",
-#	"cmd.pm",
-#	"cmd.subscribe",
-#	"cmd.unsubscribe",
-#	"cmd.kickme.*",
+	# Basic stuff. Scripting (cmd.eval, cmd.xecute, cmd.json.*) stays with the admin rule.
+	"cmd.help.*",
+	"cmd.pm",
+	"cmd.subscribe",
+	"cmd.unsubscribe",
+	"cmd.kickme.*",
 	"cmd.version",
-	
-	# Getting song info
-#	"cmd.song",
-#	"cmd.repeat",
-#	"cmd.random",
-
-	# Conditionals and basic scripting
-#	"cmd.if",
-#	"cmd.print",
-#	"cmd.rng",
-#	"cmd.eval",
-#	"cmd.take",
-#	"cmd.xecute",
-#	"cmd.getmy.*",
-#	"cmd.json.*",
-#	"cmd.bot.use",
-#	"cmd.rights.can",
+	"cmd.song",
 ]
 
 # Admin rule
@@ -43,14 +27,9 @@
 
 	"+" = "*"
 
-# Playing rights
+# Playing rights. No groupid and no useruid: the rule matches everyone.
+# Add groupid or useruid here to limit playback to those clients.
 [[rule]]
-	# Set Group Ids you want to allow here, ex: [ 13, 42 ]
-	groupid = []
-	# And/Or Client Uids here, ex [ "uA0U7t4PBxdJ5TLnarsOHQh4/tY=", "8CnUQzwT/d9nHNeUaed0RPsDxxk=" ]
-	useruid = []
-	# Or remove groupid and useruid to allow for everyone
-
 	"+" = [
 		# Play controls
 		"cmd.play",
