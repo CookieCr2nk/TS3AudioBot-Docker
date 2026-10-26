@@ -9,14 +9,22 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "client": "vite",
+    "build": "vite build",
     "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
-    "ejs": "^3.1.10",
     "express": "^4.21.2",
     "helmet": "^8.1.0",
     "mysql2": "^3.14.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
+    "vite": "^6.3.5"
   }
 }

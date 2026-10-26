@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { after, describe, it } from "node:test";
-import ejs from "ejs";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApp, panelRoot } from "../src/app.js";
@@ -276,11 +275,11 @@ describe("language", () => {
         if (name === "node_modules" || name === "locales") continue;
         const path = join(dir, name);
         if (statSync(path).isDirectory()) walk(path);
-        else if (/\.(js|ejs)$/.test(name)) files.push(path);
+        else if (/\.(js|jsx)$/.test(name)) files.push(path);
       }
     };
     walk(join(root, "src"));
-    walk(join(root, "views"));
+    walk(join(root, "client"));
     const missing = new Set();
     const pattern = /(?:^|[^\w])t\(\s*"((?:\\.|[^"\\])*)"|new (?:Http|Validation|Ts3Api)Error\(\s*"((?:\\.|[^"\\])*)"/g;
     for (const path of files) {
@@ -301,104 +300,15 @@ describe("language", () => {
     assert.deepEqual(duplicates, []);
   });
 
-  it("renders the English templates", () => {
-    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-    const locals = {
-      t: (message, params) => translate("en", message, params),
-      lang: "en",
-      clientJson: clientJson("en"),
-      title: "Test",
-      message: "Test",
-      plain: false,
-      user: { id: 1, username: "admin", role: "admin" },
-      csrf: "csrf",
-      flash: null,
-      active: "",
-      tab: "player",
-      body: "<p>ok</p>",
-      error: null,
-      next: "/",
-      username: "",
-      admin: true,
-      cards: [],
-      bots: [],
-      users: [],
-      rows: [],
-      bot: {
-        id: 1,
-        name: "bot",
-        instanceId: 1,
-        instanceName: "bot",
-        instanceMode: "template",
-        instanceRef: "default",
-        enabled: true,
-        notes: "",
-        baseUrl: "http://ts3audiobot:58913",
-        apiUser: "",
-        hasToken: false,
-      },
-      instance: {
-        id: 1,
-        name: "bot",
-        baseUrl: "http://ts3audiobot:58913",
-        ownerUserId: "",
-        ownerName: "admin",
-        apiUser: "",
-        hasToken: false,
-        enabled: true,
-        notes: "",
-      },
-      tsBots: [],
-      canManage: true,
-      access: { canControl: true },
-      editing: true,
-      grantMap: {},
-      status: { song: null, volume: 20, repeat: "off", shuffle: false, queue: null, problems: [] },
-      statusError: null,
-      rightsHint: false,
-      query: "",
-      factory: "youtube",
-      results: [],
-      searchError: null,
-      lists: [],
-      listId: "mix",
-      playlist: { title: "Mix", count: 0, offset: 0, items: [] },
-      page: 1,
-      perPage: 50,
-      instances: [],
-      streams: [],
-      encode: encodeURIComponent,
-      formatTime: () => "",
-      safeHttpUrl: () => null,
-    };
-    const views = join(root, "views");
-    const walk = (dir) => {
-      for (const name of readdirSync(dir)) {
-        const path = join(dir, name);
-        if (statSync(path).isDirectory()) walk(path);
-        else if (name.endsWith(".ejs") && name !== "csrf.ejs") {
-          const html = ejs.render(readFileSync(path, "utf8"), locals, { filename: path });
-          assert.equal(html.includes("Anmelden"), false);
-          assert.equal(typeof html, "string");
-        }
-      }
-    };
-    walk(views);
-    const layout = ejs.render(readFileSync(join(views, "layout.ejs"), "utf8"), locals, {
-      filename: join(views, "layout.ejs"),
-    });
-    assert.match(layout, /lang="en"/);
-    assert.match(layout, /Sign out/);
-    assert.match(layout, /Overview/);
-  });
 });
 
 describe("panel paths and failures", () => {
-  it("keeps views under the application directory when that directory is /app", () => {
+  it("keeps the built client under the application directory when that directory is /app", () => {
     assert.equal(posix.dirname("/app/"), "/");
     assert.equal(posix.join(posix.dirname("/app/"), "views"), "/views");
     assert.equal(panelRoot("/app/src/app.js", posix), "/app");
-    assert.equal(posix.join(panelRoot("/app/src/app.js", posix), "views"), "/app/views");
+    assert.equal(posix.join(panelRoot("/app/src/app.js", posix), "dist"), "/app/dist");
+    assert.equal(posix.join(posix.dirname("/app/"), "dist"), "/dist");
   });
 
   it("turns known failures into a fixed sentence and hides the rest", () => {
@@ -434,17 +344,20 @@ describe("panel paths and failures", () => {
     assert.equal(failureFor(new Error("password=secret SELECT * FROM users")), null);
   });
 
-  it("renders the login page and a database outage", async () => {
+  it("returns German phrases for the client and reports a database outage", async () => {
     const login = createApp();
     const loginServer = await new Promise((resolve) => {
       const server = login.listen(0, "127.0.0.1", () => resolve(server));
     });
     try {
       const port = loginServer.address().port;
-      const page = await fetch(`http://127.0.0.1:${port}/login`, { headers: { "accept-language": "de" } });
-      const html = await page.text();
+      const page = await fetch(`http://127.0.0.1:${port}/api/session`, {
+        headers: { "accept-language": "de", accept: "application/json" },
+      });
+      const body = await page.json();
       assert.equal(page.status, 200);
-      assert.match(html, /Anmelden/);
+      assert.equal(body.phrases["Sign in"], "Anmelden");
+      assert.equal(body.user, null);
       const health = await fetch(`http://127.0.0.1:${port}/healthz`);
       assert.equal(health.status, 503);
       assert.match(await health.text(), /database is unreachable/i);

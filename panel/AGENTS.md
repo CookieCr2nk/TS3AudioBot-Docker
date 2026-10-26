@@ -4,7 +4,7 @@ Read this file before changing anything under `panel/`. Repository rules are in 
 
 ## What the panel is
 
-Hosting UI for the TS3AudioBot web API. Node.js 22, ESM, Express, EJS, MariaDB through `mysql2`. No bundler. Start with `node src/index.js`.
+Hosting UI for the TS3AudioBot web API. Node.js 22, ESM, Express, MariaDB through `mysql2`. The browser UI is a Vite and React app in `client/`. The server sends JSON under `/api` and, after `npm run build`, serves `dist/`. Start the API with `node src/index.js`. During development, run `npm run client` as well. Vite proxies `/api` to port 8080.
 
 The repository language rule is in `../AGENTS.md`: everything is English except translation catalogs. The UI source strings are English. When the browser prefers German, those strings are looked up in `src/locales/de.js`. Every new `t("...")` string and every `HttpError`, `ValidationError`, or `Ts3ApiError` with a fixed English sentence needs an entry there. Otherwise `keeps every panel phrase in the German catalog` fails. Do not add a second catalog unless the user asks for another language.
 
@@ -17,13 +17,14 @@ src/actions.js        allowed bot commands
 src/ts3ab.js          bot API paths
 src/db.js             queries
 src/schema.js         apply migrations
-src/routes/           auth, panel, admin
+src/api.js            JSON API used by the client
 src/locales/de.js     German UI strings
+client/               React UI, English source strings
 sql/migrations/       NNN_name.sql, in order
-views/                EJS, English
-public/               CSS and client.js, no inline script
 test/panel.test.js    node:test, no database
 ```
+
+The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load.
 
 Commands to the bot go only through `actions.js`. There is no free-form command from the client. `quit`, `eval`, `rights`, `system`, and `api` stay blocked. A new command is an entry with a parser, a path, and a right (`control` or `admin`), plus a test.
 
@@ -45,7 +46,7 @@ On Connection, `template-hosting` writes nickname, channel, server password, cha
 
 ## Security
 
-- CSRF on forms that write. Session cookie. Do not add a cookie without the same protection.
+- CSRF header `X-CSRF-Token` on writes. The session cookie is `ts3panel`. Do not add a cookie without the same protection.
 - Content-Security-Policy: scripts only from the panel origin. No inline script, no third-party CDN.
 - API tokens are stored only encrypted with `TOKEN_KEY`. Do not log them, put them in flash messages, or write them to the audit log.
 - Bot API URLs are host and port only. No credentials, no query, no metadata address.
@@ -53,8 +54,8 @@ On Connection, `template-hosting` writes nickname, channel, server password, cha
 
 ## Checks
 
-From `panel/`: `node --test`. From the repo: `make panel-test`.
+From `panel/`: `node --test`. From the repo: `make panel-test`. `npm run build` writes `dist/`.
 
-The tests do not need MariaDB. They render every EJS view. A new view needs the fields passed as locals in `test/panel.test.js`, or `renders the English templates` fails.
+The tests do not need MariaDB. They check the command allow-list, the schema, and that every `t("...")` string in `src/` and `client/` is in the German catalog.
 
 Node is often missing from `PATH` on this Windows checkout. Run the tests with a Node 22 binary, and do not treat a missing `node` on `PATH` as a pass.
