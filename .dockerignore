@@ -20,6 +20,5 @@ panel
 .vscode
 .pre-commit-config.yaml
 renovate.json
-scripts/*
-!scripts/bot-entrypoint.sh
+scripts
 Makefile
