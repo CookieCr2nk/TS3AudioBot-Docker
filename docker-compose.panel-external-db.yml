@@ -51,10 +51,6 @@ services:
       COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-false}
       TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
       PORT: "8080"
-      BOT_DATA_DIR: /botdata
-    volumes:
-      - ts3audiobot-data:/botdata
-    user: "9999:9999"
     ports:
       - "${PANEL_PORT:-8080}:8080"
     read_only: true

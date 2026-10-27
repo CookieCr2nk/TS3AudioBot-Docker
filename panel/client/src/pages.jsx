@@ -1029,39 +1029,6 @@ export function Connection() {
         </div>
       </section>
       <section className="card">
-        <h2>{t("TeamSpeak admins")}</h2>
-        <p className="muted">{t("A TeamSpeak UID listed here can run every command on this bot. Other bots stay unchanged.")}</p>
-        <form className="split" onSubmit={async (event) => {
-          event.preventDefault();
-          const formElement = event.currentTarget;
-          try {
-            const result = await api(`/api/bots/${id}/admins`, { method: "POST", body: { uid: new FormData(formElement).get("uid") } });
-            setLocalNote(result.message || "");
-            formElement.reset();
-            reload();
-          } catch (err) {
-            setError(err.message);
-          }
-        }}>
-          <label className="grow">{t("TeamSpeak UID")}<input name="uid" required maxLength={64} placeholder="VG90YWxseU5vdEZha2U=" /></label>
-          <button className="btn btn-primary" type="submit">{t("Add")}</button>
-        </form>
-        {(data.admins || []).map((uid) => (
-          <div className="split" key={uid}>
-            <p className="mono grow">{uid}</p>
-            <button className="btn btn-danger" type="button" onClick={async () => {
-              try {
-                const result = await api(`/api/bots/${id}/admins`, { method: "DELETE", body: { uid } });
-                setLocalNote(result.message || "");
-                reload();
-              } catch (err) {
-                setError(err.message);
-              }
-            }}>{t("Remove")}</button>
-          </div>
-        ))}
-      </section>
-      <section className="card">
         <h2>{t("TeamSpeak ID")}</h2>
         <p className="muted">{t("The unique ID of this bot. It is shown while the bot is connected.")}</p>
         {data.teamspeakId ? (

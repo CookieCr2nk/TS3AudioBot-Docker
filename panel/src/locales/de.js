@@ -513,16 +513,6 @@ const de = {
   "Channel commander is saved as off. The connected bot could not be changed.":
     "Channel-Commander ist als aus gespeichert. Der verbundene Bot konnte nicht geändert werden.",
   "TeamSpeak ID": "TeamSpeak-ID",
-  "TeamSpeak admins": "TeamSpeak-Admins",
-  "A TeamSpeak UID listed here can run every command on this bot. Other bots stay unchanged.":
-    "Eine TeamSpeak-UID in dieser Liste darf auf diesem Bot jeden Befehl ausführen. Andere Bots bleiben unverändert.",
-  "TeamSpeak UID": "TeamSpeak-UID",
-  "TeamSpeak UID is invalid": "Die TeamSpeak-UID ist ungültig",
-  "TeamSpeak UID can administer this bot.": "Die TeamSpeak-UID darf diesen Bot verwalten.",
-  "TeamSpeak UID removed from this bot.": "Die TeamSpeak-UID wurde von diesem Bot entfernt.",
-  "TeamSpeak UID saved. The bot did not reload rights.": "Die TeamSpeak-UID ist gespeichert. Der Bot hat die Rechte nicht neu geladen.",
-  "The bot rights file is not available to the panel. Mount the bot data volume and restart the panel.":
-    "Die Rechte-Datei des Bots ist für das Panel nicht erreichbar. Das Bot-Datenvolume einhängen und das Panel neu starten.",
   "The unique ID of this bot. It is shown while the bot is connected.":
     "Die eindeutige ID dieses Bots. Sie wird angezeigt, solange der Bot verbunden ist.",
   Copy: "Kopieren",
