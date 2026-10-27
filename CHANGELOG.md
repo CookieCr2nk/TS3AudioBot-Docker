@@ -22,6 +22,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Compose file for an external MariaDB (`docker-compose.panel-external-db.yml`)
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
+### Fixed
+- Migration `008_bot_template` can drop the old bot-name index. MariaDB kept it for the instance foreign key
 ### Changed
 - Selecting several bots only offers start and stop
 - A new bot is created on TS3AudioBot under a UUID, so panel names can repeat. A normal account sees only bots assigned to that account, or every bot on an instance it owns. Users and instance access are chosen from lists
