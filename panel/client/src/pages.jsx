@@ -720,8 +720,14 @@ export function Playback() {
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
         setSearchError("");
+        const value = query.trim();
+        if (/^https?:\/\//i.test(value)) {
+          setResults([]);
+          await act({ op: "play", resource: value });
+          return;
+        }
         try {
-          const data = await api(`/api/bots/${id}/search?q=${encodeURIComponent(query)}&factory=${factory}`);
+          const data = await api(`/api/bots/${id}/search?q=${encodeURIComponent(value)}&factory=${factory}`);
           setResults(data.results || []);
         } catch (err) {
           setResults([]);
@@ -732,7 +738,7 @@ export function Playback() {
         <Notice error={searchError} />
         <div className="split">
           <label className="grow">{t("Search term")}
-            <input value={query} onChange={(event) => setQuery(event.target.value)} required />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} required placeholder="https://" />
           </label>
           <label>{t("Source")}
             <select value={factory} onChange={(event) => setFactory(event.target.value)}>
@@ -742,7 +748,12 @@ export function Playback() {
               <option value="media">media</option>
             </select>
           </label>
-          <button className="btn btn-primary" type="submit">{t("Search")}</button>
+          {/^https?:\/\//i.test(query.trim()) ? (
+            <>
+              <button className="btn btn-primary" type="submit" disabled={!canControl}>{t("Play")}</button>
+              <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "add", resource: query.trim() })}>{t("Add to queue")}</button>
+            </>
+          ) : <button className="btn btn-primary" type="submit">{t("Search")}</button>}
         </div>
         {results.map((item) => (
           <div className="split" key={`${item.index}-${item.title}`}>
@@ -857,23 +868,20 @@ export function Radio() {
         {user.role === "admin" ? <label className="check"><input type="checkbox" name="shared" value="on" /> {t("Shared catalog")}</label> : null}
         <button className="btn btn-primary" type="submit">{t("Save")}</button>
       </form>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Stream address")}</th><th></th></tr></thead>
-          <tbody>
-            {(data?.streams || []).map((stream) => (
-              <tr key={stream.id}>
-                <td>{stream.name}{stream.shared ? <span className="pill">{t("Shared")}</span> : null}</td>
-                <td className="mono">{stream.displayUrl}</td>
-                <td className="inline">
-                  <button className="btn btn-primary" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}/play`, { method: "POST", body: { op: "play" } })}>{t("Play")}</button>
-                  <button className="btn" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}/play`, { method: "POST", body: { op: "add" } })}>{t("Add to queue")}</button>
-                  {stream.canDelete ? <button className="btn btn-danger" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}`, { method: "DELETE", body: {} }).then((result) => { if (result) reload(); })}>{t("Delete")}</button> : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="station-list">
+        {(data?.streams || []).map((stream) => (
+          <article className="card station" key={stream.id}>
+            <div className="station-text">
+              <h2>{stream.name}{stream.shared ? <span className="pill">{t("Shared")}</span> : null}</h2>
+              <p className="mono muted">{stream.displayUrl}</p>
+            </div>
+            <div className="station-actions">
+              <button className="btn btn-primary" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}/play`, { method: "POST", body: { op: "play" } })}>{t("Play")}</button>
+              <button className="btn" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}/play`, { method: "POST", body: { op: "add" } })}>{t("Add to queue")}</button>
+              {stream.canDelete ? <button className="btn btn-danger" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}`, { method: "DELETE", body: {} }).then((result) => { if (result) reload(); })}>{t("Delete")}</button> : null}
+            </div>
+          </article>
+        ))}
       </div>
     </div>
   );

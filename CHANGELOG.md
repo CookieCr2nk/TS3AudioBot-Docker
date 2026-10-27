@@ -26,6 +26,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 - TeamSpeak UID whitelist. The panel talks to the bot only through the API and does not mount the bot volume
 ### Fixed
+- Radio stations keep long names and addresses on their own line, with the buttons beside them
+- A YouTube or other http address in playback is sent as play, so the bot no longer asks for a TeamSpeak user session
 - Migration `008_bot_template` can drop the old bot-name index. MariaDB kept it for the instance foreign key
 ### Changed
 - Selecting several bots only offers start and stop

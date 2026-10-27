@@ -193,6 +193,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .page-wide { max-width: 1200px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
 .btn-plus { min-width: 40px; font-size: 1.25rem; line-height: 1; }
+.station-list { display: grid; gap: 0.7rem; }
+.station { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.8rem 1rem; align-items: center; }
+.station-text { min-width: 0; }
+.station h2 { margin: 0 0 0.25rem; overflow-wrap: anywhere; }
+.station-text p { margin: 0; overflow-wrap: anywhere; }
+.station-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
+@media (max-width: 720px) { .station { grid-template-columns: 1fr; } }
 .user-pager { display: flex; justify-content: space-between; align-items: flex-end; gap: 0.8rem; flex-wrap: wrap; }
 .user-pager select { width: auto; }
 .user-edit { display: grid; gap: 0.7rem; padding: 0.2rem 0; }
