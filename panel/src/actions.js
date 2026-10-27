@@ -1,4 +1,5 @@
-import { HttpError, ValidationError } from "./errors.js";
+import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
+import { presentBotList } from "./present.js";
 import { callBot, scope } from "./ts3ab.js";
 import {
   parseChannel,
@@ -311,16 +312,25 @@ export const actions = {
     success: "Connection settings saved",
     parse: (input) => parseHostingSettings(input),
     async run(bot, args, call) {
-      const sets = [];
-      if (args.nickname) sets.push(["connect.name", args.nickname]);
-      if (args.channel) sets.push(["connect.channel", args.channel]);
-      if (args.serverPassword) sets.push(["connect.server_password.pw", args.serverPassword]);
-      if (args.channelPassword) sets.push(["connect.channel_password.pw", args.channelPassword]);
-      if (args.bitrate != null) sets.push(["audio.bitrate", String(args.bitrate)]);
-      if (args.run != null) sets.push(["run", args.run ? "true" : "false"]);
-      for (const [path, value] of sets) {
-        await call(["settings", "bot", "set", args.name, path, value], 15000);
+      for (const parts of hostingCalls(args)) {
+        await call(parts, 15000);
       }
+      if (!args.nickname) return undefined;
+      let connected = false;
+      try {
+        connected = templateIsConnected(await call(["bot", "list"], 15000), args.name);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        connected = true;
+      }
+      if (!connected) return { messageKey: "Connection settings saved. The nickname changes when this bot connects." };
+      try {
+        await call(liveRenameParts(args.name, args.nickname), 15000);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        return { messageKey: "Connection settings saved. The connected name could not be changed." };
+      }
+      return { messageKey: "Connection settings saved. The nickname is updated." };
     },
     detail: (args) => ({ key: "Connection settings for {name}", params: { name: args.name } }),
   },
@@ -333,6 +343,57 @@ export const actions = {
     detail: () => ({ key: "Applied a privilege key" }),
   },
 };
+
+export function hostingCalls(args) {
+  const calls = [];
+  if (args.nickname) calls.push(["settings", "bot", "set", args.name, "connect.name", args.nickname]);
+  if (args.channel) calls.push(["settings", "bot", "set", args.name, "connect.channel", args.channel]);
+  if (args.serverPassword) calls.push(["settings", "bot", "set", args.name, "connect.server_password.pw", args.serverPassword]);
+  if (args.channelPassword) calls.push(["settings", "bot", "set", args.name, "connect.channel_password.pw", args.channelPassword]);
+  if (args.bitrate != null) calls.push(["settings", "bot", "set", args.name, "audio.bitrate", String(args.bitrate)]);
+  if (args.run != null) calls.push(["settings", "bot", "set", args.name, "run", args.run ? "true" : "false"]);
+  if (args.startupCommand) calls.push(["settings", "bot", "set", args.name, "events.onconnect", args.startupCommand]);
+  if (args.clearStartup) calls.push(["settings", "bot", "set", args.name, "events.onconnect"]);
+  return calls;
+}
+
+export function liveRenameParts(name, nickname) {
+  return ["bot", "template", name, ["bot", "name", nickname]];
+}
+
+export function templateIsConnected(data, name) {
+  return presentBotList(data).some((item) => item.name === name && item.status === "connected");
+}
+
+const BULK_OPS = ["pause", "resume", "stop", "next", "previous", "clear", "volume", "play", "add"];
+const SLOW_BULK = new Set(["play", "add", "next", "previous"]);
+
+function bulkId(raw) {
+  if (typeof raw === "number") return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+  if (typeof raw !== "string" || !/^[1-9]\d{0,9}$/.test(raw.trim())) return null;
+  const id = Number(raw.trim());
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+export function parseBulk(input) {
+  const op = String(input?.op ?? "").trim().toLowerCase();
+  if (!BULK_OPS.includes(op)) throw new ValidationError("Unknown action");
+  const rawIds = input?.ids;
+  if (!Array.isArray(rawIds) || rawIds.length === 0) throw new ValidationError("Select at least one bot");
+  const limit = SLOW_BULK.has(op) ? 10 : 25;
+  if (rawIds.length > limit) throw new ValidationError("Select at most {count} bots", { count: limit });
+  const ids = [];
+  const seen = new Set();
+  for (const raw of rawIds) {
+    const id = bulkId(raw);
+    if (!id) throw new ValidationError("A selected bot is invalid");
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  if (actions[op].parse) actions[op].parse(input || {});
+  return { op, ids };
+}
 
 export function buildActionRequest(bot, name, input, auth) {
   const action = actions[name];

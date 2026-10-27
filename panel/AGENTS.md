@@ -24,17 +24,17 @@ sql/migrations/       NNN_name.sql, in order
 test/panel.test.js    node:test, no database
 ```
 
-The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load.
+The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell. Bots is a separate page: it lists every bot the account can open, and one playback action can apply to the selected bots. That action is only pause, resume, stop, previous, next, clear, volume, play, or add.
 
 Commands to the bot go only through `actions.js`. There is no free-form command from the client. `quit`, `eval`, `rights`, `system`, and `api` stay blocked. A new command is an entry with a parser, a path, and a right (`control` or `admin`), plus a test.
 
 ## Database
 
-Schema changes are new files `sql/migrations/005_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. Startup refuses a different checksum and a version this image no longer ships.
+Schema changes are new files `sql/migrations/006_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. `005_bot_limit.sql` adds `users.bot_limit`. Startup refuses a different checksum and a version this image no longer ships.
 
 Statements must be safe to run again. MariaDB commits DDL one statement at a time. The version row is inserted only after the last statement. `001_baseline.sql` is the old `schema.sql`. Do not bring that file back as a second source.
 
-One Docker container is one row in `instances` (address, encrypted token, owner, enabled). TeamSpeak bots inside that process are rows in `ts_bots`, unique by instance and template name. `instance_grants` lets other accounts control those bots. The owner and administrators can create and delete bots. Granted users cannot. The panel does not start containers. `users.suspended` blocks sign-in and the suspend action deletes that account's sessions.
+One Docker container is one row in `instances` (address, encrypted token, owner, enabled). TeamSpeak bots inside that process are rows in `ts_bots`, unique by instance and template name. `instance_grants` lets other accounts control those bots. The owner and administrators can create and delete bots. Granted users cannot. `users.bot_limit` is the maximum number of bots on instances that account owns. NULL means unlimited. An instance with no owner has no limit. The panel does not start containers. `users.suspended` blocks sign-in and the suspend action deletes that account's sessions.
 
 `003_hosting.sql` copies old `bots` rows and is safe to run again until it is recorded. `004_drop_legacy_bots.sql` drops `bots` and `bot_grants` after that copy.
 
@@ -42,7 +42,7 @@ Radio stations live in `radio_streams`, not in the bot files. `shared = 1` is th
 
 ## Hosting fields
 
-On Connection, `template-hosting` writes nickname, channel, server password, channel password, bitrate, and start-on-launch into the bot template. Empty fields stay as they are. Passwords and the privilege key are not stored in the panel database and are not written into the audit text. `bot setup` applies to the TeamSpeak bot that is open. Creating a bot calls `settings/create` on the instance and inserts a `ts_bots` row only after the API accepts it. Attaching an existing template name, such as `default`, inserts the row without calling the API.
+On Connection, `template-hosting` writes nickname, channel, server password, channel password, bitrate, start-on-launch, and an optional HTTP or HTTPS stream into the bot template. The stream is stored as a quoted `!play` command on `events.onconnect`. The panel builds that command. Empty fields stay as they are. A connected bot also receives `bot name` so the nickname changes without a reconnect. Passwords and the privilege key are not stored in the panel database and are not written into the audit text. `bot setup` applies to the TeamSpeak bot that is open. Creating a bot calls `settings/create` on the instance and inserts a `ts_bots` row only after the API accepts it. Attaching an existing template name, such as `default`, inserts the row without calling the API.
 
 ## Security
 

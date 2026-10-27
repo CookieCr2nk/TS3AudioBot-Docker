@@ -34,6 +34,19 @@ export function parseRole(value) {
   return role;
 }
 
+export function parseBotLimit(value) {
+  const text = clean(value);
+  if (!text || text.toLowerCase() === "unlimited") return null;
+  if (!/^\d+$/.test(text)) throw new ValidationError("Bot limit is invalid");
+  const number = Number(text);
+  if (number > 10000) throw new ValidationError("Bot limit is invalid");
+  return number;
+}
+
+export function quotePlay(resource) {
+  return `!play '${String(resource).replaceAll("'", "\\'")}'`;
+}
+
 function isBlockedHost(hostname) {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (host === "metadata.google.internal" || host.endsWith(".metadata.google.internal")) return true;
@@ -131,6 +144,7 @@ export function parseStreamUrl(value) {
     throw new ValidationError("This stream address is not allowed");
   }
   if (url.href.length > 500) throw new ValidationError("Stream address is missing or too long");
+  if (url.href.includes("\\")) throw new ValidationError("This stream address is not allowed");
   return url.href;
 }
 
@@ -169,10 +183,24 @@ export function parseHostingSettings(input) {
   if (runText === "on") run = true;
   else if (runText === "off") run = false;
   else if (runText) throw new ValidationError("Start on launch is invalid");
-  if (!nickname && !channel && !serverPassword && !channelPassword && bitrate == null && run == null) {
+  const clearStartup = input.clearStartup === true || input.clearStartup === "on" || input.clearStartup === "1";
+  const startup = clean(input.startup) ? parseStreamUrl(input.startup) : null;
+  if (startup && clearStartup) throw new ValidationError("Clear the startup stream or set an address");
+  if (!nickname && !channel && !serverPassword && !channelPassword && bitrate == null && run == null && !startup && !clearStartup) {
     throw new ValidationError("Enter at least one connection setting");
   }
-  return { name, nickname, channel, serverPassword, channelPassword, bitrate, run };
+  return {
+    name,
+    nickname,
+    channel,
+    serverPassword,
+    channelPassword,
+    bitrate,
+    run,
+    startup,
+    startupCommand: startup ? quotePlay(startup) : null,
+    clearStartup,
+  };
 }
 
 export function parseResource(value) {

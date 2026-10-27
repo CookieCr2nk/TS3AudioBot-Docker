@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
+import { usePlayer } from "./player.jsx";
 
 function useLoad(path) {
   const [data, setData] = useState(null);
@@ -66,39 +68,273 @@ export function Overview() {
   const { t } = useAuth();
   const location = useLocation();
   const { data, error } = useLoad("/api/overview");
+  const cards = data?.cards || [];
   return (
     <div className="page">
-      <h1>{t("Overview")}</h1>
-      <Notice error={error} note={location.state?.note || ""} />
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>{t("Name")}</th>
-              <th>{t("Status")}</th>
-              <th>{t("Bots")}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.cards || []).map((card) => (
-              <tr key={card.id}>
-                <td>
-                  {card.name}
-                  {card.ownerName ? <div className="muted">{card.ownerName}</div> : null}
-                </td>
-                <td>
-                  <span className={card.online ? "pill pill-ok" : "pill pill-bad"}>{card.online ? t("Connected") : t("Offline")}</span>
-                  {card.version ? <div className="muted mono">{card.version}</div> : null}
-                  {card.error ? <div className="muted">{card.error}</div> : null}
-                </td>
-                <td>{card.botCount}</td>
-                <td><Link className="btn" to={`/instances/${card.id}`}>{t("Open")}</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="page-head">
+        <div>
+          <h1>{t("Overview")}</h1>
+          <p className="muted">{t("Each entry is one Docker container. Several TeamSpeak bots can run inside it.")}</p>
+        </div>
+        <Link className="btn btn-primary" to="/bots">{t("Bots")}</Link>
       </div>
+      <Notice error={error} note={location.state?.note || ""} />
+      {data && cards.length === 0 ? <p className="muted">{t("No instance has been added yet.")}</p> : null}
+      {cards.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("Name")}</th>
+                <th>{t("Status")}</th>
+                <th>{t("Bots")}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {cards.map((card) => (
+                <tr key={card.id}>
+                  <td>
+                    {card.name}
+                    {card.ownerName ? <div className="muted">{card.ownerName}</div> : null}
+                  </td>
+                  <td>
+                    <span className={card.online ? "pill pill-ok" : "pill pill-bad"}>{card.online ? t("Connected") : t("Offline")}</span>
+                    {card.version ? <div className="muted mono">{card.version}</div> : null}
+                    {card.error ? <div className="muted">{card.error}</div> : null}
+                  </td>
+                  <td><Link to={`/bots?instance=${card.id}`} aria-label={t("Open in Bots")}>{t("{count} bots", { count: card.botCount })}</Link></td>
+                  <td><Link className="btn" to={`/instances/${card.id}`}>{t("Open")}</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function BotsPage() {
+  const { t } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const { data, error, reload } = useLoad("/api/bots");
+  const [selected, setSelected] = useState([]);
+  const [query, setQuery] = useState("");
+  const [volume, setVolume] = useState("40");
+  const [resource, setResource] = useState("");
+  const [note, setNote] = useState("");
+  const [formError, setFormError] = useState("");
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const allRef = useRef(null);
+  const [dockSlot, setDockSlot] = useState(null);
+  const bots = data?.bots || [];
+  const instanceId = params.get("instance") || "";
+  const instances = [];
+  for (const bot of bots) {
+    if (!instances.some((item) => item.id === bot.instanceId)) instances.push({ id: bot.instanceId, name: bot.instanceName || t("Instance") });
+  }
+  const filtered = bots.filter((bot) => {
+    if (instanceId && String(bot.instanceId) !== instanceId) return false;
+    if (query && !bot.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
+    return true;
+  });
+  const selectable = filtered.filter((bot) => bot.canControl);
+  const allPicked = selectable.length > 0 && selectable.every((bot) => selected.includes(bot.id));
+  const somePicked = selectable.some((bot) => selected.includes(bot.id));
+
+  useEffect(() => {
+    if (!data?.bots) return;
+    const known = new Set(data.bots.map((bot) => bot.id));
+    setSelected((current) => {
+      const next = current.filter((id) => known.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [data]);
+
+  useEffect(() => {
+    if (allRef.current) allRef.current.indeterminate = somePicked && !allPicked;
+  }, [somePicked, allPicked]);
+
+  useEffect(() => {
+    setDockSlot(document.getElementById("bulk-slot"));
+  }, []);
+
+  function toggle(id) {
+    setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function toggleVisible() {
+    setSelected((current) => {
+      if (allPicked) return current.filter((id) => !selectable.some((bot) => bot.id === id));
+      const next = new Set(current);
+      for (const bot of selectable) next.add(bot.id);
+      return [...next];
+    });
+  }
+
+  async function apply(op, extra = {}, confirmText = "") {
+    if (!selected.length || busy) return;
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBusy(true);
+    setFormError("");
+    setNote("");
+    try {
+      const result = await api("/api/bots/bulk", { method: "POST", body: { ids: selected, op, ...extra } });
+      setNote(result.message || "");
+      setResults(result.results || []);
+      reload();
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setInstance(value) {
+    const next = new URLSearchParams(params);
+    if (!value) next.delete("instance");
+    else next.set("instance", value);
+    setParams(next);
+  }
+
+  return (
+    <div className="page page-wide">
+      <div className="page-head">
+        <div>
+          <h1>{t("Bots")}</h1>
+          <p className="muted">{t("Every TeamSpeak bot you can open. Select several to apply one playback action to all of them.")}</p>
+        </div>
+        <button className="btn" type="button" onClick={() => reload()}>{t("Refresh")}</button>
+      </div>
+      <Notice error={formError || error} note={note} />
+      {bots.length ? (
+        <div className="split">
+          <label className="grow">{t("Filter by name")}
+            <input value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+          <label>{t("Instance")}
+            <select value={instanceId} onChange={(event) => setInstance(event.target.value)}>
+              <option value="">{t("All instances")}</option>
+              {instanceId && !instances.some((item) => String(item.id) === instanceId) ? <option value={instanceId}>{t("Instance")}</option> : null}
+              {instances.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+          {instanceId || query ? <button className="btn" type="button" onClick={() => { setQuery(""); setInstance(""); }}>{t("Reset")}</button> : null}
+        </div>
+      ) : null}
+      {dockSlot && (selected.length || results.length) ? createPortal(
+      <section className="card bulk-bar">
+        <div className="split">
+          <h2>{t("Apply to selected")}</h2>
+          <span className="muted">{busy ? t("Working…") : t("{count} selected", { count: selected.length })}</span>
+          {selected.length ? <button className="btn" type="button" onClick={() => setSelected([])}>{t("Clear selection")}</button> : null}
+        </div>
+        <p className="muted">{t("Select bots in the list. Pause, volume, and stop run together. Play and append are limited to 10 bots.")}</p>
+        <div className="transport">
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("previous")}>{t("Previous")}</button>
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("pause")}>{t("Pause")}</button>
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("resume")}>{t("Resume")}</button>
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("next")}>{t("Skip")}</button>
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("stop", {}, t("Stop playback on {count} bots?", { count: selected.length }))}>{t("Stop")}</button>
+          <button className="btn btn-danger" type="button" disabled={busy || !selected.length} onClick={() => apply("clear", {}, t("Clear the queue on {count} bots?", { count: selected.length }))}>{t("Clear")}</button>
+        </div>
+        <div className="split">
+          <label className="grow">{t("Volume")}
+            <input type="number" min="0" max="100" step="1" value={volume} disabled={busy || !selected.length} onChange={(event) => setVolume(event.target.value)} />
+          </label>
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("volume", { volume: Number(volume) })}>{t("Apply")}</button>
+        </div>
+        <div className="split">
+          <label className="grow">{t("Link or resource")}
+            <input value={resource} disabled={busy || !selected.length} placeholder={t("https://… or media/file.mp3")} onChange={(event) => setResource(event.target.value)} />
+          </label>
+          <button className="btn btn-primary" type="button" disabled={busy || !selected.length} onClick={() => {
+            if (!resource.trim()) {
+              setFormError(t("Link is missing or too long"));
+              return;
+            }
+            apply("play", { resource });
+          }}>{t("Play")}</button>
+          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => {
+            if (!resource.trim()) {
+              setFormError(t("Link is missing or too long"));
+              return;
+            }
+            apply("add", { resource });
+          }}>{t("Append")}</button>
+        </div>
+        {results.length ? (
+          <ul className="bulk-results">
+            {results.map((item) => (
+              <li key={item.id} className={item.ok ? "ok" : "bad"}>
+                <span>{item.name || item.id}</span>
+                <span>{item.message}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>,
+      dockSlot) : null}
+      {data && filtered.length === 0 ? <p className="muted">{bots.length ? t("Nothing matches.") : t("No bots yet.")}</p> : null}
+      {filtered.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <input ref={allRef} type="checkbox" checked={allPicked} disabled={!selectable.length} aria-label={t("Select all")} onChange={toggleVisible} />
+                </th>
+                <th>{t("Name")}</th>
+                <th>{t("Instance")}</th>
+                <th>{t("Status")}</th>
+                <th>{t("Now playing")}</th>
+                <th>{t("Volume")}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((bot) => {
+                const playback = bot.playback;
+                const picked = selected.includes(bot.id);
+                let status = t("Empty");
+                let pill = "pill";
+                if (playback && !playback.online) {
+                  status = t("Offline");
+                  pill = "pill pill-bad";
+                } else if (playback?.title && playback.paused === false) {
+                  status = t("Playing");
+                  pill = "pill pill-ok";
+                } else if (playback?.title && playback.paused) {
+                  status = t("Paused");
+                  pill = "pill pill-warn";
+                }
+                return (
+                  <tr key={bot.id} className={picked ? "picked" : ""}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={picked}
+                        disabled={!bot.canControl}
+                        aria-label={t("Select {name}", { name: bot.name })}
+                        title={bot.canControl ? "" : t("Read only")}
+                        onChange={() => toggle(bot.id)}
+                      />
+                    </td>
+                    <td><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
+                    <td>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
+                    <td><span className={pill}>{status}</span>{playback?.error ? <div className="muted">{playback.error}</div> : null}</td>
+                    <td>{playback?.title || "—"}</td>
+                    <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
+                    <td><Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -129,7 +365,8 @@ export function InstancePage() {
 
   async function saveInstance(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const grants = (data.users || [])
       .filter((account) => account.role !== "admin" && String(account.id) !== form.get("ownerUserId"))
       .filter((account) => form.get(`grant_${account.id}`) === "on")
@@ -145,7 +382,7 @@ export function InstancePage() {
       enabled: form.get("enabled") === "on",
       grants,
     });
-    if (result) event.currentTarget.querySelector("input[name=apiToken]").value = "";
+    if (result) formElement.querySelector("input[name=apiToken]").value = "";
   }
 
   if (!instance && error) return <div className="page"><Notice error={error} /></div>;
@@ -153,10 +390,13 @@ export function InstancePage() {
 
   return (
     <div className="page">
-      <div>
-        <h1>{instance.name}</h1>
-        <p className="muted">{t("TeamSpeak bots on this instance. The panel does not start the container.")}</p>
-        {instance.baseUrl ? <p className="mono">{instance.baseUrl}</p> : null}
+      <div className="page-head">
+        <div>
+          <h1>{instance.name}</h1>
+          <p className="muted">{t("TeamSpeak bots on this instance. The panel does not start the container.")}</p>
+          {instance.baseUrl ? <p className="mono">{instance.baseUrl}</p> : null}
+        </div>
+        <Link className="btn" to={`/bots?instance=${id}`}>{t("Open in Bots")}</Link>
       </div>
       <Notice error={formError || error} note={note} />
 
@@ -196,20 +436,16 @@ export function InstancePage() {
         <table>
           <thead><tr><th>{t("Name")}</th><th></th></tr></thead>
           <tbody>
+            {(data.bots || []).length === 0 ? (
+              <tr><td className="muted" colSpan={2}>{t("No bots on this instance yet.")}</td></tr>
+            ) : null}
             {(data.bots || []).map((bot) => (
               <tr key={bot.id}>
-                <td>{bot.name}</td>
+                <td><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
                 <td className="inline">
                   <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
                   {data.canManage ? (
-                    <form className="inline" onSubmit={(event) => {
-                      event.preventDefault();
-                      const confirm = new FormData(event.currentTarget).get("confirm");
-                      run(`/api/instances/${id}/bots/delete`, { name: bot.name, confirm });
-                    }}>
-                      <input name="confirm" required maxLength={64} placeholder={t("Type the bot name to confirm")} aria-label={t("Type the bot name to confirm")} />
-                      <button className="btn btn-danger" type="submit">{t("Delete")}</button>
-                    </form>
+                    <DeleteBot name={bot.name} onSubmit={(confirm) => run(`/api/instances/${id}/bots/delete`, { name: bot.name, confirm })} />
                   ) : null}
                 </td>
               </tr>
@@ -275,8 +511,26 @@ export function InstancePage() {
   );
 }
 
-function useBotAction(botId) {
+function DeleteBot({ name, onSubmit }) {
+  const { t } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (!open) return <button className="btn btn-danger" type="button" onClick={() => setOpen(true)}>{t("Delete")}</button>;
+  return (
+    <form className="inline" onSubmit={(event) => {
+      event.preventDefault();
+      onSubmit(new FormData(event.currentTarget).get("confirm"));
+    }}>
+      <input name="confirm" required maxLength={64} placeholder={t("Type the bot name to confirm")} aria-label={t("Type the bot name to confirm")} />
+      <button className="btn btn-danger" type="submit">{t("Delete")}</button>
+      <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
+    </form>
+  );
+}
+
+function useBotAction(botId, onDone) {
   const navigate = useNavigate();
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   async function act(body) {
@@ -287,6 +541,7 @@ function useBotAction(botId) {
       if (result.redirect) navigate(result.redirect);
       else if (result.botId) navigate(`/bots/${result.botId}`);
       else setNote(result.message || "");
+      onDoneRef.current?.();
       return result;
     } catch (err) {
       setError(err.message);
@@ -299,77 +554,50 @@ function useBotAction(botId) {
 export function Playback() {
   const { id } = useParams();
   const { t } = useAuth();
-  const { note, error, act } = useBotAction(id);
-  const [status, setStatus] = useState(null);
+  const player = usePlayer();
   const [query, setQuery] = useState("");
   const [factory, setFactory] = useState("youtube");
   const [results, setResults] = useState([]);
   const [searchError, setSearchError] = useState("");
-  const [volume, setVolume] = useState(50);
-
-  useEffect(() => {
-    let stop = false;
-    async function pull() {
-      try {
-        const data = await api(`/api/bots/${id}/status`);
-        if (stop) return;
-        setStatus(data.status);
-        if (data.status?.volume != null && document.activeElement?.dataset?.volume !== "1") setVolume(data.status.volume);
-      } catch (err) {
-        if (!stop) setStatus({ problems: [err.message], song: null });
-      }
-    }
-    pull();
-    const timer = window.setInterval(pull, 4000);
-    return () => {
-      stop = true;
-      window.clearInterval(timer);
-    };
-  }, [id]);
-
+  const sameBot = String(player?.bot?.id || "") === String(id);
+  const status = sameBot ? player.status : null;
   const song = status?.song;
+  const queue = status?.queue;
+  const canControl = Boolean(player?.canControl);
+  function act(body) {
+    return player?.act(body);
+  }
+
   return (
     <div className="page">
-      <h1>{t("Playback")}</h1>
-      <Notice error={error} note={note} />
+      <div className="page-head">
+        <div>
+          <h1>{t("Playback")}</h1>
+          <p className="muted">{song?.title || t("Nothing is playing.")}</p>
+        </div>
+        <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Empty")}</span>
+      </div>
+      <Notice error={player?.error || ""} note={player?.note || ""} />
       {(status?.problems || []).map((problem) => <p key={problem} className="flash flash-error">{problem}</p>)}
-      <section className="card">
-        <div className="split">
-          <h2>{song?.title || t("Nothing is playing.")}</h2>
-          <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Empty")}</span>
-        </div>
-        <p className="muted">{song?.source || ""}</p>
-        <div className="meter" aria-hidden="true"><span style={{ width: `${song?.progress || 0}%` }} /></div>
-        <p className="mono">{song?.positionLabel || "0:00"} / {song?.lengthLabel || "--:--"}</p>
-        <div className="transport">
-          <button className="btn" type="button" onClick={() => act({ op: "previous" })}>{t("Previous")}</button>
-          <button className="btn btn-primary" type="button" onClick={() => act({ op: song && !song.paused ? "pause" : "resume" })}>
-            {song && !song.paused ? t("Pause") : t("Resume")}
+      <div className="transport">
+        {[-30, -10, 10, 30].map((delta) => (
+          <button key={delta} className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "nudge", delta })}>
+            {delta > 0 ? `+${delta}` : delta}s
           </button>
-          <button className="btn" type="button" onClick={() => act({ op: "next" })}>{t("Skip")}</button>
-          <button className="btn" type="button" onClick={() => window.confirm(t("Stop playback?")) && act({ op: "stop" })}>{t("Stop")}</button>
-          <button className="btn btn-danger" type="button" onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
-        </div>
-        <div className="transport">
-          {[-30, -10, 10, 30].map((delta) => (
-            <button key={delta} className="btn" type="button" onClick={() => act({ op: "nudge", delta })}>
-              {delta > 0 ? `+${delta}` : delta}s
-            </button>
-          ))}
-        </div>
-        <label>{t("Volume")}
-          <input data-volume="1" type="range" min="0" max="100" value={volume} onChange={(event) => setVolume(Number(event.target.value))} onPointerUp={() => act({ op: "volume", volume })} />
-        </label>
-      </section>
-      {status?.queue?.items?.length ? (
+        ))}
+        <button className="btn" type="button" disabled={!canControl} onClick={() => window.confirm(t("Stop playback?")) && act({ op: "stop" })}>{t("Stop")}</button>
+        <button className="btn btn-danger" type="button" disabled={!canControl} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
+      </div>
+      {queue?.items?.length ? (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>#</th><th>{status.queue.title || t("Queue")}</th></tr></thead>
+            <thead><tr><th>#</th><th>{queue.title || t("Queue")}</th><th></th></tr></thead>
             <tbody>
-              {status.queue.items.map((item) => (
-                <tr key={item.index}>
+              {queue.items.map((item) => (
+                <tr key={item.index} className={item.index === queue.index ? "picked" : ""}>
                   <td className="mono">{item.index}</td>
                   <td>{item.title}</td>
+                  <td><button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "jump", index: item.index })}>{t("Jump")}</button></td>
                 </tr>
               ))}
             </tbody>
@@ -406,8 +634,8 @@ export function Playback() {
         {results.map((item) => (
           <div className="split" key={`${item.index}-${item.title}`}>
             <span className="grow">{item.title}</span>
-            <button className="btn" type="button" onClick={() => act({ op: "search-play", index: item.index })}>{t("Play")}</button>
-            <button className="btn" type="button" onClick={() => act({ op: "search-add", index: item.index })}>{t("Append")}</button>
+            <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-play", index: item.index })}>{t("Play")}</button>
+            <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-add", index: item.index })}>{t("Append")}</button>
           </div>
         ))}
       </form>
@@ -443,7 +671,8 @@ export function Playlists() {
 export function Playlist() {
   const { id, listId } = useParams();
   const { t } = useAuth();
-  const { note, error, act } = useBotAction(id);
+  const player = usePlayer();
+  const { note, error, act } = useBotAction(id, player?.refresh);
   const { data, error: loadError } = useLoad(`/api/bots/${id}/playlists/${listId}`);
   return (
     <div className="page">
@@ -470,6 +699,7 @@ export function Playlist() {
 export function Radio() {
   const { id } = useParams();
   const { user, t } = useAuth();
+  const player = usePlayer();
   const { data, error, reload } = useLoad(`/api/bots/${id}/streams`);
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
@@ -478,6 +708,7 @@ export function Radio() {
     try {
       const result = await api(path, options);
       setNote(result.message || "");
+      player?.refresh();
       return result;
     } catch (err) {
       setFormError(err.message);
@@ -486,7 +717,8 @@ export function Radio() {
   }
   async function save(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setFormError("");
     try {
       const result = await api(`/api/bots/${id}/streams`, {
@@ -494,7 +726,7 @@ export function Radio() {
         body: { name: form.get("name"), url: form.get("url"), notes: form.get("notes"), shared: form.get("shared") === "on" },
       });
       setNote(result.message);
-      event.currentTarget.reset();
+      formElement.reset();
       reload();
     } catch (err) {
       setFormError(err.message);
@@ -540,7 +772,8 @@ export function History() {
   const [query, setQuery] = useState("");
   const [path, setPath] = useState(`/api/bots/${id}/history`);
   const { data, error } = useLoad(path);
-  const { note, error: actionError, act } = useBotAction(id);
+  const player = usePlayer();
+  const { note, error: actionError, act } = useBotAction(id, player?.refresh);
   return (
     <div className="page">
       <h1>{t("History")}</h1>
@@ -575,7 +808,8 @@ export function Connection() {
   const { id } = useParams();
   const { t } = useAuth();
   const { data, error, reload } = useLoad(`/api/bots/${id}/connection`);
-  const { note, error: actionError, act } = useBotAction(id);
+  const player = usePlayer();
+  const { note, error: actionError, act } = useBotAction(id, player?.refresh);
   const [localNote, setLocalNote] = useState("");
   if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
   return (
@@ -585,7 +819,8 @@ export function Connection() {
       <Notice error={error || actionError} note={note || localNote} />
       <form className="card" key={data?.hosting?.name || "hosting"} onSubmit={async (event) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
         const result = await act({
           op: "template-hosting",
           name: form.get("name"),
@@ -595,10 +830,14 @@ export function Connection() {
           channelPassword: form.get("channelPassword"),
           bitrate: form.get("bitrate"),
           run: form.get("run"),
+          startup: form.get("startup"),
+          clearStartup: form.get("clearStartup"),
         });
         if (result) {
           setLocalNote(result.message || "");
-          event.currentTarget.querySelectorAll("input[type=password]").forEach((input) => { input.value = ""; });
+          formElement.querySelectorAll("input[type=password], input[name=startup]").forEach((input) => { input.value = ""; });
+          const clearStartup = formElement.querySelector("input[name=clearStartup]");
+          if (clearStartup) clearStartup.checked = false;
         }
       }}>
         <h2>{t("Connection settings")}</h2>
@@ -606,6 +845,7 @@ export function Connection() {
           <label>{t("Name")}<input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" defaultValue={data?.hosting?.name || ""} /></label>
           <label className="grow">{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" /></label>
         </div>
+        <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
         <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} /></label>
         <div className="split">
           <label className="grow">{t("Server password")}<input name="serverPassword" type="password" autoComplete="off" /></label>
@@ -621,6 +861,9 @@ export function Connection() {
             </select>
           </label>
         </div>
+        <label>{t("Stream on connect")}<input name="startup" placeholder="https://" /></label>
+        <p className="muted">{t("An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.")}</p>
+        <label className="check"><input type="checkbox" name="clearStartup" value="on" /> {t("Clear the stream on connect")}</label>
         <button className="btn btn-primary" type="submit">{t("Save")}</button>
       </form>
       <div className="table-wrap">
@@ -654,8 +897,9 @@ export function Connection() {
       </div>
       <form className="card" onSubmit={(event) => {
         event.preventDefault();
-        act({ op: "bot-setup", key: new FormData(event.currentTarget).get("key") }).then((result) => {
-          if (result) event.currentTarget.reset();
+        const formElement = event.currentTarget;
+        act({ op: "bot-setup", key: new FormData(formElement).get("key") }).then((result) => {
+          if (result) formElement.reset();
         });
       }}>
         <h2>{t("Privilege key")}</h2>
@@ -685,13 +929,20 @@ export function Users() {
     <div className="page">
       <h1>{t("Users")}</h1>
       <p className="muted">{t("Panel accounts. These are not TeamSpeak identities.")}</p>
+      <p className="muted">{t("A bot limit counts the bots on instances this account owns. Leave it empty for unlimited.")}</p>
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
         try {
-          await post("/api/admin/users", { username: form.get("username"), password: form.get("password"), role: form.get("role") });
-          event.currentTarget.reset();
+          await post("/api/admin/users", {
+            username: form.get("username"),
+            password: form.get("password"),
+            role: form.get("role"),
+            botLimit: form.get("botLimit"),
+          });
+          formElement.reset();
         } catch (err) {
           setFormError(err.message);
         }
@@ -706,12 +957,13 @@ export function Users() {
               <option value="admin">{t("Administrator")}</option>
             </select>
           </label>
+          <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} /></label>
           <button className="btn btn-primary" type="submit">{t("Create")}</button>
         </div>
       </form>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Status")}</th><th></th></tr></thead>
+          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Bot limit")}</th><th>{t("Status")}</th><th></th></tr></thead>
           <tbody>
             {(data?.users || []).map((account) => (
               <tr key={account.id}>
@@ -730,6 +982,16 @@ export function Users() {
                   </form>
                 </td>
                 <td>
+                  <form className="inline" onSubmit={async (event) => {
+                    event.preventDefault();
+                    try { await post(`/api/admin/users/${account.id}/limit`, { botLimit: new FormData(event.currentTarget).get("botLimit") }); }
+                    catch (err) { setFormError(err.message); }
+                  }}>
+                    <input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} defaultValue={account.botLimit ?? ""} key={account.botLimit ?? "unlimited"} />
+                    <button className="btn" type="submit">{t("Save")}</button>
+                  </form>
+                </td>
+                <td>
                   <span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span>
                   {account.id !== user.id ? (
                     <button className="btn" type="button" onClick={async () => {
@@ -741,9 +1003,10 @@ export function Users() {
                 <td className="inline">
                   <form className="inline" onSubmit={async (event) => {
                     event.preventDefault();
+                    const formElement = event.currentTarget;
                     try {
-                      await post(`/api/admin/users/${account.id}/password`, { password: new FormData(event.currentTarget).get("password") });
-                      event.currentTarget.reset();
+                      await post(`/api/admin/users/${account.id}/password`, { password: new FormData(formElement).get("password") });
+                      formElement.reset();
                     } catch (err) { setFormError(err.message); }
                   }}>
                     <input name="password" type="password" required minLength={10} autoComplete="new-password" placeholder={t("New password")} />
@@ -795,15 +1058,21 @@ export function Audit() {
 
 export function Account() {
   const { t } = useAuth();
+  const { data, error: loadError } = useLoad("/api/account");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const limitText = !data ? "" : data.botLimit == null
+    ? t("No bot limit. {count} bots are in use.", { count: data.botCount })
+    : t("{used} of {limit} bots are in use.", { used: data.botCount, limit: data.botLimit });
   return (
     <div className="page">
       <h1>{t("Account")}</h1>
-      <Notice error={error} note={note} />
+      <Notice error={error || loadError} note={note} />
+      {limitText ? <p className="muted">{limitText}</p> : null}
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
-        const form = new FormData(event.currentTarget);
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
         setError("");
         try {
           const result = await api("/api/account/password", {
@@ -811,7 +1080,7 @@ export function Account() {
             body: { current: form.get("current"), password: form.get("password"), confirm: form.get("confirm") },
           });
           setNote(result.message);
-          event.currentTarget.reset();
+          formElement.reset();
         } catch (err) {
           setError(err.message);
         }

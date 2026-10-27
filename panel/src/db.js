@@ -129,7 +129,7 @@ export async function findUserByUsername(username) {
 
 export async function findUserById(id) {
   const [rows] = await pool.query(
-    "SELECT id, username, password_hash, role, suspended FROM users WHERE id = ? LIMIT 1",
+    "SELECT id, username, password_hash, role, suspended, bot_limit FROM users WHERE id = ? LIMIT 1",
     [id],
   );
   return rows[0] || null;
@@ -137,30 +137,45 @@ export async function findUserById(id) {
 
 export async function listUsers() {
   const [rows] = await pool.query(
-    "SELECT id, username, role, suspended, created_at, last_login_at FROM users ORDER BY username",
+    "SELECT id, username, role, suspended, bot_limit, created_at, last_login_at FROM users ORDER BY username",
   );
   return rows.map((row) => ({
     id: Number(row.id),
     username: row.username,
     role: row.role,
     suspended: Boolean(row.suspended),
+    botLimit: row.bot_limit == null ? null : Number(row.bot_limit),
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at,
   }));
 }
 
-export async function createUser({ username, passwordHash, role }) {
+export async function createUser({ username, passwordHash, role, botLimit = null }) {
   try {
-    const [result] = await pool.query("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", [
-      username,
-      passwordHash,
-      role,
-    ]);
+    const [result] = await pool.query(
+      "INSERT INTO users (username, password_hash, role, bot_limit) VALUES (?, ?, ?, ?)",
+      [username, passwordHash, role, botLimit],
+    );
     return Number(result.insertId);
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") throw new HttpError("Username is already taken", 400);
     throw err;
   }
+}
+
+export async function setBotLimit(id, botLimit) {
+  await pool.query("UPDATE users SET bot_limit = ? WHERE id = ?", [botLimit, id]);
+}
+
+export async function countOwnedBots(userId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM ts_bots t
+     JOIN instances i ON i.id = t.instance_id
+     WHERE i.owner_user_id = ?`,
+    [userId],
+  );
+  return Number(rows[0].total);
 }
 
 export async function setPassword(id, passwordHash) {
@@ -396,6 +411,33 @@ export async function deleteInstance(id) {
   await pool.query("DELETE FROM instances WHERE id = ?", [id]);
 }
 
+export async function listAccessibleBots(user) {
+  if (user.role === "admin") {
+    const [rows] = await pool.query(
+      `SELECT ${TS_BOT_JOIN}
+       FROM ts_bots t
+       JOIN instances i ON i.id = t.instance_id
+       ORDER BY i.name, t.name`,
+    );
+    return rows.map((row) => ({ bot: mapBot(row, { token: true }), canControl: true, canManage: true }));
+  }
+  const [rows] = await pool.query(
+    `SELECT ${TS_BOT_JOIN},
+            CASE WHEN i.owner_user_id = ? THEN 1 ELSE IFNULL(g.can_control, 0) END AS can_control
+     FROM ts_bots t
+     JOIN instances i ON i.id = t.instance_id
+     LEFT JOIN instance_grants g ON g.instance_id = i.id AND g.user_id = ?
+     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR g.user_id = ?)
+     ORDER BY i.name, t.name`,
+    [user.id, user.id, user.id, user.id],
+  );
+  return rows.map((row) => ({
+    bot: mapBot(row, { token: true }),
+    canControl: Boolean(row.can_control),
+    canManage: row.owner_user_id != null && Number(row.owner_user_id) === user.id,
+  }));
+}
+
 export async function listTsBots(instanceId) {
   const [rows] = await pool.query(
     `SELECT ${TS_BOT_JOIN}
@@ -420,12 +462,17 @@ export async function getTsBotRow(id) {
   return rows[0] || null;
 }
 
-export async function ensureTsBot(instanceId, name) {
+export async function findTsBotId(instanceId, name) {
   const [rows] = await pool.query(
     "SELECT id FROM ts_bots WHERE instance_id = ? AND name = ? LIMIT 1",
     [instanceId, name],
   );
-  if (rows[0]) return Number(rows[0].id);
+  return rows[0] ? Number(rows[0].id) : null;
+}
+
+export async function ensureTsBot(instanceId, name) {
+  const existing = await findTsBotId(instanceId, name);
+  if (existing) return existing;
   try {
     const [result] = await pool.query("INSERT INTO ts_bots (instance_id, name) VALUES (?, ?)", [instanceId, name]);
     return Number(result.insertId);

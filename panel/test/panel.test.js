@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createApp, panelRoot } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest } from "../src/actions.js";
+import { actions, buildActionRequest, hostingCalls, liveRenameParts, parseBulk, templateIsConnected } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
@@ -15,6 +15,7 @@ import { applyMigrations, loadMigrations, migrationFromSource } from "../src/sch
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
+  parseBotLimit,
   parseHostingSettings,
   parsePassword,
   parseStreamUrl,
@@ -73,6 +74,19 @@ describe("action guard", () => {
     }
   });
 
+  it("accepts one playback action for several bots and rejects the rest", () => {
+    assert.deepEqual(parseBulk({ op: "pause", ids: [1, "2", 2] }), { op: "pause", ids: [1, 2] });
+    assert.equal(parseBulk({ op: "volume", ids: [4], volume: 30 }).op, "volume");
+    assert.equal(parseBulk({ op: "play", ids: [3], resource: "https://example.com/a.mp3" }).ids[0], 3);
+    assert.throws(() => parseBulk({ op: "disconnect", ids: [1], instanceId: "1" }), /Unknown action/);
+    assert.throws(() => parseBulk({ op: "bot-setup", ids: [1], key: "abcdefgh" }), /Unknown action/);
+    assert.throws(() => parseBulk({ op: "pause", ids: [] }), /at least one/);
+    assert.throws(() => parseBulk({ op: "play", ids: [1] }), /Link is missing/);
+    assert.throws(() => parseBulk({ op: "pause", ids: ["nope"] }), /invalid/);
+    assert.throws(() => parseBulk({ op: "pause", ids: Array.from({ length: 26 }, (_, index) => index + 1) }), /at most/);
+    assert.throws(() => parseBulk({ op: "play", ids: Array.from({ length: 11 }, (_, index) => index + 1), resource: "https://example.com/a" }), /at most/);
+  });
+
   it("blocks playback without control and hosting actions for users", () => {
     assert.throws(() => buildActionRequest(templateBot, "play", { resource: "https://example.com/a" }, reader), /control rights/);
     assert.throws(() => buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, user), /Administrators only/);
@@ -90,6 +104,23 @@ describe("action guard", () => {
     assert.equal(hosting.args.serverPassword, "s3cret-pass");
     assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby" }, admin), /at least one/);
     assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby", nickname: "Music" }, user), /Administrators only/);
+    const stream = buildActionRequest(
+      templateBot,
+      "template-hosting",
+      { name: "lobby", startup: "https://user:pass@example.com/a'b(!quit)" },
+      admin,
+    );
+    assert.equal(JSON.stringify(stream.action.detail(stream.args)).includes("pass"), false);
+    assert.equal(stream.args.startupCommand, "!play 'https://user:pass@example.com/a\\'b(!quit)'");
+    const stored = buildApiPath(hostingCalls(stream.args)[0]);
+    assert.equal(stored.includes("quit)"), false);
+    assert.equal(decodeURIComponent(stored).includes(stream.args.startupCommand), true);
+    const cleared = parseHostingSettings({ name: "lobby", clearStartup: "on" });
+    assert.deepEqual(hostingCalls(cleared), [["settings", "bot", "set", "lobby", "events.onconnect"]]);
+    assert.throws(() => parseHostingSettings({ name: "lobby", startup: "https://example.com/a", clearStartup: "on" }), /Clear the startup/);
+    assert.equal(buildApiPath(liveRenameParts("lobby", "A(B)")), "/bot/template/lobby/(/bot/name/A%28B%29)");
+    assert.equal(templateIsConnected([{ Name: "lobby", Status: 2 }], "lobby"), true);
+    assert.equal(templateIsConnected([{ Name: "lobby", Status: "Offline" }], "lobby"), false);
 
     const setup = buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin);
     assert.equal(buildApiPath(setup.parts), "/bot/template/default/(/bot/setup/abcdefgh)");
@@ -174,6 +205,11 @@ describe("input", () => {
     assert.equal(hosting.bitrate, 8);
     assert.equal(hosting.run, false);
     assert.throws(() => parseHostingSettings({ name: "lobby", bitrate: "7" }), /8 and 98/);
+    assert.equal(parseBotLimit(""), null);
+    assert.equal(parseBotLimit("0"), 0);
+    assert.equal(parseBotLimit("12"), 12);
+    assert.throws(() => parseBotLimit("-1"), /Bot limit/);
+    assert.throws(() => parseBotLimit("10001"), /Bot limit/);
   });
 
   it("limits volume and passwords", () => {
@@ -205,6 +241,7 @@ describe("secrets and schema", () => {
       "002_radio_streams",
       "003_hosting",
       "004_drop_legacy_bots",
+      "005_bot_limit",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
@@ -214,6 +251,7 @@ describe("secrets and schema", () => {
     assert.equal(migrations[2].statements.some((statement) => /ADD COLUMN IF NOT EXISTS suspended/i.test(statement)), true);
     assert.equal(migrations[2].statements.some((statement) => /FOREIGN KEY IF NOT EXISTS \(instance_id\)/i.test(statement)), true);
     assert.equal(migrations[3].statements.some((statement) => /DROP TABLE IF EXISTS bots/i.test(statement)), true);
+    assert.equal(migrations[4].statements.some((statement) => /ADD COLUMN IF NOT EXISTS bot_limit/i.test(statement)), true);
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);
@@ -234,7 +272,7 @@ describe("secrets and schema", () => {
     await applyMigrations(pool, migrations);
     const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
     assert.equal(inserts.length, migrations.length);
-    assert.equal(applied.length, 4);
+    assert.equal(applied.length, 5);
 
     const changed = migrations.map((migration, index) =>
       index === 0 ? { ...migration, checksum: "0".repeat(64) } : migration,

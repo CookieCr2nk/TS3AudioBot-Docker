@@ -440,6 +440,57 @@ const de = {
   "This account is suspended.": "Dieses Konto ist gesperrt.",
   "Connection · {name}": "Verbindung · {name}",
   Settings: "Einstellungen",
+  Library: "Bibliothek",
+  Admin: "Verwaltung",
+  Menu: "Menü",
+  "Close menu": "Menü schließen",
+  "Switch bot": "Bot wechseln",
+  "Open in Bots": "In Bots öffnen",
+  "Every TeamSpeak bot you can open. Select several to apply one playback action to all of them.":
+    "Alle TeamSpeak-Bots, die du öffnen kannst. Mehrere auswählen, um dieselbe Wiedergabe-Aktion auf alle anzuwenden.",
+  Refresh: "Aktualisieren",
+  "Apply to selected": "Auf Auswahl anwenden",
+  "Working…": "Wird ausgeführt…",
+  "{count} selected": "{count} ausgewählt",
+  "Clear selection": "Auswahl aufheben",
+  "Select bots in the list. Pause, volume, and stop run together. Play and append are limited to 10 bots.":
+    "Bots in der Liste auswählen. Pause, Lautstärke und Stopp laufen zusammen. Abspielen und Anhängen gehen für höchstens 10 Bots.",
+  "Stop playback on {count} bots?": "Wiedergabe auf {count} Bots stoppen?",
+  "Clear the queue on {count} bots?": "Warteschlange auf {count} Bots leeren?",
+  "Filter by name": "Nach Name filtern",
+  "All instances": "Alle Instanzen",
+  "Nothing matches.": "Keine Treffer.",
+  "No bots yet.": "Noch keine Bots.",
+  "Select all": "Alle auswählen",
+  "Now playing": "Gerade läuft",
+  "Select {name}": "{name} auswählen",
+  Cancel: "Abbrechen",
+  "Applied to {ok} of {total} bots.": "Auf {ok} von {total} Bots angewendet.",
+  "Select at least one bot": "Mindestens einen Bot auswählen",
+  "Select at most {count} bots": "Höchstens {count} Bots auswählen",
+  "A selected bot is invalid": "Ein ausgewählter Bot ist ungültig",
+  "The connected name changes immediately. An offline bot uses it the next time it connects.":
+    "Der verbundene Name ändert sich sofort. Ein offline Bot übernimmt ihn beim nächsten Verbinden.",
+  "Stream on connect": "Stream beim Verbinden",
+  "An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.":
+    "Eine http- oder https-Adresse. Der Bot spielt sie ab, sobald er verbunden ist. Leer lassen behält den aktuellen Stream.",
+  "Clear the stream on connect": "Stream beim Verbinden entfernen",
+  "Clear the startup stream or set an address": "Den Start-Stream entfernen oder eine Adresse eintragen",
+  "Connection settings saved. The nickname is updated.": "Verbindung gespeichert. Der Nickname ist aktualisiert.",
+  "Connection settings saved. The nickname changes when this bot connects.":
+    "Verbindung gespeichert. Der Nickname gilt, sobald dieser Bot verbunden ist.",
+  "Connection settings saved. The connected name could not be changed.":
+    "Verbindung gespeichert. Der verbundene Name konnte nicht geändert werden.",
+  "Bot limit": "Bot-Limit",
+  Unlimited: "Unbegrenzt",
+  "Bot limit is invalid": "Das Bot-Limit ist ungültig",
+  "Bot limit reached ({count}).": "Bot-Limit erreicht ({count}).",
+  "Bot limit saved.": "Bot-Limit gespeichert.",
+  "A bot limit counts the bots on instances this account owns. Leave it empty for unlimited.":
+    "Das Bot-Limit zählt die Bots auf Instanzen, die diesem Konto gehören. Leer lassen heißt unbegrenzt.",
+  "No bot limit. {count} bots are in use.": "Kein Bot-Limit. {count} Bots sind in Verwendung.",
+  "{used} of {limit} bots are in use.": "{used} von {limit} Bots sind in Verwendung.",
+  GitHub: "GitHub",
 };
 
 export default de;

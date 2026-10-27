@@ -50,7 +50,7 @@ An API token in the panel is required only when the bot sits outside this networ
 
 ## Panel hosting
 
-One Docker container is one panel instance. One instance can hold several TeamSpeak bots. The panel does not create containers. An administrator registers the API address and can set an owner. The owner can create and delete bots on that instance. Other accounts get control through grants and cannot create bots. A suspended account cannot sign in. There is no billing and no ticket system. Passwords and privilege keys are not stored in the panel database.
+One Docker container is one panel instance. One instance can hold several TeamSpeak bots. The panel does not create containers. An administrator registers the API address and can set an owner. The owner can create and delete bots on that instance. Other accounts get control through grants and cannot create bots. `users.bot_limit` caps how many bots that account can own. NULL means unlimited. An instance with no owner has no limit. A suspended account cannot sign in. There is no billing and no ticket system. Passwords and privilege keys are not stored in the panel database.
 
 ## Checks
 

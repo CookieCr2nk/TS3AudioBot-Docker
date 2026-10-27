@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { randomBytes } from "node:crypto";
-import { runAction } from "./actions.js";
+import { parseBulk, runAction } from "./actions.js";
 import { sha256 } from "./crypto.js";
 import {
   accessToBot,
   accessToInstance,
   addAudit,
   countActiveAdmins,
+  countOwnedBots,
   createSession,
   createUser,
   deleteInstance,
@@ -17,6 +18,7 @@ import {
   deleteTsBotByName,
   deleteUser,
   ensureTsBot,
+  findTsBotId,
   findUserById,
   findUserByUsername,
   getInstanceRow,
@@ -26,6 +28,7 @@ import {
   instanceClient,
   listAudit,
   listGrants,
+  listAccessibleBots,
   listInstances,
   listInstancesForUser,
   listStreams,
@@ -34,6 +37,7 @@ import {
   mapBot,
   publicBot,
   replaceGrants,
+  setBotLimit,
   setPassword,
   setRole,
   setSuspended,
@@ -66,6 +70,7 @@ import {
 } from "./present.js";
 import { callBot, statusParts } from "./ts3ab.js";
 import {
+  parseBotLimit,
   parseGrants,
   parseInstanceForm,
   parseListId,
@@ -154,6 +159,18 @@ api.post(
   }),
 );
 
+api.get(
+  "/account",
+  wrap(async (req, res) => {
+    const user = await findUserById(req.user.id);
+    if (!user) throw new HttpError("User not found", 404);
+    ok(res, {
+      botLimit: user.bot_limit == null ? null : Number(user.bot_limit),
+      botCount: await countOwnedBots(user.id),
+    });
+  }),
+);
+
 api.post(
   "/account/password",
   wrap(async (req, res) => {
@@ -227,6 +244,21 @@ function manageable(access) {
   if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
 }
 
+async function assertOwnerQuota(instance) {
+  if (instance.ownerUserId == null) return;
+  const owner = await findUserById(instance.ownerUserId);
+  if (!owner || owner.bot_limit == null) return;
+  const limit = Number(owner.bot_limit);
+  const count = await countOwnedBots(owner.id);
+  if (count >= limit) throw new HttpError("Bot limit reached ({count}).", 403, { count: limit });
+}
+
+async function assertNewBot(instanceId, name) {
+  if (await findTsBotId(instanceId, name)) return;
+  const instance = await getInstanceRow(instanceId);
+  if (instance) await assertOwnerQuota(instance);
+}
+
 api.get(
   "/instances/:id",
   wrap(async (req, res) => {
@@ -255,6 +287,7 @@ api.post(
     manageable(access);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
+    await assertNewBot(access.instance.id, name);
     await callBot(instanceClient(access.instance), ["settings", "create", name]);
     const botId = await ensureTsBot(access.instance.id, name);
     await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-create", detail: name });
@@ -269,6 +302,7 @@ api.post(
     manageable(access);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
+    await assertNewBot(access.instance.id, name);
     const botId = await ensureTsBot(access.instance.id, name);
     await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-attach", detail: name });
     ok(res, { message: req.t("Bot added."), botId });
@@ -313,6 +347,92 @@ function botView(access, admin) {
   return { ...publicBot(access.bot, { admin }), canControl: access.canControl, canManage: access.canManage };
 }
 
+async function mapPool(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      out[index] = await fn(items[index], index);
+    }
+  }
+  const workers = Math.min(Math.max(limit, 1), items.length);
+  if (workers > 0) await Promise.all(Array.from({ length: workers }, () => worker()));
+  return out;
+}
+
+async function playbackOf(bot, t) {
+  try {
+    const status = presentStatus(await callBot(bot, statusParts(bot), { timeoutMs: 2500 }), t);
+    return {
+      online: true,
+      title: status.song?.title || null,
+      paused: status.song ? Boolean(status.song.paused) : null,
+      volume: status.volume,
+      error: status.problems[0] || null,
+    };
+  } catch (err) {
+    return { online: false, title: null, paused: null, volume: null, error: err instanceof HttpError ? errorText(err, t) : t("Action failed") };
+  }
+}
+
+api.get(
+  "/bots",
+  wrap(async (req, res) => {
+    const admin = req.user.role === "admin";
+    const live = req.query.status !== "0";
+    const rows = await listAccessibleBots(req.user);
+    const bots = await mapPool(rows, live ? 4 : rows.length || 1, async (row) => ({
+      ...publicBot(row.bot, { admin }),
+      canControl: row.canControl,
+      canManage: row.canManage,
+      playback: live ? await playbackOf(row.bot, req.t) : null,
+    }));
+    ok(res, { bots });
+  }),
+);
+
+api.post(
+  "/bots/bulk",
+  wrap(async (req, res) => {
+    const { op, ids } = parseBulk(req.body);
+    for (const id of ids) {
+      if (!id || !rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
+    }
+    const results = await mapPool(ids, 4, async (id) => {
+      const access = await accessToBot(req.user, id);
+      if (!access) {
+        return { id, name: "", ok: false, message: req.t("That bot does not exist or is not granted to you.") };
+      }
+      if (!access.canControl) {
+        return { id, name: access.bot.name, ok: false, message: req.t("No control rights for this bot") };
+      }
+      try {
+        const { action, args } = await runAction(access.bot, op, req.body, authOf(req, access));
+        if (action.audit) {
+          await addAudit({
+            userId: req.user.id,
+            botId: access.bot.id,
+            instanceId: access.bot.instanceId,
+            action: op,
+            detail: detailText(req.t, action, args),
+          });
+        }
+        return { id, name: access.bot.name, ok: true, message: req.t(action.success || "Done") };
+      } catch (err) {
+        const message = err instanceof HttpError ? errorText(err, req.t) : req.t("Action failed");
+        return { id, name: access.bot.name, ok: false, message };
+      }
+    });
+    const succeeded = results.filter((item) => item.ok).length;
+    ok(res, {
+      message: req.t("Applied to {ok} of {total} bots.", { ok: succeeded, total: results.length }),
+      results,
+    });
+  }),
+);
+
 api.get(
   "/bots/:id",
   wrap(async (req, res) => {
@@ -354,6 +474,7 @@ api.post(
       if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
       const picked = parseUseInstance(req.body);
       if (picked.mode !== "template") throw new ValidationError("This instance has no usable name");
+      await assertNewBot(access.bot.instanceId, picked.ref);
       const tsBotId = await ensureTsBot(access.bot.instanceId, picked.ref);
       await addAudit({
         userId: req.user.id,
@@ -364,7 +485,8 @@ api.post(
       });
       return ok(res, { message: req.t("This bot is ready."), botId: tsBotId });
     }
-    const { action, args } = await runAction(access.bot, op, req.body, authOf(req, access));
+    if (op === "template-create") await assertNewBot(access.bot.instanceId, parseTemplateName(req.body.name));
+    const { action, args, data } = await runAction(access.bot, op, req.body, authOf(req, access));
     let botId = access.bot.id;
     if (op === "template-create") botId = await ensureTsBot(access.bot.instanceId, args.name);
     else if (op === "template-delete") await deleteTsBotByName(access.bot.instanceId, args.name);
@@ -378,7 +500,8 @@ api.post(
       });
     }
     const redirect = op === "template-delete" && args.name === access.bot.name ? `/instances/${access.bot.instanceId}` : null;
-    ok(res, { message: req.t(action.success || "Done"), redirect, botId: op === "template-create" ? botId : undefined });
+    const messageKey = typeof data?.messageKey === "string" ? data.messageKey : action.success || "Done";
+    ok(res, { message: req.t(messageKey), redirect, botId: op === "template-create" ? botId : undefined });
   }),
 );
 
@@ -588,7 +711,8 @@ api.post(
     const username = parseUsername(req.body.username);
     const password = parsePassword(req.body.password);
     const role = parseRole(req.body.role || "user");
-    const id = await createUser({ username, passwordHash: await hashPassword(password), role });
+    const botLimit = parseBotLimit(req.body.botLimit);
+    const id = await createUser({ username, passwordHash: await hashPassword(password), role, botLimit });
     await addAudit({ userId: req.user.id, action: "user-create", detail: `${username} (${role}) id ${id}` });
     ok(res, { message: req.t("User created."), users: await listUsers() });
   }),
@@ -625,6 +749,23 @@ api.post(
     await setRole(user.id, role);
     await addAudit({ userId: req.user.id, action: "user-role", detail: `${user.username} → ${role}` });
     ok(res, { message: req.t("Role saved."), users: await listUsers() });
+  }),
+);
+
+api.post(
+  "/admin/users/:id/limit",
+  wrap(async (req, res) => {
+    const id = numericId(req.params.id);
+    const user = id ? await findUserById(id) : null;
+    if (!user) throw new HttpError("User not found", 404);
+    const botLimit = parseBotLimit(req.body.botLimit);
+    await setBotLimit(user.id, botLimit);
+    await addAudit({
+      userId: req.user.id,
+      action: "user-limit",
+      detail: `${user.username} → ${botLimit == null ? "unlimited" : botLimit}`,
+    });
+    ok(res, { message: req.t("Bot limit saved."), users: await listUsers() });
   }),
 );
 
