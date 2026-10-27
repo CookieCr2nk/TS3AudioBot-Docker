@@ -69,6 +69,8 @@ export function Overview() {
   const location = useLocation();
   const { data, error } = useLoad("/api/overview");
   const cards = data?.cards || [];
+  const online = cards.filter((card) => card.online).length;
+  const bots = cards.reduce((total, card) => total + (card.botCount || 0), 0);
   return (
     <div className="page">
       <div className="page-head">
@@ -79,6 +81,20 @@ export function Overview() {
         <Link className="btn btn-primary" to="/bots">{t("Bots")}</Link>
       </div>
       <Notice error={error} note={location.state?.note || ""} />
+      {data ? (
+        <section className="stats" aria-label={t("Dashboard")}>
+          <div className="stat"><span>{t("Instances")}</span><strong>{cards.length}</strong></div>
+          <div className="stat stat-ok"><span>{t("Online")}</span><strong>{online}</strong></div>
+          <div className="stat stat-bad"><span>{t("Offline")}</span><strong>{cards.length - online}</strong></div>
+          <div className="stat"><span>{t("Bots")}</span><strong>{bots}</strong></div>
+          <div className="stat-meter">
+            <div className="meter" role="img" aria-label={t("{online} of {count} instances are online", { online, count: cards.length })}>
+              <span style={{ width: cards.length ? `${Math.round((online / cards.length) * 100)}%` : "0%" }} />
+            </div>
+            <p className="muted">{t("{online} of {count} instances are online", { online, count: cards.length })}</p>
+          </div>
+        </section>
+      ) : null}
       {data && cards.length === 0 ? <p className="muted">{t("No instance has been added yet.")}</p> : null}
       {cards.length ? (
         <div className="table-wrap">

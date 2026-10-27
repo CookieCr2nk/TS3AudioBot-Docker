@@ -504,6 +504,9 @@ const de = {
   "The unique ID of this bot. It is shown while the bot is connected.":
     "Die eindeutige ID dieses Bots. Sie wird angezeigt, solange der Bot verbunden ist.",
   Copy: "Kopieren",
+  Dashboard: "Dashboard",
+  Online: "Online",
+  "{online} of {count} instances are online": "{online} von {count} Instanzen sind online",
   "Turn on": "Einschalten",
   "Turn off": "Ausschalten",
   "Channel commander updated": "Channel-Commander geändert",

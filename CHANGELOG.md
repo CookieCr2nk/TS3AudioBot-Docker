@@ -5,6 +5,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- The overview shows a dashboard with instance, online, offline, and bot counts
 - An administrator can allow an account to create bots, or assign each bot to a user from Bots. The list shows that user. A new account can be created without a password and cannot sign in until one is set
 - Connection can turn the channel commander on or off for a bot
 - Connection can store an HTTP or HTTPS stream that the bot plays when it connects. Clear it on the same form
