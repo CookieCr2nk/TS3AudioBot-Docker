@@ -441,7 +441,11 @@ export function BotsPage() {
                       ) : (bot.ownerName || t("No owner"))}
                     </td>
                     <td>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
-                    <td><span className={pill}>{status}</span>{playback?.error ? <div className="muted">{playback.error}</div> : null}</td>
+                    <td>
+                      <span className={pill}>{status}</span>
+                      {playback?.online && playback.server ? <span className="mono muted"> {playback.server}</span> : null}
+                      {playback?.error ? <div className="muted">{playback.error}</div> : null}
+                    </td>
                     <td>{playback?.title || "—"}</td>
                     <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
                     <td className="inline">

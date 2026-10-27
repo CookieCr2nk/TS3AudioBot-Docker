@@ -417,18 +417,53 @@ async function playbackOf(bot, t) {
   }
 }
 
+async function serverByTemplate(rows) {
+  const instances = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (seen.has(row.bot.instanceId)) continue;
+    seen.add(row.bot.instanceId);
+    instances.push(row.bot);
+  }
+  const found = new Map();
+  await mapPool(instances, 4, async (bot) => {
+    try {
+      const data = await callBot({
+        baseUrl: bot.baseUrl,
+        apiUser: bot.apiUser,
+        apiToken: bot.apiToken,
+        useInstance: false,
+        instanceMode: "none",
+      }, ["bot", "list"], { timeoutMs: 4000 });
+      for (const item of presentBotList(data)) {
+        if (item.name && item.server) found.set(`${bot.instanceId}:${item.name}`, item.server);
+      }
+    } catch {
+      /* One instance can be offline without hiding the other rows. */
+    }
+  });
+  return found;
+}
+
 api.get(
   "/bots",
   wrap(async (req, res) => {
     const admin = req.user.role === "admin";
     const live = req.query.status !== "0";
     const rows = await listAccessibleBots(req.user);
-    const bots = await mapPool(rows, live ? 4 : rows.length || 1, async (row) => ({
-      ...publicBot(row.bot, { admin }),
-      canControl: row.canControl,
-      canManage: row.canManage,
-      playback: live ? await playbackOf(row.bot, req.t) : null,
-    }));
+    const servers = live ? await serverByTemplate(rows) : new Map();
+    const bots = await mapPool(rows, live ? 4 : rows.length || 1, async (row) => {
+      const playback = live ? await playbackOf(row.bot, req.t) : null;
+      if (playback?.online) {
+        playback.server = servers.get(`${row.bot.instanceId}:${row.bot.instanceRef}`) || "";
+      }
+      return {
+        ...publicBot(row.bot, { admin }),
+        canControl: row.canControl,
+        canManage: row.canManage,
+        playback,
+      };
+    });
     const users = admin ? (await listUsers()).map((account) => ({ id: account.id, username: account.username })) : [];
     let canCreate = admin || Boolean(req.user.canCreateBots) || rows.some((row) => row.canManage);
     if (!canCreate) {
