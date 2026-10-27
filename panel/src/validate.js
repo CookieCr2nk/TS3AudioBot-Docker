@@ -160,12 +160,6 @@ export function parseBotNick(value) {
   return name;
 }
 
-export function parsePrivilegeKey(value) {
-  const key = clean(value);
-  if (!/^[A-Za-z0-9+/=_-]{8,200}$/.test(key)) throw new ValidationError("Privilege key is invalid");
-  return key;
-}
-
 function parseOptionalSecret(value, label) {
   const text = String(value ?? "");
   if (!clean(text)) return null;

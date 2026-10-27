@@ -919,25 +919,24 @@ export function Connection() {
       </div>
       <section className="card">
         <h2>{t("Channel commander")}</h2>
-        <p className="muted">{t("The commander icon lets the bot use channel commands. It applies to the connected bot and is not saved.")}</p>
-        <p>{data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
+        <p className="muted">{t("The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.")}</p>
+        <p>{t("Saved")}: {data.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</p>
+        <p>{t("Connected")}: {data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
         <div className="inline">
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (result) reload(); })}>{t("Turn on")}</button>
           <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
         </div>
       </section>
-      <form className="card" onSubmit={(event) => {
-        event.preventDefault();
-        const formElement = event.currentTarget;
-        act({ op: "bot-setup", key: new FormData(formElement).get("key") }).then((result) => {
-          if (result) formElement.reset();
-        });
-      }}>
-        <h2>{t("Privilege key")}</h2>
-        <p className="muted">{t("Paste a TeamSpeak privilege key once. It applies to the instance currently used for playback. The key is not stored.")}</p>
-        <label>{t("Privilege key")}<input name="key" required autoComplete="off" /></label>
-        <button className="btn" type="submit">{t("Apply")}</button>
-      </form>
+      <section className="card">
+        <h2>{t("TeamSpeak ID")}</h2>
+        <p className="muted">{t("The unique ID of this bot. It is shown while the bot is connected.")}</p>
+        {data.teamspeakId ? (
+          <div className="split">
+            <p className="mono grow">{data.teamspeakId}</p>
+            <button className="btn" type="button" onClick={() => navigator.clipboard?.writeText(data.teamspeakId)}>{t("Copy")}</button>
+          </div>
+        ) : <p className="muted">{data.teamspeakError || t("Unknown")}</p>}
+      </section>
     </div>
   );
 }

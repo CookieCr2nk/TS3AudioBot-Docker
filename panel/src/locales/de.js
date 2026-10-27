@@ -492,8 +492,17 @@ const de = {
   "{used} of {limit} bots are in use.": "{used} von {limit} Bots sind in Verwendung.",
   GitHub: "GitHub",
   "Channel commander": "Channel-Commander",
-  "The commander icon lets the bot use channel commands. It applies to the connected bot and is not saved.":
-    "Das Commander-Symbol erlaubt dem Bot Kanalbefehle. Es gilt für den verbundenen Bot und wird nicht gespeichert.",
+  "The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.":
+    "Das Commander-Symbol erlaubt dem Bot Kanalbefehle. Es wird gespeichert und bei jedem Verbinden wieder eingeschaltet.",
+  Saved: "Gespeichert",
+  "Channel commander is saved. It turns on when this bot connects.":
+    "Channel-Commander ist gespeichert. Er wird eingeschaltet, sobald dieser Bot verbunden ist.",
+  "Channel commander is saved as off. The connected bot could not be changed.":
+    "Channel-Commander ist als aus gespeichert. Der verbundene Bot konnte nicht geändert werden.",
+  "TeamSpeak ID": "TeamSpeak-ID",
+  "The unique ID of this bot. It is shown while the bot is connected.":
+    "Die eindeutige ID dieses Bots. Sie wird angezeigt, solange der Bot verbunden ist.",
+  Copy: "Kopieren",
   "Turn on": "Einschalten",
   "Turn off": "Ausschalten",
   "Channel commander updated": "Channel-Commander geändert",

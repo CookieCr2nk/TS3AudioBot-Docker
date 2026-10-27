@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomBytes } from "node:crypto";
-import { parseBulk, runAction } from "./actions.js";
+import { commanderSaved, parseBulk, runAction } from "./actions.js";
 import { sha256 } from "./crypto.js";
 import {
   accessToBot,
@@ -63,6 +63,8 @@ import {
   displayStreamUrl,
   presentBotList,
   presentCommander,
+  presentSetting,
+  presentTsIdentity,
   presentHistory,
   presentPlaylist,
   presentPlaylists,
@@ -670,6 +672,17 @@ api.get(
       ...item,
       current: access.bot.instanceMode === "template" && item.name === access.bot.instanceRef,
     }));
+    const template = access.bot.instanceMode === "template" ? access.bot.instanceRef : "";
+    let commanderSavedValue = null;
+    let commanderSavedError = null;
+    if (template) {
+      try {
+        const stored = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "events.onconnect"], { timeoutMs: 4000 }));
+        commanderSavedValue = commanderSaved(stored);
+      } catch (err) {
+        commanderSavedError = errorText(err, req.t);
+      }
+    }
     let commander = null;
     let commanderError = null;
     try {
@@ -677,7 +690,26 @@ api.get(
     } catch (err) {
       commanderError = errorText(err, req.t);
     }
-    ok(res, { instances, bot: botView(access, true), hosting: parseHostingPreview(access.bot), commander, commanderError });
+    let teamspeakId = "";
+    let teamspeakError = null;
+    try {
+      const identity = presentTsIdentity(await callBot(access.bot, scope(access.bot, ["bot", "info", "client"]), { timeoutMs: 4000 }));
+      teamspeakId = identity.uid || identity.clientId || "";
+      if (!teamspeakId) teamspeakError = req.t("Unknown");
+    } catch (err) {
+      teamspeakError = errorText(err, req.t);
+    }
+    ok(res, {
+      instances,
+      bot: botView(access, true),
+      hosting: parseHostingPreview(access.bot),
+      commander,
+      commanderError,
+      commanderSaved: commanderSavedValue,
+      commanderSavedError,
+      teamspeakId,
+      teamspeakError,
+    });
   }),
 );
 

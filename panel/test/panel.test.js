@@ -6,11 +6,11 @@ import { fileURLToPath } from "node:url";
 import { createApp, panelRoot } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest, hostingCalls, liveRenameParts, parseBulk, templateIsConnected } from "../src/actions.js";
+import { actions, buildActionRequest, commanderSaved, hostingCalls, liveRenameParts, parseBulk, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
-import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
+import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentPlaylists, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
 import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -113,29 +113,34 @@ describe("action guard", () => {
     );
     assert.equal(JSON.stringify(stream.action.detail(stream.args)).includes("pass"), false);
     assert.equal(stream.args.startupCommand, "!play 'https://user:pass@example.com/a\\'b(!quit)'");
-    const stored = buildApiPath(hostingCalls(stream.args)[0]);
+    const stored = buildApiPath(["settings", "bot", "set", "lobby", "events.onconnect", stream.args.startupCommand]);
     assert.equal(stored.includes("quit)"), false);
     assert.equal(decodeURIComponent(stored).includes(stream.args.startupCommand), true);
     const cleared = parseHostingSettings({ name: "lobby", clearStartup: "on" });
-    assert.deepEqual(hostingCalls(cleared), [["settings", "bot", "set", "lobby", "events.onconnect"]]);
+    assert.deepEqual(hostingCalls(cleared), []);
+    assert.equal(withPlay("!xecute (!bot commander on) (!play 'old')", null), "!bot commander on");
+    assert.equal(withPlay("!bot commander on", stream.args.startupCommand).startsWith("!xecute (!bot commander on) ("), true);
     assert.throws(() => parseHostingSettings({ name: "lobby", startup: "https://example.com/a", clearStartup: "on" }), /Clear the startup/);
     assert.equal(buildApiPath(liveRenameParts("lobby", "A(B)")), "/bot/template/lobby/(/bot/name/A%28B%29)");
     assert.equal(templateIsConnected([{ Name: "lobby", Status: 2 }], "lobby"), true);
     assert.equal(templateIsConnected([{ Name: "lobby", Status: "Offline" }], "lobby"), false);
 
     const commander = buildActionRequest(templateBot, "commander", { mode: "on" }, admin);
-    assert.equal(buildApiPath(commander.parts), "/bot/template/default/(/bot/commander/on)");
+    assert.equal(commander.parts, null);
     assert.equal(commander.action.detail(commander.args).key, "Channel commander is on");
+    assert.equal(withCommander("!play 'https://example.com/a'", true), "!xecute (!bot commander on) (!play 'https://example.com/a')");
+    assert.equal(withCommander("!xecute (!bot commander on) (!play 'https://example.com/a')", false), "!play 'https://example.com/a'");
+    assert.equal(commanderSaved("!bot commander on"), true);
+    assert.equal(commanderSaved("!play 'https://example.com/a'"), false);
     assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "on" }, user), /Administrators only/);
     assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "maybe" }, admin), /invalid/);
+    assert.throws(() => buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin), /Unknown action/);
     assert.equal(presentCommander({ Value: true }), true);
     assert.equal(presentCommander(false), false);
     assert.equal(presentCommander("later"), null);
-
-    const setup = buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin);
-    assert.equal(buildApiPath(setup.parts), "/bot/template/default/(/bot/setup/abcdefgh)");
-    assert.equal(JSON.stringify(setup.action.detail(setup.args)).includes("abcdefgh"), false);
-    assert.throws(() => buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, user), /Administrators only/);
+    assert.equal(presentSetting({ Value: "!bot commander on" }), "!bot commander on");
+    assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).uid, "uidvalue=");
+    assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).clientId, "12");
   });
 
   it("requires an explicit confirm before deleting a playlist", () => {

@@ -6,7 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - An administrator can allow an account to create bots, or assign each bot to a user from Bots. The list shows that user. A new account can be created without a password and cannot sign in until one is set
-- Connection can turn the channel commander flag on or off for the connected bot. The flag is not stored
+- Connection can turn the channel commander on or off for a bot
 - Connection can store an HTTP or HTTPS stream that the bot plays when it connects. Clear it on the same form
 - Each panel account can create unlimited bots or a fixed number. An administrator sets the number. It counts the bots on instances that account owns. An instance with no owner has no limit
 - The panel sidebar links to the GitHub repository
@@ -21,6 +21,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
+- Channel commander is saved on the bot and turns on again each time that bot connects. Saving a startup stream keeps that setting
 - The instance page no longer lists bots. Create and attach stay there. Delete is on Bots. A bot limit counts assigned bots. A bot with nobody assigned counts for the instance owner
 - The panel logs when it starts, when it is ready, and when it stops. A failed startup still listens and says it is not ready. Each applied database migration is logged, and so is a schema that is already current
 - The panel keeps playback in a bar at the bottom of the page. Bots is its own section and lists every bot you can open. Select several bots to pause, play, stop, or set the volume on all of them. Bot pages use a tab row, and the main menu stays in the same place
@@ -36,6 +37,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The panel calls the bot API without `!api token`. Port 58913 is not published, and `rights.toml` allows every API caller (`isapi = true`)
 - Trimmed documentation and removed unused tooling added during an automated refactor
 - Rewrote README and SECURITY.md without compliance marketing language
+
+### Removed
+- The privilege key field is gone. Connection shows the bot's TeamSpeak ID while the bot is connected
 
 ### Fixed
 - Saving a radio station no longer shows an error after the server has stored it. The same applies to the other forms that clear themselves after a request

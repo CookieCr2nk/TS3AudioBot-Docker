@@ -258,6 +258,35 @@ export function presentSearch(data, t = applyParams) {
   });
 }
 
+export function presentSetting(data) {
+  let value = data;
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof value === "string") return value;
+    if (value == null) return "";
+    if (typeof value === "object" && !Array.isArray(value) && "Value" in value) {
+      value = value.Value;
+      continue;
+    }
+    return "";
+  }
+  return typeof value === "string" ? value : "";
+}
+
+export function presentTsIdentity(data) {
+  const value = unwrap(data);
+  if (!value || typeof value !== "object") return { uid: "", clientId: "" };
+  return {
+    uid: settingText(value.Uid ?? value.uid),
+    clientId: settingText(value.Id ?? value.ClientId),
+  };
+}
+
+function settingText(value) {
+  const inner = unwrap(value);
+  if (inner == null || typeof inner === "object") return "";
+  return String(inner);
+}
+
 export function presentCommander(data) {
   const value = unwrap(data);
   if (value === true || value === "true" || value === "True" || value === "on") return true;

@@ -1,12 +1,11 @@
 import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
-import { presentBotList } from "./present.js";
+import { presentBotList, presentSetting } from "./present.js";
 import { callBot, scope } from "./ts3ab.js";
 import {
   parseChannel,
   parseHostingSettings,
   parseIndex,
   parseListId,
-  parsePrivilegeKey,
   parseResource,
   parseSearchQuery,
   parseTemplateName,
@@ -315,6 +314,18 @@ export const actions = {
       for (const parts of hostingCalls(args)) {
         await call(parts, 15000);
       }
+      if (args.startupCommand || args.clearStartup) {
+        let current = "";
+        try {
+          current = presentSetting(await call(["settings", "bot", "get", args.name, "events.onconnect"], 15000));
+        } catch (err) {
+          if (!(err instanceof Ts3ApiError)) throw err;
+        }
+        const next = withPlay(current, args.clearStartup ? null : args.startupCommand);
+        const parts = ["settings", "bot", "set", args.name, "events.onconnect"];
+        if (next) parts.push(next);
+        await call(parts, 15000);
+      }
       if (!args.nickname) return undefined;
       let connected = false;
       try {
@@ -337,22 +348,49 @@ export const actions = {
   commander: {
     admin: true,
     audit: true,
+    scoped: false,
     success: "Channel commander updated",
     parse: (input) => ({ mode: choice(input.mode, ["on", "off"], "Channel commander") }),
-    build: (args) => ["bot", "commander", args.mode],
     async run(bot, args, call) {
-      await call(scope(bot, ["bot", "commander", args.mode]), 15000);
+      if (bot.instanceMode !== "template" || !bot.instanceRef) throw new ValidationError("This bot has no instance set");
+      const name = bot.instanceRef;
+      let current = "";
+      try {
+        current = presentSetting(await call(["settings", "bot", "get", name, "events.onconnect"], 15000));
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+      }
+      const next = withCommander(current, args.mode === "on");
+      const parts = ["settings", "bot", "set", name, "events.onconnect"];
+      if (next) parts.push(next);
+      await call(parts, 15000);
+      let connected = false;
+      try {
+        connected = templateIsConnected(await call(["bot", "list"], 15000), name);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        connected = true;
+      }
+      if (!connected) {
+        return {
+          messageKey: args.mode === "on"
+            ? "Channel commander is saved. It turns on when this bot connects."
+            : "Channel commander is off",
+        };
+      }
+      try {
+        await call(scope(bot, ["bot", "commander", args.mode]), 15000);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        return {
+          messageKey: args.mode === "on"
+            ? "Channel commander is saved. It turns on when this bot connects."
+            : "Channel commander is saved as off. The connected bot could not be changed.",
+        };
+      }
       return { messageKey: args.mode === "on" ? "Channel commander is on" : "Channel commander is off" };
     },
     detail: (args) => ({ key: args.mode === "on" ? "Channel commander is on" : "Channel commander is off" }),
-  },
-  "bot-setup": {
-    admin: true,
-    audit: true,
-    success: "Privilege key applied",
-    parse: (input) => ({ key: parsePrivilegeKey(input.key) }),
-    build: (args) => ["bot", "setup", args.key],
-    detail: () => ({ key: "Applied a privilege key" }),
   },
 };
 
@@ -364,9 +402,61 @@ export function hostingCalls(args) {
   if (args.channelPassword) calls.push(["settings", "bot", "set", args.name, "connect.channel_password.pw", args.channelPassword]);
   if (args.bitrate != null) calls.push(["settings", "bot", "set", args.name, "audio.bitrate", String(args.bitrate)]);
   if (args.run != null) calls.push(["settings", "bot", "set", args.name, "run", args.run ? "true" : "false"]);
-  if (args.startupCommand) calls.push(["settings", "bot", "set", args.name, "events.onconnect", args.startupCommand]);
-  if (args.clearStartup) calls.push(["settings", "bot", "set", args.name, "events.onconnect"]);
   return calls;
+}
+
+const COMMANDER_ON = "!bot commander on";
+
+export function parseOnconnect(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return [];
+  if (!text.startsWith("!xecute")) return [text];
+  const body = text.slice("!xecute".length).trim();
+  const commands = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < body.length; i += 1) {
+    const char = body[i];
+    if (char === "(") {
+      if (depth === 0) start = i + 1;
+      depth += 1;
+    } else if (char === ")") {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        const command = body.slice(start, i).trim();
+        if (command) commands.push(command);
+        start = -1;
+      }
+      if (depth < 0) return [text];
+    }
+  }
+  if (depth !== 0 || commands.length === 0) return [text];
+  return commands;
+}
+
+export function buildOnconnect(commands) {
+  const list = [];
+  for (const command of commands) {
+    const text = String(command ?? "").trim();
+    if (text && !list.includes(text)) list.push(text);
+  }
+  if (list.length === 0) return null;
+  if (list.length === 1) return list[0];
+  return `!xecute (${list.join(") (")})`;
+}
+
+export function withCommander(current, enabled) {
+  const rest = parseOnconnect(current).filter((command) => command !== COMMANDER_ON);
+  return buildOnconnect(enabled ? [COMMANDER_ON, ...rest] : rest);
+}
+
+export function withPlay(current, play) {
+  const rest = parseOnconnect(current).filter((command) => !command.startsWith("!play "));
+  return buildOnconnect(play ? [...rest, play] : rest);
+}
+
+export function commanderSaved(current) {
+  return parseOnconnect(current).includes(COMMANDER_ON);
 }
 
 export function liveRenameParts(name, nickname) {
