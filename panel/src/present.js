@@ -258,6 +258,13 @@ export function presentSearch(data, t = applyParams) {
   });
 }
 
+export function presentCommander(data) {
+  const value = unwrap(data);
+  if (value === true || value === "true" || value === "True" || value === "on") return true;
+  if (value === false || value === "false" || value === "False" || value === "off") return false;
+  return null;
+}
+
 export function presentBotList(data, t = applyParams) {
   const list = asList(data) || [];
   return list.map((item) => {

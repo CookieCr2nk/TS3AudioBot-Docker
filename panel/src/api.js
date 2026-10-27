@@ -61,6 +61,7 @@ import { hashPassword, verifyPassword } from "./passwords.js";
 import {
   displayStreamUrl,
   presentBotList,
+  presentCommander,
   presentHistory,
   presentPlaylist,
   presentPlaylists,
@@ -68,7 +69,7 @@ import {
   presentStatus,
   presentVersion,
 } from "./present.js";
-import { callBot, statusParts } from "./ts3ab.js";
+import { callBot, scope, statusParts } from "./ts3ab.js";
 import {
   parseBotLimit,
   parseGrants,
@@ -628,7 +629,14 @@ api.get(
       ...item,
       current: access.bot.instanceMode === "template" && item.name === access.bot.instanceRef,
     }));
-    ok(res, { instances, bot: botView(access, true), hosting: parseHostingPreview(access.bot) });
+    let commander = null;
+    let commanderError = null;
+    try {
+      commander = presentCommander(await callBot(access.bot, scope(access.bot, ["bot", "commander"]), { timeoutMs: 4000 }));
+    } catch (err) {
+      commanderError = errorText(err, req.t);
+    }
+    ok(res, { instances, bot: botView(access, true), hosting: parseHostingPreview(access.bot), commander, commanderError });
   }),
 );
 

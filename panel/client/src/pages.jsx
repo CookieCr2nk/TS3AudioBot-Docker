@@ -895,6 +895,15 @@ export function Connection() {
           </tbody>
         </table>
       </div>
+      <section className="card">
+        <h2>{t("Channel commander")}</h2>
+        <p className="muted">{t("The commander icon lets the bot use channel commands. It applies to the connected bot and is not saved.")}</p>
+        <p>{data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
+        <div className="inline">
+          <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (result) reload(); })}>{t("Turn on")}</button>
+          <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
+        </div>
+      </section>
       <form className="card" onSubmit={(event) => {
         event.preventDefault();
         const formElement = event.currentTarget;

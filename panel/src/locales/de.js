@@ -491,6 +491,14 @@ const de = {
   "No bot limit. {count} bots are in use.": "Kein Bot-Limit. {count} Bots sind in Verwendung.",
   "{used} of {limit} bots are in use.": "{used} von {limit} Bots sind in Verwendung.",
   GitHub: "GitHub",
+  "Channel commander": "Channel-Commander",
+  "The commander icon lets the bot use channel commands. It applies to the connected bot and is not saved.":
+    "Das Commander-Symbol erlaubt dem Bot Kanalbefehle. Es gilt für den verbundenen Bot und wird nicht gespeichert.",
+  "Turn on": "Einschalten",
+  "Turn off": "Ausschalten",
+  "Channel commander updated": "Channel-Commander geändert",
+  "Channel commander is on": "Channel-Commander ist an",
+  "Channel commander is off": "Channel-Commander ist aus",
 };
 
 export default de;

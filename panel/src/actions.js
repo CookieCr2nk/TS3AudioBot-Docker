@@ -334,6 +334,18 @@ export const actions = {
     },
     detail: (args) => ({ key: "Connection settings for {name}", params: { name: args.name } }),
   },
+  commander: {
+    admin: true,
+    audit: true,
+    success: "Channel commander updated",
+    parse: (input) => ({ mode: choice(input.mode, ["on", "off"], "Channel commander") }),
+    build: (args) => ["bot", "commander", args.mode],
+    async run(bot, args, call) {
+      await call(scope(bot, ["bot", "commander", args.mode]), 15000);
+      return { messageKey: args.mode === "on" ? "Channel commander is on" : "Channel commander is off" };
+    },
+    detail: (args) => ({ key: args.mode === "on" ? "Channel commander is on" : "Channel commander is off" }),
+  },
   "bot-setup": {
     admin: true,
     audit: true,

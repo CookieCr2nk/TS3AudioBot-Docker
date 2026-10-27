@@ -10,7 +10,7 @@ import { actions, buildActionRequest, hostingCalls, liveRenameParts, parseBulk, 
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
-import { displayStreamUrl, presentBotList, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
+import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentPlaylists, presentSearch, presentStatus } from "../src/present.js";
 import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -121,6 +121,15 @@ describe("action guard", () => {
     assert.equal(buildApiPath(liveRenameParts("lobby", "A(B)")), "/bot/template/lobby/(/bot/name/A%28B%29)");
     assert.equal(templateIsConnected([{ Name: "lobby", Status: 2 }], "lobby"), true);
     assert.equal(templateIsConnected([{ Name: "lobby", Status: "Offline" }], "lobby"), false);
+
+    const commander = buildActionRequest(templateBot, "commander", { mode: "on" }, admin);
+    assert.equal(buildApiPath(commander.parts), "/bot/template/default/(/bot/commander/on)");
+    assert.equal(commander.action.detail(commander.args).key, "Channel commander is on");
+    assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "on" }, user), /Administrators only/);
+    assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "maybe" }, admin), /invalid/);
+    assert.equal(presentCommander({ Value: true }), true);
+    assert.equal(presentCommander(false), false);
+    assert.equal(presentCommander("later"), null);
 
     const setup = buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin);
     assert.equal(buildApiPath(setup.parts), "/bot/template/default/(/bot/setup/abcdefgh)");

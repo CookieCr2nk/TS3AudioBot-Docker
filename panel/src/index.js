@@ -2,6 +2,8 @@ import { createApp } from "./app.js";
 import { config, runtimeWarnings } from "./config.js";
 import { ensureAdmin, migrate, pool } from "./db.js";
 
+console.log("[panel] Starting");
+
 for (const warning of runtimeWarnings()) console.warn(`[panel] ${warning}`);
 
 let startupError = null;
@@ -22,10 +24,15 @@ try {
 
 const app = createApp({ startupError });
 const server = app.listen(config.port, "0.0.0.0", () => {
-  console.log(`[panel] listening on :${config.port}`);
+  if (startupError) {
+    console.error(`[panel] Listening on :${config.port}. Not ready: ${startupError.message}`);
+    return;
+  }
+  console.log(`[panel] Ready on :${config.port}`);
 });
 
 function shutdown() {
+  console.log("[panel] Stopping");
   server.close(() => {
     pool.end().finally(() => process.exit(0));
   });

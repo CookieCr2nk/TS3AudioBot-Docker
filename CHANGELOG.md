@@ -5,6 +5,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Connection can turn the channel commander flag on or off for the connected bot. The flag is not stored
 - Connection can store an HTTP or HTTPS stream that the bot plays when it connects. Clear it on the same form
 - Each panel account can create unlimited bots or a fixed number. An administrator sets the number. It counts the bots on instances that account owns. An instance with no owner has no limit
 - The panel sidebar links to the GitHub repository
@@ -19,7 +20,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
-- The panel logs each database migration it applies, and logs when the schema is already current
+- The panel logs when it starts, when it is ready, and when it stops. A failed startup still listens and says it is not ready. Each applied database migration is logged, and so is a schema that is already current
 - The panel keeps playback in a bar at the bottom of the page. Bots is its own section and lists every bot you can open. Select several bots to pause, play, stop, or set the volume on all of them. Bot pages use a tab row, and the main menu stays in the same place
 - The panel UI is a React page with a fixed sidebar. Saving a setting sends JSON and stays on the same screen. The menu no longer jumps back to the top
 - GHCR drops image versions that are no longer current. `main`, `develop`, `master`, release tags, and the three newest commit tags stay. Untagged platform manifests of those images stay
