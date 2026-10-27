@@ -324,31 +324,32 @@ export function BotsPage() {
                       />
                     </td>
                     <td><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
-                    <td>
-                      <div>{bot.ownerName || t("No owner")}</div>
+                    <td className="owner">
                       {user.role === "admin" ? (
-                        <form className="inline" onSubmit={async (event) => {
-                          event.preventDefault();
-                          const formElement = event.currentTarget;
-                          setFormError("");
-                          try {
-                            const result = await api(`/api/bots/${bot.id}/assignee`, {
-                              method: "POST",
-                              body: { userId: new FormData(formElement).get("userId") },
-                            });
-                            setNote(result.message || "");
-                            reload();
-                          } catch (err) {
-                            setFormError(err.message);
-                          }
-                        }}>
-                          <select name="userId" defaultValue={bot.assigneeUserId || ""} key={`${bot.id}-${bot.assigneeUserId || "none"}`}>
-                            <option value="">{t("Instance owner")}</option>
-                            {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
-                          </select>
-                          <button className="btn" type="submit">{t("Save")}</button>
-                        </form>
-                      ) : null}
+                        <select
+                          className="owner-select"
+                          aria-label={t("Owner")}
+                          key={`${bot.id}-${bot.assigneeUserId || "none"}`}
+                          defaultValue={bot.assigneeUserId || ""}
+                          onChange={async (event) => {
+                            setFormError("");
+                            try {
+                              const result = await api(`/api/bots/${bot.id}/assignee`, {
+                                method: "POST",
+                                body: { userId: event.target.value },
+                              });
+                              setNote(result.message || "");
+                              reload();
+                            } catch (err) {
+                              setFormError(err.message);
+                              reload();
+                            }
+                          }}
+                        >
+                          <option value="">{bot.ownerName && !bot.assigneeUserId ? bot.ownerName : t("Instance owner")}</option>
+                          {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+                        </select>
+                      ) : (bot.ownerName || t("No owner"))}
                     </td>
                     <td>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
                     <td><span className={pill}>{status}</span>{playback?.error ? <div className="muted">{playback.error}</div> : null}</td>
@@ -851,6 +852,7 @@ export function Connection() {
           serverPassword: form.get("serverPassword"),
           channelPassword: form.get("channelPassword"),
           bitrate: form.get("bitrate"),
+          volume: form.get("volume"),
           run: form.get("run"),
           startup: form.get("startup"),
           clearStartup: form.get("clearStartup"),
@@ -875,6 +877,7 @@ export function Connection() {
         </div>
         <div className="split">
           <label>{t("Bitrate")}<input name="bitrate" inputMode="numeric" placeholder="96" /></label>
+          <label>{t("Default volume")}<input name="volume" inputMode="numeric" min="0" max="100" placeholder="50" /></label>
           <label>{t("Start when the process launches")}
             <select name="run" defaultValue="">
               <option value="">{t("Leave unchanged")}</option>

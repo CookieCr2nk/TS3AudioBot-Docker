@@ -357,6 +357,7 @@ const de = {
   "Channel password": "Channelpasswort",
   "Bitrate (kbps)": "Bitrate (kbps)",
   Bitrate: "Bitrate",
+  "Default volume": "Standard-Lautstärke",
   "Start when the process launches": "Beim Prozessstart verbinden",
   "Leave unchanged": "Unverändert lassen",
   Yes: "Ja",

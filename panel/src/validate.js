@@ -178,6 +178,8 @@ export function parseHostingSettings(input) {
     bitrate = parseIndex(input.bitrate, "Bitrate", 98);
     if (bitrate < 8) throw new ValidationError("Bitrate must be between 8 and 98");
   }
+  let volume = null;
+  if (clean(input.volume)) volume = parseVolume(input.volume);
   let run = null;
   const runText = clean(input.run);
   if (runText === "on") run = true;
@@ -186,7 +188,7 @@ export function parseHostingSettings(input) {
   const clearStartup = input.clearStartup === true || input.clearStartup === "on" || input.clearStartup === "1";
   const startup = clean(input.startup) ? parseStreamUrl(input.startup) : null;
   if (startup && clearStartup) throw new ValidationError("Clear the startup stream or set an address");
-  if (!nickname && !channel && !serverPassword && !channelPassword && bitrate == null && run == null && !startup && !clearStartup) {
+  if (!nickname && !channel && !serverPassword && !channelPassword && bitrate == null && volume == null && run == null && !startup && !clearStartup) {
     throw new ValidationError("Enter at least one connection setting");
   }
   return {
@@ -196,6 +198,7 @@ export function parseHostingSettings(input) {
     serverPassword,
     channelPassword,
     bitrate,
+    volume,
     run,
     startup,
     startupCommand: startup ? quotePlay(startup) : null,

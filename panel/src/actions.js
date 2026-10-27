@@ -401,6 +401,7 @@ export function hostingCalls(args) {
   if (args.serverPassword) calls.push(["settings", "bot", "set", args.name, "connect.server_password.pw", args.serverPassword]);
   if (args.channelPassword) calls.push(["settings", "bot", "set", args.name, "connect.channel_password.pw", args.channelPassword]);
   if (args.bitrate != null) calls.push(["settings", "bot", "set", args.name, "audio.bitrate", String(args.bitrate)]);
+  if (args.volume != null) calls.push(["settings", "bot", "set", args.name, "audio.volume.default", String(args.volume)]);
   if (args.run != null) calls.push(["settings", "bot", "set", args.name, "run", args.run ? "true" : "false"]);
   return calls;
 }

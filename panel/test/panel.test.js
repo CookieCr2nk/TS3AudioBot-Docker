@@ -103,6 +103,9 @@ describe("action guard", () => {
     assert.equal(hosting.parts, null);
     assert.equal(JSON.stringify(hosting.action.detail(hosting.args)).includes("s3cret-pass"), false);
     assert.equal(hosting.args.serverPassword, "s3cret-pass");
+    assert.deepEqual(hostingCalls(parseHostingSettings({ name: "lobby", volume: "40" })), [
+      ["settings", "bot", "set", "lobby", "audio.volume.default", "40"],
+    ]);
     assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby" }, admin), /at least one/);
     assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby", nickname: "Music" }, user), /Administrators only/);
     const stream = buildActionRequest(
