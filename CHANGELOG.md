@@ -19,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
+- The panel logs each database migration it applies, and logs when the schema is already current
 - The panel keeps playback in a bar at the bottom of the page. Bots is its own section and lists every bot you can open. Select several bots to pause, play, stop, or set the volume on all of them. Bot pages use a tab row, and the main menu stays in the same place
 - The panel UI is a React page with a fixed sidebar. Saving a setting sends JSON and stays on the same screen. The menu no longer jumps back to the top
 - GHCR drops image versions that are no longer current. `main`, `develop`, `master`, release tags, and the three newest commit tags stay. Untagged platform manifests of those images stay

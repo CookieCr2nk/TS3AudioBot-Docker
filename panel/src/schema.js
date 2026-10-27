@@ -66,6 +66,7 @@ export async function applyMigrations(pool, migrations = loadMigrations()) {
     }
   }
 
+  let appliedCount = 0;
   for (const migration of migrations) {
     const checksum = applied.get(migration.version);
     if (checksum) {
@@ -74,6 +75,8 @@ export async function applyMigrations(pool, migrations = loadMigrations()) {
       }
       continue;
     }
+    const total = migration.statements.length;
+    console.log(`[panel] Applying database migration ${migration.version} (${total} ${total === 1 ? "statement" : "statements"})`);
     for (const statement of migration.statements) {
       await pool.query(statement);
     }
@@ -81,5 +84,12 @@ export async function applyMigrations(pool, migrations = loadMigrations()) {
       migration.version,
       migration.checksum,
     ]);
+    appliedCount += 1;
+    console.log(`[panel] Applied database migration ${migration.version}`);
+  }
+  if (appliedCount === 0) {
+    console.log("[panel] Database schema is current");
+  } else {
+    console.log(`[panel] Applied ${appliedCount} database ${appliedCount === 1 ? "migration" : "migrations"}`);
   }
 }

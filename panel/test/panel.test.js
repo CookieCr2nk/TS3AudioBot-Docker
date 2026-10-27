@@ -268,8 +268,20 @@ describe("secrets and schema", () => {
         return [{ affectedRows: 1 }];
       },
     };
-    await applyMigrations(pool, migrations);
-    await applyMigrations(pool, migrations);
+    const lines = [];
+    const originalLog = console.log;
+    console.log = (...args) => lines.push(args.join(" "));
+    try {
+      await applyMigrations(pool, migrations);
+      await applyMigrations(pool, migrations);
+    } finally {
+      console.log = originalLog;
+    }
+    assert.deepEqual(
+      lines.filter((line) => line.startsWith("[panel] Applied database migration")),
+      migrations.map((migration) => `[panel] Applied database migration ${migration.version}`),
+    );
+    assert.equal(lines.filter((line) => line === "[panel] Database schema is current").length, 1);
     const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
     assert.equal(inserts.length, migrations.length);
     assert.equal(applied.length, 5);

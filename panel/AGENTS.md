@@ -32,7 +32,7 @@ Commands to the bot go only through `actions.js`. There is no free-form command 
 
 Schema changes are new files `sql/migrations/006_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. `005_bot_limit.sql` adds `users.bot_limit`. Startup refuses a different checksum and a version this image no longer ships.
 
-Statements must be safe to run again. MariaDB commits DDL one statement at a time. The version row is inserted only after the last statement. `001_baseline.sql` is the old `schema.sql`. Do not bring that file back as a second source.
+Statements must be safe to run again. MariaDB commits DDL one statement at a time. The version row is inserted only after the last statement. Startup logs each migration it applies, and logs when the schema is already current. `001_baseline.sql` is the old `schema.sql`. Do not bring that file back as a second source.
 
 One Docker container is one row in `instances` (address, encrypted token, owner, enabled). TeamSpeak bots inside that process are rows in `ts_bots`, unique by instance and template name. `instance_grants` lets other accounts control those bots. The owner and administrators can create and delete bots. Granted users cannot. `users.bot_limit` is the maximum number of bots on instances that account owns. NULL means unlimited. An instance with no owner has no limit. The panel does not start containers. `users.suspended` blocks sign-in and the suspend action deletes that account's sessions.
 
