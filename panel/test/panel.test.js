@@ -12,6 +12,7 @@ import { clientJson, languageFromHeader, translate, translator } from "../src/i1
 import de from "../src/locales/de.js";
 import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentPlaylists, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
 import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
+import { renderAdminBlock, upsertAdminBlock } from "../src/rights-file.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
@@ -32,6 +33,18 @@ const templateBot = { useInstance: true, instanceMode: "template", instanceRef: 
 const user = { role: "user", canControl: true };
 const reader = { role: "user", canControl: false };
 const admin = { role: "admin", canControl: true };
+
+describe("bot admin rights", () => {
+  it("writes one rule for one bot template and replaces the panel block", () => {
+    const block = renderAdminBlock([{ template: "abc", uids: ["VG90YWxseU5vdEZha2U="] }]);
+    assert.match(block, /bot = \["abc"\]/);
+    assert.match(block, /useruid = \["VG90YWxseU5vdEZha2U="\]/);
+    const file = upsertAdminBlock("keep\n", block);
+    const again = upsertAdminBlock(file, renderAdminBlock([]));
+    assert.match(again, /^keep/);
+    assert.doesNotMatch(again, /useruid/);
+  });
+});
 
 describe("api paths", () => {
   it("wraps template commands the way the official client does", () => {
@@ -266,6 +279,7 @@ describe("secrets and schema", () => {
       "006_bot_access",
       "007_bot_label",
       "008_bot_template",
+      "009_bot_admins",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);

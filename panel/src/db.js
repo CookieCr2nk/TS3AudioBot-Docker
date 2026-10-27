@@ -517,6 +517,38 @@ export async function setBotAssignee(botId, userId) {
   await pool.query("UPDATE ts_bots SET assignee_user_id = ? WHERE id = ?", [userId, botId]);
 }
 
+export async function listBotAdmins(botId) {
+  const [rows] = await pool.query(
+    "SELECT useruid FROM bot_admins WHERE bot_id = ? ORDER BY useruid",
+    [botId],
+  );
+  return rows.map((row) => row.useruid);
+}
+
+export async function listAdminGroups() {
+  const [rows] = await pool.query(
+    `SELECT IFNULL(t.template, t.name) AS template, a.useruid
+     FROM bot_admins a
+     JOIN ts_bots t ON t.id = a.bot_id
+     ORDER BY template, a.useruid`,
+  );
+  const groups = [];
+  for (const row of rows) {
+    const last = groups[groups.length - 1];
+    if (!last || last.template !== row.template) groups.push({ template: row.template, uids: [row.useruid] });
+    else last.uids.push(row.useruid);
+  }
+  return groups;
+}
+
+export async function addBotAdmin(botId, uid) {
+  await pool.query("INSERT IGNORE INTO bot_admins (bot_id, useruid) VALUES (?, ?)", [botId, uid]);
+}
+
+export async function removeBotAdmin(botId, uid) {
+  await pool.query("DELETE FROM bot_admins WHERE bot_id = ? AND useruid = ?", [botId, uid]);
+}
+
 export async function setBotLabel(botId, label) {
   await pool.query("UPDATE ts_bots SET label = ? WHERE id = ?", [label || null, botId]);
 }

@@ -6,6 +6,7 @@ import {
   accessToBot,
   accessToInstance,
   addAudit,
+  addBotAdmin,
   countActiveAdmins,
   countOwnedBots,
   createSession,
@@ -27,7 +28,9 @@ import {
   insertInstance,
   insertStream,
   instanceClient,
+  listAdminGroups,
   listAudit,
+  listBotAdmins,
   listGrantIds,
   listGrants,
   listAccessibleBots,
@@ -36,6 +39,7 @@ import {
   listStreams,
   listUsers,
   publicBot,
+  removeBotAdmin,
   replaceGrants,
   replaceUserGrants,
   setBotAssignee,
@@ -76,6 +80,7 @@ import {
   presentVersion,
 } from "./present.js";
 import { callBot, scope, statusParts } from "./ts3ab.js";
+import { writeAdminBlock } from "./rights-file.js";
 import {
   parseBotLimit,
   parseGrants,
@@ -87,6 +92,7 @@ import {
   parsePassword,
   parseRole,
   parseStreamUrl,
+  parseTeamspeakUid,
   parseTemplateName,
   parseTitle,
   parseUseInstance,
@@ -778,6 +784,56 @@ api.get(
       commanderSavedError,
       teamspeakId,
       teamspeakError,
+      admins: await listBotAdmins(access.bot.id),
+    });
+  }),
+);
+
+async function syncBotAdmins(bot) {
+  try {
+    await writeAdminBlock(await listAdminGroups());
+  } catch (err) {
+    if (err.code === "ENOENT" || err.code === "missing-volume") {
+      throw new HttpError("The bot rights file is not available to the panel. Mount the bot data volume and restart the panel.", 422);
+    }
+    throw err;
+  }
+  try {
+    await callBot(instanceClient(bot), ["rights", "reload"], { timeoutMs: 8000 });
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+api.post(
+  "/bots/:id/admins",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const access = await openBot(req);
+    const uid = parseTeamspeakUid(req.body.uid);
+    await addBotAdmin(access.bot.id, uid);
+    const reloaded = await syncBotAdmins(access.bot);
+    await addAudit({ userId: req.user.id, botId: access.bot.id, instanceId: access.bot.instanceId, action: "bot-admin-add", detail: uid });
+    ok(res, {
+      message: req.t(reloaded ? "TeamSpeak UID can administer this bot." : "TeamSpeak UID saved. The bot did not reload rights."),
+      admins: await listBotAdmins(access.bot.id),
+    });
+  }),
+);
+
+api.delete(
+  "/bots/:id/admins",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const access = await openBot(req);
+    const uid = parseTeamspeakUid(req.body.uid);
+    await removeBotAdmin(access.bot.id, uid);
+    const reloaded = await syncBotAdmins(access.bot);
+    await addAudit({ userId: req.user.id, botId: access.bot.id, instanceId: access.bot.instanceId, action: "bot-admin-remove", detail: uid });
+    ok(res, {
+      message: req.t(reloaded ? "TeamSpeak UID removed from this bot." : "TeamSpeak UID saved. The bot did not reload rights."),
+      admins: await listBotAdmins(access.bot.id),
     });
   }),
 );

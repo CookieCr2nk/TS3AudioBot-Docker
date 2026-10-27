@@ -244,6 +244,12 @@ export function parseTitle(value, label = "Title") {
   return title;
 }
 
+export function parseTeamspeakUid(value) {
+  const uid = String(value ?? "").trim();
+  if (!/^[A-Za-z0-9+/]{20,40}={0,2}$/.test(uid)) throw new ValidationError("TeamSpeak UID is invalid");
+  return uid;
+}
+
 export function parseTemplateName(value) {
   const name = clean(value);
   if (!NAME_RE.test(name)) {
