@@ -37,7 +37,7 @@ export const actions = {
   clear: { control: true, audit: true, success: "Queue cleared", build: () => ["clear"] },
   volume: {
     control: true,
-    audit: true,
+    audit: false,
     success: "Volume set",
     parse: (input) => ({ volume: parseVolume(input.volume) }),
     build: (args) => ["volume", String(args.volume)],

@@ -22,6 +22,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
+- Bots and the overview have a plus button to add a bot or an instance. A bot's connection page edits only that bot. Volume changes are not written to the audit log
 - Connection can store a default volume on the bot. The Bots table assigns an owner from one compact list
 - Channel commander is saved on the bot and turns on again each time that bot connects. Saving a startup stream keeps that setting
 - The instance page no longer lists bots. Create and attach stay there. Delete is on Bots. A bot limit counts assigned bots. A bot with nobody assigned counts for the instance owner

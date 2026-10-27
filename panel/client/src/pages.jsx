@@ -32,6 +32,104 @@ function Notice({ error, note }) {
   return null;
 }
 
+export function AddBot({ instanceId = "" }) {
+  const { t } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [instances, setInstances] = useState([]);
+  const [error, setError] = useState("");
+  const choices = instances.filter((item) => item.canCreate);
+  const only = choices.length === 1 ? String(choices[0].id) : "";
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let stop = false;
+    api("/api/instances")
+      .then((data) => {
+        if (!stop) setInstances(data.instances || []);
+      })
+      .catch((err) => {
+        if (!stop) setError(err.message);
+      });
+    return () => {
+      stop = true;
+    };
+  }, [open]);
+
+  if (!open) {
+    return <button className="btn btn-plus" type="button" aria-label={t("Add bot")} onClick={() => { setError(""); setOpen(true); }}>+</button>;
+  }
+  return (
+    <div className="add-pop">
+    <form className="card add-card" onSubmit={async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const target = String(form.get("instanceId") || instanceId || only);
+      setError("");
+      try {
+        const result = await api(`/api/instances/${target}/bots`, { method: "POST", body: { name: form.get("name") } });
+        navigate(`/bots/${result.botId}`);
+      } catch (err) {
+        setError(err.message);
+      }
+    }}>
+      <h2>{t("Create a bot")}</h2>
+      <Notice error={error || (choices.length ? "" : t("You cannot create bots. Ask an administrator to assign one."))} />
+      {choices.length > 1 ? (
+        <label>{t("Instance")}
+          <select name="instanceId" defaultValue={instanceId || ""} required>
+            <option value="">{t("Instance")}</option>
+            {choices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+      ) : <input type="hidden" name="instanceId" value={instanceId || only} />}
+      <div className="split">
+        <label className="grow">{t("Name")}<input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" placeholder="lobby" /></label>
+        <button className="btn btn-primary" type="submit" disabled={!choices.length}>{t("Create")}</button>
+        <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
+      </div>
+    </form>
+    </div>
+  );
+}
+
+function AddInstance() {
+  const { t } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  if (!open) {
+    return <button className="btn btn-plus" type="button" aria-label={t("Add instance")} onClick={() => { setError(""); setOpen(true); }}>+</button>;
+  }
+  return (
+    <div className="add-pop">
+    <form className="card add-card" onSubmit={async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      setError("");
+      try {
+        const result = await api("/api/admin/instances", {
+          method: "POST",
+          body: { name: form.get("name"), baseUrl: form.get("baseUrl"), enabled: "on" },
+        });
+        navigate(`/instances/${result.id}`);
+      } catch (err) {
+        setError(err.message);
+      }
+    }}>
+      <h2>{t("Add instance")}</h2>
+      <Notice error={error} />
+      <label>{t("Display name")}<input name="name" required maxLength={120} /></label>
+      <label>{t("API address")}<input name="baseUrl" required maxLength={255} placeholder="http://ts3audiobot:58913" /></label>
+      <div className="inline">
+        <button className="btn btn-primary" type="submit">{t("Save")}</button>
+        <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
+      </div>
+    </form>
+    </div>
+  );
+}
+
 export function Login() {
   const { signIn, t } = useAuth();
   const [username, setUsername] = useState("");
@@ -65,7 +163,7 @@ export function Login() {
 }
 
 export function Overview() {
-  const { t } = useAuth();
+  const { user, t } = useAuth();
   const location = useLocation();
   const { data, error } = useLoad("/api/overview");
   const cards = data?.cards || [];
@@ -78,7 +176,10 @@ export function Overview() {
           <h1>{t("Overview")}</h1>
           <p className="muted">{t("Each entry is one Docker container. Several TeamSpeak bots can run inside it.")}</p>
         </div>
-        <Link className="btn btn-primary" to="/bots">{t("Bots")}</Link>
+        <span className="inline">
+          {user.role === "admin" ? <AddInstance /> : null}
+          <Link className="btn btn-primary" to="/bots">{t("Bots")}</Link>
+        </span>
       </div>
       <Notice error={error} note={location.state?.note || ""} />
       {data ? (
@@ -222,7 +323,10 @@ export function BotsPage() {
           <h1>{t("Bots")}</h1>
           <p className="muted">{t("Every TeamSpeak bot you can open. Select several to apply one playback action to all of them.")}</p>
         </div>
-        <button className="btn" type="button" onClick={() => reload()}>{t("Refresh")}</button>
+        <span className="inline">
+          {data?.canCreate ? <AddBot /> : null}
+          <button className="btn" type="button" onClick={() => reload()}>{t("Refresh")}</button>
+        </span>
       </div>
       <Notice error={formError || error} note={note} />
       {bots.length ? (
@@ -881,10 +985,8 @@ export function Connection() {
         }
       }}>
         <h2>{t("Connection settings")}</h2>
-        <div className="split">
-          <label>{t("Name")}<input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" defaultValue={data?.hosting?.name || ""} /></label>
-          <label className="grow">{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" /></label>
-        </div>
+        <input type="hidden" name="name" value={data?.hosting?.name || ""} />
+        <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" /></label>
         <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
         <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} /></label>
         <div className="split">
@@ -907,35 +1009,29 @@ export function Connection() {
         <label className="check"><input type="checkbox" name="clearStartup" value="on" /> {t("Clear the stream on connect")}</label>
         <button className="btn btn-primary" type="submit">{t("Save")}</button>
       </form>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Server")}</th><th>{t("Status")}</th><th></th></tr></thead>
-          <tbody>
-            {(data?.instances || []).map((item) => (
-              <tr key={`${item.id}-${item.name}`}>
-                <td>{item.name || "—"}{item.current ? <span className="pill pill-ok">{t("Active")}</span> : null}</td>
-                <td>
-                  {item.name && item.status === "offline" ? (
-                    <form className="inline" onSubmit={(event) => {
-                      event.preventDefault();
-                      act({ op: "template-address", name: item.name, address: new FormData(event.currentTarget).get("address") }).then(() => reload());
-                    }}>
-                      <input name="address" defaultValue={item.server || ""} required maxLength={200} />
-                      <button className="btn" type="submit">{t("Save")}</button>
-                    </form>
-                  ) : item.server || "—"}
-                </td>
-                <td><span className={`pill pill-${item.status === "connected" ? "ok" : item.status === "connecting" ? "warn" : "bad"}`}>{item.statusLabel}</span></td>
-                <td className="inline">
-                  {item.name && item.status === "offline" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: item.name }).then(() => reload())}>{t("Start")}</button> : null}
-                  {item.id != null ? <button className="btn btn-danger" type="button" onClick={() => window.confirm(t("Disconnect this instance?")) && act({ op: "disconnect", instanceId: item.id }).then(() => reload())}>{t("Disconnect")}</button> : null}
-                  <button className="btn" type="button" onClick={() => act({ op: "use-instance", name: item.name, instanceId: item.id ?? "" })}>{t("Open")}</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {data?.connection ? (
+        <section className="card">
+          <h2>{t("Server")}</h2>
+          <p>
+            <span className={`pill pill-${data.connection.status === "connected" ? "ok" : data.connection.status === "connecting" ? "warn" : "bad"}`}>{data.connection.statusLabel}</span>
+          </p>
+          {data.connection.status === "offline" ? (
+            <form className="split" key={data.connection.server || "address"} onSubmit={(event) => {
+              event.preventDefault();
+              act({ op: "template-address", name: data.connection.name, address: new FormData(event.currentTarget).get("address") }).then(() => reload());
+            }}>
+              <label className="grow">{t("Server")}
+                <input name="address" defaultValue={data.connection.server || ""} required maxLength={200} />
+              </label>
+              <button className="btn btn-primary" type="submit">{t("Save")}</button>
+            </form>
+          ) : <p className="mono">{data.connection.server || "—"}</p>}
+          <div className="inline">
+            {data.connection.status === "offline" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then(() => reload())}>{t("Start")}</button> : null}
+            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => window.confirm(t("Disconnect this instance?")) && act({ op: "disconnect", instanceId: data.connection.id }).then(() => reload())}>{t("Disconnect")}</button> : null}
+          </div>
+        </section>
+      ) : null}
       <section className="card">
         <h2>{t("Channel commander")}</h2>
         <p className="muted">{t("The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.")}</p>

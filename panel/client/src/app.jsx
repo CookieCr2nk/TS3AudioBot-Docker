@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
-import { Account, Audit, BotsPage, Connection, History, InstancePage, Login, Overview, Playback, Playlist, Playlists, Radio, Users } from "./pages.jsx";
+import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Overview, Playback, Playlist, Playlists, Radio, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
 
 const PINNED_BOT = "ts3panel.activeBot";
@@ -253,7 +253,7 @@ function Shell() {
 }
 
 function BotTabs({ id, bot, roster, pathname, admin }) {
-  const { t } = useAuth();
+  const { user, t } = useAuth();
   const navigate = useNavigate();
   const options = roster.some((item) => String(item.id) === String(bot.id)) ? roster : [bot, ...roster];
   return (
@@ -265,6 +265,7 @@ function BotTabs({ id, bot, roster, pathname, admin }) {
         <Tab to={`/bots/${id}/history`}>{t("History")}</Tab>
         {admin ? <Tab to={`/bots/${id}/connection`}>{t("Connection")}</Tab> : null}
       </nav>
+      {admin || user.canCreateBots || bot.canManage ? <AddBot instanceId={bot.instanceId || ""} /> : null}
       {options.length > 1 ? (
         <label className="bot-switch">
           <span className="visually-hidden">{t("Switch bot")}</span>

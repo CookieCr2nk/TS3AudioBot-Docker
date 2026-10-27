@@ -111,7 +111,7 @@ function ok(res, body = {}, status = 200) {
 
 function sessionPayload(req) {
   return {
-    user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role } : null,
+    user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role, canCreateBots: Boolean(req.user.canCreateBots) } : null,
     csrf: req.csrf || "",
     lang: req.lang,
     phrases: req.lang === "de" ? de : {},
@@ -233,7 +233,12 @@ api.get(
   wrap(async (req, res) => {
     const admin = req.user.role === "admin";
     const rows = admin ? await listInstances() : await listInstancesForUser(req.user.id);
-    ok(res, { instances: rows.map((row) => publicInstance(row, admin)) });
+    ok(res, {
+      instances: rows.map((row) => ({
+        ...publicInstance(row, admin),
+        canCreate: admin || row.ownerUserId === req.user.id || Boolean(req.user.canCreateBots),
+      })),
+    });
   }),
 );
 
@@ -403,7 +408,12 @@ api.get(
       playback: live ? await playbackOf(row.bot, req.t) : null,
     }));
     const users = admin ? (await listUsers()).map((account) => ({ id: account.id, username: account.username })) : [];
-    ok(res, { bots, users });
+    let canCreate = admin || Boolean(req.user.canCreateBots) || rows.some((row) => row.canManage);
+    if (!canCreate) {
+      const owned = await listInstancesForUser(req.user.id);
+      canCreate = owned.some((row) => row.ownerUserId === req.user.id);
+    }
+    ok(res, { bots, users, canCreate });
   }),
 );
 
@@ -514,6 +524,9 @@ api.post(
     const access = await openBot(req);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const op = String(req.body.op || "");
+    if (op === "template-address" || op === "template-hosting" || op === "connect") {
+      req.body.name = access.bot.name;
+    }
     if (op === "use-instance") {
       if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
       const picked = parseUseInstance(req.body);
@@ -667,12 +680,26 @@ api.get(
   requireAdmin,
   wrap(async (req, res) => {
     const access = await openBot(req);
-    const { data } = await runAction(access.bot, "bot-list", {}, authOf(req, access));
-    const instances = presentBotList(data, req.t).map((item) => ({
-      ...item,
-      current: access.bot.instanceMode === "template" && item.name === access.bot.instanceRef,
-    }));
     const template = access.bot.instanceMode === "template" ? access.bot.instanceRef : "";
+    const { data } = await runAction(access.bot, "bot-list", {}, authOf(req, access));
+    const live = presentBotList(data, req.t).find((item) => item.name === template) || null;
+    let storedAddress = "";
+    if (template && !live?.server) {
+      try {
+        storedAddress = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "connect.address"], { timeoutMs: 4000 }));
+      } catch {
+        storedAddress = "";
+      }
+    }
+    const botConnection = template
+      ? {
+          id: live?.id ?? null,
+          name: template,
+          server: live?.server || storedAddress,
+          status: live?.status || "offline",
+          statusLabel: live?.statusLabel || req.t("Offline"),
+        }
+      : null;
     let commanderSavedValue = null;
     let commanderSavedError = null;
     if (template) {
@@ -700,7 +727,7 @@ api.get(
       teamspeakError = errorText(err, req.t);
     }
     ok(res, {
-      instances,
+      connection: botConnection,
       bot: botView(access, true),
       hosting: parseHostingPreview(access.bot),
       commander,
