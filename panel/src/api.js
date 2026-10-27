@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { commanderSaved, parseBulk, runAction } from "./actions.js";
 import { sha256 } from "./crypto.js";
 import {
@@ -319,12 +319,13 @@ api.post(
     const access = await openInstanceForCreate(req);
     assertCanCreate(req, access);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
-    const name = parseTemplateName(req.body.name);
+    const display = parseName(req.body.name);
+    const template = randomUUID().replaceAll("-", "");
     const charged = chargedUserId(req, access.instance);
-    if (!(await findTsBotId(access.instance.id, name))) await assertUserQuota(charged);
-    await callBot(instanceClient(access.instance), ["settings", "create", name]);
-    const botId = await ensureTsBot(access.instance.id, name, charged);
-    await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-create", detail: name });
+    await assertUserQuota(charged);
+    await callBot(instanceClient(access.instance), ["settings", "create", template]);
+    const botId = await ensureTsBot(access.instance.id, template, display, charged);
+    await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-create", detail: display });
     ok(res, { message: req.t("Bot created."), botId });
   }),
 );
@@ -338,7 +339,7 @@ api.post(
     const name = parseTemplateName(req.body.name);
     const charged = chargedUserId(req, access.instance);
     if (!(await findTsBotId(access.instance.id, name))) await assertUserQuota(charged);
-    const botId = await ensureTsBot(access.instance.id, name, charged);
+    const botId = await ensureTsBot(access.instance.id, name, name, charged);
     await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-attach", detail: name });
     ok(res, { message: req.t("Bot added."), botId });
   }),
@@ -354,7 +355,7 @@ api.post(
     const typed = String(req.body.confirm || "").trim();
     const rowId = await findTsBotId(access.instance.id, name);
     const row = rowId ? await getTsBotRow(rowId) : null;
-    const visible = (row?.label || name).trim();
+    const visible = String(row?.label || row?.name || name).trim();
     if (typed !== name && typed !== visible) throw new HttpError("Type the bot name exactly to confirm.", 400);
     await callBot(instanceClient(access.instance), ["settings", "delete", name]);
     await deleteTsBotByName(access.instance.id, name);
@@ -566,14 +567,14 @@ api.post(
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const op = String(req.body.op || "");
     if (op === "template-address" || op === "template-hosting" || op === "connect") {
-      req.body.name = access.bot.name;
+      req.body.name = access.bot.instanceRef;
     }
     if (op === "use-instance") {
       if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
       const picked = parseUseInstance(req.body);
       if (picked.mode !== "template") throw new ValidationError("This instance has no usable name");
       await assertNewBot(access.bot.instanceId, picked.ref);
-      const tsBotId = await ensureTsBot(access.bot.instanceId, picked.ref, access.bot.ownerUserId ?? null);
+      const tsBotId = await ensureTsBot(access.bot.instanceId, picked.ref, picked.ref, access.bot.ownerUserId ?? null);
       await addAudit({
         userId: req.user.id,
         botId: tsBotId,
@@ -586,7 +587,7 @@ api.post(
     if (op === "template-create") await assertNewBot(access.bot.instanceId, parseTemplateName(req.body.name));
     const { action, args, data } = await runAction(access.bot, op, req.body, authOf(req, access));
     let botId = access.bot.id;
-    if (op === "template-create") botId = await ensureTsBot(access.bot.instanceId, args.name, access.bot.ownerUserId ?? null);
+    if (op === "template-create") botId = await ensureTsBot(access.bot.instanceId, args.name, args.name, access.bot.ownerUserId ?? null);
     else if (op === "template-delete") await deleteTsBotByName(access.bot.instanceId, args.name);
     if (action.audit) {
       await addAudit({
@@ -597,7 +598,7 @@ api.post(
         detail: detailText(req.t, action, args),
       });
     }
-    const redirect = op === "template-delete" && args.name === access.bot.name ? `/instances/${access.bot.instanceId}` : null;
+    const redirect = op === "template-delete" && args.name === access.bot.instanceRef ? `/instances/${access.bot.instanceId}` : null;
     const messageKey = typeof data?.messageKey === "string" ? data.messageKey : action.success || "Done";
     ok(res, { message: req.t(messageKey), redirect, botId: op === "template-create" ? botId : undefined });
   }),

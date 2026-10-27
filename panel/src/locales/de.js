@@ -86,7 +86,9 @@ const de = {
   "Bot name saved.": "Bot-Name gespeichert.",
   "Instances saved.": "Instanzen gespeichert.",
   "Check the instances an account may open. Can create bots also lets that account pick any enabled instance.":
-    "Hake die Instanzen an, die ein Konto öffnen darf. Mit Kann Bots anlegen darf das Konto jede aktive Instanz selbst wählen.",
+    "Wähle die Instanzen, die ein Konto öffnen darf. Mit Kann Bots anlegen darf das Konto jede aktive Instanz selbst wählen.",
+  "Selected accounts can open this instance. They only see bots assigned to them.":
+    "Gewählte Konten können diese Instanz öffnen. Sie sehen nur Bots, die ihnen zugewiesen sind.",
   "API address": "API-Adresse",
   "Instance context": "Instanzkontext",
   "Template name": "Template-Name",

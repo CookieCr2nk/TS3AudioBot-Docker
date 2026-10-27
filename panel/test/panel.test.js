@@ -265,6 +265,7 @@ describe("secrets and schema", () => {
       "005_bot_limit",
       "006_bot_access",
       "007_bot_label",
+      "008_bot_template",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);

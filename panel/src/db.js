@@ -79,7 +79,7 @@ export function publicBot(bot, { admin = false } = {}) {
   return {
     id: bot.id,
     name: bot.label || bot.name,
-    template: bot.name,
+    template: bot.instanceRef || bot.name,
     enabled: bot.enabled,
     notes: bot.notes,
     instanceId: bot.instanceId,
@@ -304,7 +304,7 @@ export async function takeFlash(id) {
 
 const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user, i.api_token_enc, i.enabled, i.notes, i.created_at`;
 
-const TS_BOT_JOIN = `t.id, t.name, t.label, i.base_url, 'template' AS instance_mode, t.name AS instance_ref,
+const TS_BOT_JOIN = `t.id, t.name, t.label, t.template, i.base_url, 'template' AS instance_mode, IFNULL(t.template, t.name) AS instance_ref,
             i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
             i.id AS instance_id, i.name AS instance_name, i.owner_user_id, t.assignee_user_id,
             (SELECT au.username FROM users au WHERE au.id = t.assignee_user_id) AS assignee_name,
@@ -447,14 +447,12 @@ export async function listAccessibleBots(user) {
     return rows.map((row) => ({ bot: mapBot(row, { token: true }), canControl: true, canManage: true }));
   }
   const [rows] = await pool.query(
-    `SELECT ${TS_BOT_JOIN},
-            CASE WHEN i.owner_user_id = ? OR t.assignee_user_id = ? THEN 1 ELSE IFNULL(g.can_control, 0) END AS can_control
+    `SELECT ${TS_BOT_JOIN}, 1 AS can_control
      FROM ts_bots t
      JOIN instances i ON i.id = t.instance_id
-     LEFT JOIN instance_grants g ON g.instance_id = i.id AND g.user_id = ?
-     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR g.user_id = ? OR t.assignee_user_id = ?)
+     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR t.assignee_user_id = ?)
      ORDER BY i.name, t.name`,
-    [user.id, user.id, user.id, user.id, user.id, user.id],
+    [user.id, user.id],
   );
   return rows.map((row) => ({
     bot: mapBot(row, { token: true }),
@@ -487,35 +485,32 @@ export async function getTsBotRow(id) {
   return rows[0] || null;
 }
 
-export async function findTsBotId(instanceId, name) {
+export async function findTsBotId(instanceId, template) {
   const [rows] = await pool.query(
-    "SELECT id FROM ts_bots WHERE instance_id = ? AND name = ? LIMIT 1",
-    [instanceId, name],
+    "SELECT id FROM ts_bots WHERE instance_id = ? AND template = ? LIMIT 1",
+    [instanceId, template],
   );
   return rows[0] ? Number(rows[0].id) : null;
 }
 
-export async function ensureTsBot(instanceId, name, assigneeUserId = null) {
-  const existing = await findTsBotId(instanceId, name);
+export async function ensureTsBot(instanceId, template, displayName, assigneeUserId = null) {
+  const existing = await findTsBotId(instanceId, template);
   if (existing) return existing;
+  const name = displayName || template;
   try {
     const [result] = await pool.query(
-      "INSERT INTO ts_bots (instance_id, name, assignee_user_id) VALUES (?, ?, ?)",
-      [instanceId, name, assigneeUserId],
+      "INSERT INTO ts_bots (instance_id, name, template, assignee_user_id) VALUES (?, ?, ?, ?)",
+      [instanceId, name, template, assigneeUserId],
     );
     return Number(result.insertId);
   } catch (err) {
     if (err.code !== "ER_DUP_ENTRY") throw err;
-    const [again] = await pool.query(
-      "SELECT id FROM ts_bots WHERE instance_id = ? AND name = ? LIMIT 1",
-      [instanceId, name],
-    );
-    return Number(again[0].id);
+    return findTsBotId(instanceId, template);
   }
 }
 
-export async function deleteTsBotByName(instanceId, name) {
-  await pool.query("DELETE FROM ts_bots WHERE instance_id = ? AND name = ?", [instanceId, name]);
+export async function deleteTsBotByName(instanceId, template) {
+  await pool.query("DELETE FROM ts_bots WHERE instance_id = ? AND template = ?", [instanceId, template]);
 }
 
 export async function setBotAssignee(botId, userId) {
@@ -563,9 +558,7 @@ export async function accessToBot(user, botId) {
   if (row.assignee_user_id != null && Number(row.assignee_user_id) === user.id) {
     return { bot, canControl: true, canManage: false };
   }
-  const grant = await getGrant(row.instance_id, user.id);
-  if (!grant) return null;
-  return { bot, canControl: Boolean(grant.canControl), canManage: false };
+  return null;
 }
 
 export async function getGrant(instanceId, userId) {

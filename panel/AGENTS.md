@@ -30,7 +30,7 @@ Commands to the bot go only through `actions.js`. There is no free-form command 
 
 ## Database
 
-Schema changes are new files `sql/migrations/007_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. `005_bot_limit.sql` adds `users.bot_limit`. `006_bot_access.sql` makes `users.password_hash` nullable, adds `users.can_create_bots`, and adds `ts_bots.assignee_user_id`. `007_bot_label.sql` adds `ts_bots.label`, the name shown in the panel. The template name stays `ts_bots.name`. Startup refuses a different checksum and a version this image no longer ships.
+Schema changes are new files `sql/migrations/007_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. `005_bot_limit.sql` adds `users.bot_limit`. `006_bot_access.sql` makes `users.password_hash` nullable, adds `users.can_create_bots`, and adds `ts_bots.assignee_user_id`. `007_bot_label.sql` adds `ts_bots.label`. `008_bot_template.sql` stores the TS3AudioBot template in `ts_bots.template` as a UUID. `ts_bots.name` is the panel name and can repeat. A normal account sees bots assigned to that account. An instance owner sees every bot on that instance. Startup refuses a different checksum and a version this image no longer ships.
 
 Statements must be safe to run again. MariaDB commits DDL one statement at a time. The version row is inserted only after the last statement. Startup logs when the process starts, when it is ready, and when it stops. A failed startup still listens and logs that it is not ready. It also logs each migration it applies, and logs when the schema is already current. `001_baseline.sql` is the old `schema.sql`. Do not bring that file back as a second source.
 

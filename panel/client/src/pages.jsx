@@ -38,15 +38,19 @@ export function AddBot({ instanceId = "" }) {
   const [open, setOpen] = useState(false);
   const [instances, setInstances] = useState([]);
   const [error, setError] = useState("");
+  const [picked, setPicked] = useState(String(instanceId || ""));
   const choices = instances.filter((item) => item.canCreate);
-  const only = choices.length === 1 ? String(choices[0].id) : "";
 
   useEffect(() => {
     if (!open) return undefined;
     let stop = false;
     api("/api/instances")
       .then((data) => {
-        if (!stop) setInstances(data.instances || []);
+        if (stop) return;
+        const next = data.instances || [];
+        setInstances(next);
+        const allowed = next.filter((item) => item.canCreate);
+        setPicked((current) => current || (instanceId ? String(instanceId) : (allowed[0] ? String(allowed[0].id) : "")));
       })
       .catch((err) => {
         if (!stop) setError(err.message);
@@ -64,7 +68,7 @@ export function AddBot({ instanceId = "" }) {
     <form className="card add-card" onSubmit={async (event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      const target = String(form.get("instanceId") || instanceId || only);
+      const target = String(form.get("instanceId") || picked);
       setError("");
       try {
         const result = await api(`/api/instances/${target}/bots`, { method: "POST", body: { name: form.get("name") } });
@@ -75,16 +79,13 @@ export function AddBot({ instanceId = "" }) {
     }}>
       <h2>{t("Create a bot")}</h2>
       <Notice error={error || (choices.length ? "" : t("You cannot create bots. Ask an administrator to assign one."))} />
-      {choices.length > 1 ? (
-        <label>{t("Instance")}
-          <select name="instanceId" defaultValue={instanceId || ""} required>
-            <option value="">{t("Instance")}</option>
-            {choices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-        </label>
-      ) : <input type="hidden" name="instanceId" value={instanceId || only} />}
+      <label>{t("Instance")}
+        <select name="instanceId" value={picked} onChange={(event) => setPicked(event.target.value)} required>
+          {choices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
       <div className="split">
-        <label className="grow">{t("Name")}<input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" placeholder="lobby" /></label>
+        <label className="grow">{t("Name")}<input name="name" required maxLength={120} placeholder="lobby" /></label>
         <button className="btn btn-primary" type="submit" disabled={!choices.length}>{t("Create")}</button>
         <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
       </div>
@@ -532,10 +533,9 @@ export function InstancePage() {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    const grants = (data.users || [])
-      .filter((account) => account.role !== "admin" && String(account.id) !== form.get("ownerUserId"))
-      .filter((account) => form.get(`grant_${account.id}`) === "on")
-      .map((account) => ({ userId: account.id, canControl: form.get(`control_${account.id}`) === "on" }));
+    const grants = [...form.getAll("grantUser")]
+      .filter((userId) => userId && userId !== form.get("ownerUserId"))
+      .map((userId) => ({ userId: Number(userId), canControl: true }));
     const result = await run(`/api/admin/instances/${id}`, {
       name: form.get("name"),
       baseUrl: form.get("baseUrl"),
@@ -574,7 +574,7 @@ export function InstancePage() {
           <h2>{t("Create a bot")}</h2>
           <div className="split">
             <label className="grow">{t("Name")}
-              <input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" placeholder="lobby" />
+              <input name="name" required maxLength={120} placeholder="lobby" />
             </label>
             <button className="btn btn-primary" type="submit">{t("Create")}</button>
           </div>
@@ -616,16 +616,14 @@ export function InstancePage() {
           {instance.hasToken ? <label className="check"><input type="checkbox" name="clearToken" value="on" /> {t("Remove saved token")}</label> : null}
           <label>{t("Note")}<textarea name="notes" maxLength={500} rows={3} defaultValue={instance.notes} /></label>
           <label className="check"><input type="checkbox" name="enabled" value="on" defaultChecked={instance.enabled} /> {t("Instance is enabled")}</label>
-          <h2>{t("Grants")}</h2>
-          {(data.users || []).filter((account) => account.role !== "admin" && String(account.id) !== String(instance.ownerUserId)).map((account) => {
-            const grant = (data.grants || []).find((item) => item.userId === account.id);
-            return (
-              <div className="grant" key={account.id}>
-                <label className="check"><input type="checkbox" name={`grant_${account.id}`} value="on" defaultChecked={Boolean(grant)} /> {account.username}</label>
-                <label className="check"><input type="checkbox" name={`control_${account.id}`} value="on" defaultChecked={!grant || grant.canControl} /> {t("Control")}</label>
-              </div>
-            );
-          })}
+          <label>{t("Users")}
+            <select name="grantUser" multiple size={Math.min(8, Math.max((data.users || []).length, 3))} defaultValue={(data.grants || []).map((item) => String(item.userId))}>
+              {(data.users || []).filter((account) => account.role !== "admin").map((account) => (
+                <option key={account.id} value={account.id}>{account.username}</option>
+              ))}
+            </select>
+          </label>
+          <p className="muted">{t("Selected accounts can open this instance. They only see bots assigned to them.")}</p>
           <div className="transport">
             <button className="btn btn-primary" type="submit">{t("Save")}</button>
             <button className="btn" type="button" onClick={() => run(`/api/admin/instances/${id}/test`, {})}>{t("Check connection")}</button>
@@ -1107,7 +1105,7 @@ export function Users() {
             password: form.get("password"),
             role: form.get("role"),
             botLimit: form.get("botLimit"),
-            canCreateBots: form.get("canCreateBots") === "on",
+            canCreateBots: form.get("canCreateBots") === "yes",
           });
           formElement.reset();
         } catch (err) {
@@ -1125,104 +1123,83 @@ export function Users() {
             </select>
           </label>
           <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} /></label>
-          <label className="check"><input type="checkbox" name="canCreateBots" value="on" /> {t("Can create bots")}</label>
+          <label>{t("Can create bots")}
+            <select name="canCreateBots" defaultValue="no">
+              <option value="no">{t("No")}</option>
+              <option value="yes">{t("Yes")}</option>
+            </select>
+          </label>
           <button className="btn btn-primary" type="submit">{t("Create")}</button>
         </div>
       </form>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Bot limit")}</th><th>{t("Can create bots")}</th><th>{t("Status")}</th><th>{t("Instances")}</th><th></th></tr></thead>
-          <tbody>
-            {(data?.users || []).map((account) => (
-              <tr key={account.id}>
-                <td>
-                  {account.username}
-                  {account.hasPassword ? null : <div className="muted">{t("Cannot sign in until a password is set")}</div>}
-                </td>
-                <td>
-                  <form className="inline" onSubmit={async (event) => {
-                    event.preventDefault();
-                    try { await post(`/api/admin/users/${account.id}/role`, { role: new FormData(event.currentTarget).get("role") }); }
-                    catch (err) { setFormError(err.message); }
-                  }}>
-                    <select name="role" defaultValue={account.role}>
-                      <option value="user">{t("User")}</option>
-                      <option value="admin">{t("Administrator")}</option>
-                    </select>
-                    <button className="btn" type="submit">{t("Save")}</button>
-                  </form>
-                </td>
-                <td>
-                  <form className="inline" onSubmit={async (event) => {
-                    event.preventDefault();
-                    try { await post(`/api/admin/users/${account.id}/limit`, { botLimit: new FormData(event.currentTarget).get("botLimit") }); }
-                    catch (err) { setFormError(err.message); }
-                  }}>
-                    <input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} defaultValue={account.botLimit ?? ""} key={account.botLimit ?? "unlimited"} />
-                    <button className="btn" type="submit">{t("Save")}</button>
-                  </form>
-                </td>
-                <td>
-                  <form className="inline" key={account.canCreateBots ? "yes" : "no"} onSubmit={async (event) => {
-                    event.preventDefault();
-                    try {
-                      await post(`/api/admin/users/${account.id}/create-bots`, {
-                        canCreateBots: new FormData(event.currentTarget).get("canCreateBots") === "on",
-                      });
-                    } catch (err) { setFormError(err.message); }
-                  }}>
-                    <label className="check"><input type="checkbox" name="canCreateBots" value="on" defaultChecked={account.canCreateBots} /> {t("Can create bots")}</label>
-                    <button className="btn" type="submit">{t("Save")}</button>
-                  </form>
-                </td>
-                <td>
-                  <span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span>
-                  {account.id !== user.id ? (
-                    <button className="btn" type="button" onClick={async () => {
-                      try { await post(`/api/admin/users/${account.id}/suspend`, { suspended: !account.suspended }); }
-                      catch (err) { setFormError(err.message); }
-                    }}>{account.suspended ? t("Restore") : t("Suspend")}</button>
-                  ) : null}
-                </td>
-                <td>
-                  <form key={(account.instanceIds || []).join("-") || "none"} onSubmit={async (event) => {
-                    event.preventDefault();
-                    const ids = [...new FormData(event.currentTarget).getAll("instanceId")];
-                    try { await post(`/api/admin/users/${account.id}/instances`, { instanceIds: ids }); }
-                    catch (err) { setFormError(err.message); }
-                  }}>
-                    {(data.instances || []).map((item) => (
-                      <label className="check" key={item.id}>
-                        <input type="checkbox" name="instanceId" value={item.id} defaultChecked={(account.instanceIds || []).includes(item.id)} /> {item.name}
-                      </label>
-                    ))}
-                    <button className="btn" type="submit">{t("Save")}</button>
-                  </form>
-                </td>
-                <td className="inline">
-                  <form className="inline" onSubmit={async (event) => {
-                    event.preventDefault();
-                    const formElement = event.currentTarget;
-                    try {
-                      await post(`/api/admin/users/${account.id}/password`, { password: new FormData(formElement).get("password") });
-                      formElement.reset();
-                    } catch (err) { setFormError(err.message); }
-                  }}>
-                    <input name="password" type="password" required minLength={10} autoComplete="new-password" placeholder={t("New password")} />
-                    <button className="btn" type="submit">{t("Set")}</button>
-                  </form>
-                  {account.id !== user.id ? (
-                    <button className="btn btn-danger" type="button" onClick={async () => {
-                      if (!window.confirm(t("Delete"))) return;
-                      try { await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } }).then((result) => { setNote(result.message); setData({ users: result.users, instances: result.instances || [] }); }); }
-                      catch (err) { setFormError(err.message); }
-                    }}>{t("Remove")}</button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="user-list">
+        {(data?.users || []).map((account) => (
+          <form className="card user-card" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            try {
+              await post(`/api/admin/users/${account.id}/role`, { role: form.get("role") });
+              await post(`/api/admin/users/${account.id}/limit`, { botLimit: form.get("botLimit") });
+              await post(`/api/admin/users/${account.id}/create-bots`, { canCreateBots: form.get("canCreateBots") === "yes" });
+              await post(`/api/admin/users/${account.id}/instances`, { instanceIds: [...form.getAll("instanceId")] });
+              const suspend = form.get("suspended") === "yes";
+              if (suspend !== account.suspended && account.id !== user.id) {
+                await post(`/api/admin/users/${account.id}/suspend`, { suspended: suspend });
+              }
+            } catch (err) {
+              setFormError(err.message);
+            }
+          }}>
+            <div className="user-card-head">
+              <h2>{account.username}</h2>
+              <span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span>
+            </div>
+            {account.hasPassword ? null : <p className="muted">{t("Cannot sign in until a password is set")}</p>}
+            <div className="split">
+              <label>{t("Role")}
+                <select name="role" defaultValue={account.role}>
+                  <option value="user">{t("User")}</option>
+                  <option value="admin">{t("Administrator")}</option>
+                </select>
+              </label>
+              <label>{t("Can create bots")}
+                <select name="canCreateBots" defaultValue={account.canCreateBots ? "yes" : "no"}>
+                  <option value="no">{t("No")}</option>
+                  <option value="yes">{t("Yes")}</option>
+                </select>
+              </label>
+              <label>{t("Status")}
+                <select name="suspended" defaultValue={account.suspended ? "yes" : "no"} disabled={account.id === user.id}>
+                  <option value="no">{t("Active")}</option>
+                  <option value="yes">{t("Suspended")}</option>
+                </select>
+              </label>
+              <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} defaultValue={account.botLimit ?? ""} /></label>
+            </div>
+            <label>{t("Instances")}
+              <select name="instanceId" multiple size={Math.min(6, Math.max((data.instances || []).length, 3))} defaultValue={(account.instanceIds || []).map(String)}>
+                {(data.instances || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+            <div className="split">
+              <label className="grow">{t("New password")}<input name="password" type="password" minLength={10} autoComplete="new-password" /></label>
+              <button className="btn" type="button" onClick={async (event) => {
+                const password = new FormData(event.currentTarget.form).get("password");
+                if (!password) return;
+                try { await post(`/api/admin/users/${account.id}/password`, { password }); }
+                catch (err) { setFormError(err.message); }
+              }}>{t("Set")}</button>
+              <button className="btn btn-primary" type="submit">{t("Save")}</button>
+              {account.id !== user.id ? (
+                <button className="btn btn-danger" type="button" onClick={async () => {
+                  if (!window.confirm(t("Delete"))) return;
+                  try { await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } }).then((result) => { setNote(result.message); setData({ users: result.users, instances: result.instances || [] }); }); }
+                  catch (err) { setFormError(err.message); }
+                }}>{t("Remove")}</button>
+              ) : null}
+            </div>
+          </form>
+        ))}
       </div>
     </div>
   );
