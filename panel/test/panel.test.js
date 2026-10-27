@@ -264,6 +264,7 @@ describe("secrets and schema", () => {
       "004_drop_legacy_bots",
       "005_bot_limit",
       "006_bot_access",
+      "007_bot_label",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
@@ -308,7 +309,7 @@ describe("secrets and schema", () => {
     assert.equal(lines.filter((line) => line === "[panel] Database schema is current").length, 1);
     const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
     assert.equal(inserts.length, migrations.length);
-    assert.equal(applied.length, 6);
+    assert.equal(applied.length, migrations.length);
 
     const changed = migrations.map((migration, index) =>
       index === 0 ? { ...migration, checksum: "0".repeat(64) } : migration,

@@ -28,6 +28,7 @@ import {
   insertStream,
   instanceClient,
   listAudit,
+  listGrantIds,
   listGrants,
   listAccessibleBots,
   listInstances,
@@ -36,7 +37,9 @@ import {
   listUsers,
   publicBot,
   replaceGrants,
+  replaceUserGrants,
   setBotAssignee,
+  setBotLabel,
   setBotLimit,
   setCanCreateBots,
   setPassword,
@@ -78,6 +81,7 @@ import {
   parseGrants,
   parseInstanceForm,
   parseListId,
+  parseName,
   parseNotes,
   parseOptionalPassword,
   parsePassword,
@@ -232,7 +236,9 @@ api.get(
   "/instances",
   wrap(async (req, res) => {
     const admin = req.user.role === "admin";
-    const rows = admin ? await listInstances() : await listInstancesForUser(req.user.id);
+    const rows = admin || req.user.canCreateBots
+      ? (await listInstances()).filter((row) => admin || row.enabled)
+      : await listInstancesForUser(req.user.id);
     ok(res, {
       instances: rows.map((row) => ({
         ...publicInstance(row, admin),
@@ -296,10 +302,21 @@ api.get(
   }),
 );
 
+async function openInstanceForCreate(req) {
+  const id = numericId(req.params.id);
+  if (!id) throw new HttpError("That instance does not exist or is not assigned to you.", 404);
+  const access = await accessToInstance(req.user, id);
+  if (access) return access;
+  if (!req.user.canCreateBots) throw new HttpError("That instance does not exist or is not assigned to you.", 404);
+  const instance = await getInstanceRow(id);
+  if (!instance || !instance.enabled) throw new HttpError("That instance does not exist or is not assigned to you.", 404);
+  return { instance, canControl: false, canManage: false };
+}
+
 api.post(
   "/instances/:id/bots",
   wrap(async (req, res) => {
-    const access = await openInstance(req);
+    const access = await openInstanceForCreate(req);
     assertCanCreate(req, access);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
@@ -315,7 +332,7 @@ api.post(
 api.post(
   "/instances/:id/bots/attach",
   wrap(async (req, res) => {
-    const access = await openInstance(req);
+    const access = await openInstanceForCreate(req);
     assertCanCreate(req, access);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
@@ -334,7 +351,11 @@ api.post(
     manageable(access);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
-    if (String(req.body.confirm || "").trim() !== name) throw new HttpError("Type the bot name exactly to confirm.", 400);
+    const typed = String(req.body.confirm || "").trim();
+    const rowId = await findTsBotId(access.instance.id, name);
+    const row = rowId ? await getTsBotRow(rowId) : null;
+    const visible = (row?.label || name).trim();
+    if (typed !== name && typed !== visible) throw new HttpError("Type the bot name exactly to confirm.", 400);
     await callBot(instanceClient(access.instance), ["settings", "delete", name]);
     await deleteTsBotByName(access.instance.id, name);
     await addAudit({ userId: req.user.id, instanceId: access.instance.id, action: "bot-delete", detail: name });
@@ -414,6 +435,26 @@ api.get(
       canCreate = owned.some((row) => row.ownerUserId === req.user.id);
     }
     ok(res, { bots, users, canCreate });
+  }),
+);
+
+api.post(
+  "/bots/:id/label",
+  wrap(async (req, res) => {
+    const access = await openBot(req);
+    if (req.user.role !== "admin" && !access.canManage && !access.canControl) {
+      throw new HttpError("You cannot manage bots on this instance.", 403);
+    }
+    const label = parseName(req.body.name);
+    await setBotLabel(access.bot.id, label);
+    await addAudit({
+      userId: req.user.id,
+      botId: access.bot.id,
+      instanceId: access.bot.instanceId,
+      action: "bot-label",
+      detail: label,
+    });
+    ok(res, { message: req.t("Bot name saved."), name: label });
   }),
 );
 
@@ -806,10 +847,39 @@ api.delete(
   }),
 );
 
+async function adminDirectory() {
+  const grants = await listGrantIds();
+  const users = (await listUsers()).map((account) => ({
+    ...account,
+    instanceIds: grants.filter((grant) => grant.userId === account.id).map((grant) => grant.instanceId),
+  }));
+  const instances = (await listInstances()).map((row) => ({ id: row.id, name: row.name }));
+  return { users, instances };
+}
+
 api.get(
   "/admin/users",
   wrap(async (req, res) => {
-    ok(res, { users: await listUsers() });
+    ok(res, await adminDirectory());
+  }),
+);
+
+api.post(
+  "/admin/users/:id/instances",
+  wrap(async (req, res) => {
+    const id = numericId(req.params.id);
+    const user = id ? await findUserById(id) : null;
+    if (!user) throw new HttpError("User not found", 404);
+    const known = new Set((await listInstances()).map((row) => row.id));
+    const raw = Array.isArray(req.body.instanceIds) ? req.body.instanceIds : [];
+    const instanceIds = [...new Set(raw.map((value) => numericId(value)).filter((value) => known.has(value)))];
+    await replaceUserGrants(user.id, instanceIds);
+    await addAudit({
+      userId: req.user.id,
+      action: "user-instances",
+      detail: `${user.username} → ${instanceIds.join(",") || "none"}`,
+    });
+    ok(res, { message: req.t("Instances saved."), ...(await adminDirectory()) });
   }),
 );
 
@@ -829,7 +899,7 @@ api.post(
       canCreateBots,
     });
     await addAudit({ userId: req.user.id, action: "user-create", detail: `${username} (${role}) id ${id}` });
-    ok(res, { message: req.t("User created."), users: await listUsers() });
+    ok(res, { message: req.t("User created."), ...(await adminDirectory()) });
   }),
 );
 
@@ -847,7 +917,7 @@ api.post(
       clearSessionCookie(res);
       return ok(res, { message: req.t("Password set for {name}. Existing sessions were signed out.", { name: user.username }), signedOut: true });
     }
-    ok(res, { message: req.t("Password set for {name}. Existing sessions were signed out.", { name: user.username }), users: await listUsers() });
+    ok(res, { message: req.t("Password set for {name}. Existing sessions were signed out.", { name: user.username }), ...(await adminDirectory()) });
   }),
 );
 
@@ -863,7 +933,7 @@ api.post(
     }
     await setRole(user.id, role);
     await addAudit({ userId: req.user.id, action: "user-role", detail: `${user.username} → ${role}` });
-    ok(res, { message: req.t("Role saved."), users: await listUsers() });
+    ok(res, { message: req.t("Role saved."), ...(await adminDirectory()) });
   }),
 );
 
@@ -880,7 +950,7 @@ api.post(
       action: "user-limit",
       detail: `${user.username} → ${botLimit == null ? "unlimited" : botLimit}`,
     });
-    ok(res, { message: req.t("Bot limit saved."), users: await listUsers() });
+    ok(res, { message: req.t("Bot limit saved."), ...(await adminDirectory()) });
   }),
 );
 
@@ -897,7 +967,7 @@ api.post(
       action: "user-create-bots",
       detail: `${user.username} → ${allowed ? "yes" : "no"}`,
     });
-    ok(res, { message: req.t("Bot permission saved."), users: await listUsers() });
+    ok(res, { message: req.t("Bot permission saved."), ...(await adminDirectory()) });
   }),
 );
 
@@ -915,7 +985,7 @@ api.post(
     await setSuspended(user.id, suspended);
     if (suspended) await deleteSessionsForUser(user.id);
     await addAudit({ userId: req.user.id, action: suspended ? "user-suspend" : "user-restore", detail: user.username });
-    ok(res, { message: suspended ? req.t("Account suspended.") : req.t("Account restored."), users: await listUsers() });
+    ok(res, { message: suspended ? req.t("Account suspended.") : req.t("Account restored."), ...(await adminDirectory()) });
   }),
 );
 
@@ -932,7 +1002,7 @@ api.delete(
     }
     await deleteUser(user.id);
     await addAudit({ userId: req.user.id, action: "user-delete", detail: user.username });
-    ok(res, { message: req.t("User deleted."), users: await listUsers() });
+    ok(res, { message: req.t("User deleted."), ...(await adminDirectory()) });
   }),
 );
 

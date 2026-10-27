@@ -483,7 +483,7 @@ export function BotsPage() {
                           try {
                             const result = await api(`/api/instances/${bot.instanceId}/bots/delete`, {
                               method: "POST",
-                              body: { name: bot.name, confirm },
+                              body: { name: bot.template || bot.name, confirm },
                             });
                             setNote(result.message || "");
                             reload();
@@ -952,7 +952,7 @@ export function Connection() {
   const { t } = useAuth();
   const { data, error, reload } = useLoad(`/api/bots/${id}/connection`);
   const player = usePlayer();
-  const { note, error: actionError, act } = useBotAction(id, player?.refresh);
+  const { note, error: actionError, act, setError } = useBotAction(id, player?.refresh);
   const [localNote, setLocalNote] = useState("");
   if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
   return (
@@ -964,6 +964,22 @@ export function Connection() {
         event.preventDefault();
         const formElement = event.currentTarget;
         const form = new FormData(formElement);
+        const label = String(form.get("label") || "").trim();
+        if (label && label !== (data?.bot?.name || "")) {
+          try {
+            const renamed = await api(`/api/bots/${id}/label`, { method: "POST", body: { name: label } });
+            setLocalNote(renamed.message || "");
+          } catch (err) {
+            setError(err.message);
+            return;
+          }
+        }
+        const touched = ["nickname", "channel", "serverPassword", "channelPassword", "bitrate", "volume", "run", "startup", "clearStartup"]
+          .some((key) => String(form.get(key) || "").trim());
+        if (!touched) {
+          reload();
+          return;
+        }
         const result = await act({
           op: "template-hosting",
           name: form.get("name"),
@@ -985,6 +1001,10 @@ export function Connection() {
         }
       }}>
         <h2>{t("Connection settings")}</h2>
+        <label>{t("Display name")}
+          <input name="label" maxLength={120} defaultValue={data?.bot?.name || ""} />
+        </label>
+        <p className="muted">{t("This is the name in the panel. The TeamSpeak nickname is separate.")}</p>
         <input type="hidden" name="name" value={data?.hosting?.name || ""} />
         <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" /></label>
         <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
@@ -1066,7 +1086,7 @@ export function Users() {
     setFormError("");
     const result = await api(path, { method: "POST", body });
     setNote(result.message || "");
-    if (result.users) setData({ users: result.users });
+    if (result.users) setData({ users: result.users, instances: result.instances || [] });
     if (result.signedOut) window.location.assign("/login");
     return result;
   }
@@ -1075,6 +1095,7 @@ export function Users() {
       <h1>{t("Users")}</h1>
       <p className="muted">{t("Panel accounts. These are not TeamSpeak identities.")}</p>
       <p className="muted">{t("A bot limit counts bots assigned to this account. A bot with nobody assigned counts for the instance owner. Leave it empty for unlimited.")}</p>
+      <p className="muted">{t("Check the instances an account may open. Can create bots also lets that account pick any enabled instance.")}</p>
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
@@ -1110,7 +1131,7 @@ export function Users() {
       </form>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Bot limit")}</th><th>{t("Can create bots")}</th><th>{t("Status")}</th><th></th></tr></thead>
+          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Bot limit")}</th><th>{t("Can create bots")}</th><th>{t("Status")}</th><th>{t("Instances")}</th><th></th></tr></thead>
           <tbody>
             {(data?.users || []).map((account) => (
               <tr key={account.id}>
@@ -1163,6 +1184,21 @@ export function Users() {
                     }}>{account.suspended ? t("Restore") : t("Suspend")}</button>
                   ) : null}
                 </td>
+                <td>
+                  <form key={(account.instanceIds || []).join("-") || "none"} onSubmit={async (event) => {
+                    event.preventDefault();
+                    const ids = [...new FormData(event.currentTarget).getAll("instanceId")];
+                    try { await post(`/api/admin/users/${account.id}/instances`, { instanceIds: ids }); }
+                    catch (err) { setFormError(err.message); }
+                  }}>
+                    {(data.instances || []).map((item) => (
+                      <label className="check" key={item.id}>
+                        <input type="checkbox" name="instanceId" value={item.id} defaultChecked={(account.instanceIds || []).includes(item.id)} /> {item.name}
+                      </label>
+                    ))}
+                    <button className="btn" type="submit">{t("Save")}</button>
+                  </form>
+                </td>
                 <td className="inline">
                   <form className="inline" onSubmit={async (event) => {
                     event.preventDefault();
@@ -1178,7 +1214,7 @@ export function Users() {
                   {account.id !== user.id ? (
                     <button className="btn btn-danger" type="button" onClick={async () => {
                       if (!window.confirm(t("Delete"))) return;
-                      try { await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } }).then((result) => { setNote(result.message); setData({ users: result.users }); }); }
+                      try { await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } }).then((result) => { setNote(result.message); setData({ users: result.users, instances: result.instances || [] }); }); }
                       catch (err) { setFormError(err.message); }
                     }}>{t("Remove")}</button>
                   ) : null}

@@ -55,6 +55,7 @@ export function mapBot(row, { token = false } = {}) {
   return {
     id: Number(row.id),
     name: row.name,
+    label: row.label || "",
     baseUrl: row.base_url,
     instanceId: Number(row.instance_id),
     instanceName: row.instance_name || "",
@@ -77,7 +78,8 @@ export function mapBot(row, { token = false } = {}) {
 export function publicBot(bot, { admin = false } = {}) {
   return {
     id: bot.id,
-    name: bot.name,
+    name: bot.label || bot.name,
+    template: bot.name,
     enabled: bot.enabled,
     notes: bot.notes,
     instanceId: bot.instanceId,
@@ -302,7 +304,7 @@ export async function takeFlash(id) {
 
 const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user, i.api_token_enc, i.enabled, i.notes, i.created_at`;
 
-const TS_BOT_JOIN = `t.id, t.name, i.base_url, 'template' AS instance_mode, t.name AS instance_ref,
+const TS_BOT_JOIN = `t.id, t.name, t.label, i.base_url, 'template' AS instance_mode, t.name AS instance_ref,
             i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
             i.id AS instance_id, i.name AS instance_name, i.owner_user_id, t.assignee_user_id,
             (SELECT au.username FROM users au WHERE au.id = t.assignee_user_id) AS assignee_name,
@@ -518,6 +520,35 @@ export async function deleteTsBotByName(instanceId, name) {
 
 export async function setBotAssignee(botId, userId) {
   await pool.query("UPDATE ts_bots SET assignee_user_id = ? WHERE id = ?", [userId, botId]);
+}
+
+export async function setBotLabel(botId, label) {
+  await pool.query("UPDATE ts_bots SET label = ? WHERE id = ?", [label || null, botId]);
+}
+
+export async function listGrantIds() {
+  const [rows] = await pool.query("SELECT user_id, instance_id FROM instance_grants");
+  return rows.map((row) => ({ userId: Number(row.user_id), instanceId: Number(row.instance_id) }));
+}
+
+export async function replaceUserGrants(userId, instanceIds) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query("DELETE FROM instance_grants WHERE user_id = ?", [userId]);
+    for (const instanceId of instanceIds) {
+      await connection.query(
+        "INSERT INTO instance_grants (instance_id, user_id, can_control) VALUES (?, ?, 1)",
+        [instanceId, userId],
+      );
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function accessToBot(user, botId) {

@@ -81,6 +81,12 @@ const de = {
     "Im Compose-Netz reicht die API-Adresse. Ein Token wird nur verschlüsselt gespeichert, wenn du einen einträgst.",
   "Open playback": "Zur Wiedergabe",
   "Display name": "Anzeigename",
+  "This is the name in the panel. The TeamSpeak nickname is separate.":
+    "Das ist der Name im Panel. Der TeamSpeak-Nickname ist davon getrennt.",
+  "Bot name saved.": "Bot-Name gespeichert.",
+  "Instances saved.": "Instanzen gespeichert.",
+  "Check the instances an account may open. Can create bots also lets that account pick any enabled instance.":
+    "Hake die Instanzen an, die ein Konto öffnen darf. Mit Kann Bots anlegen darf das Konto jede aktive Instanz selbst wählen.",
   "API address": "API-Adresse",
   "Instance context": "Instanzkontext",
   "Template name": "Template-Name",
