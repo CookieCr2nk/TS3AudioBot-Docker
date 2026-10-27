@@ -30,11 +30,11 @@ Commands to the bot go only through `actions.js`. There is no free-form command 
 
 ## Database
 
-Schema changes are new files `sql/migrations/006_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. `005_bot_limit.sql` adds `users.bot_limit`. Startup refuses a different checksum and a version this image no longer ships.
+Schema changes are new files `sql/migrations/007_name.sql`. Do not edit a file that is already recorded in `schema_migrations`. `005_bot_limit.sql` adds `users.bot_limit`. `006_bot_access.sql` makes `users.password_hash` nullable, adds `users.can_create_bots`, and adds `ts_bots.assignee_user_id`. Startup refuses a different checksum and a version this image no longer ships.
 
 Statements must be safe to run again. MariaDB commits DDL one statement at a time. The version row is inserted only after the last statement. Startup logs when the process starts, when it is ready, and when it stops. A failed startup still listens and logs that it is not ready. It also logs each migration it applies, and logs when the schema is already current. `001_baseline.sql` is the old `schema.sql`. Do not bring that file back as a second source.
 
-One Docker container is one row in `instances` (address, encrypted token, owner, enabled). TeamSpeak bots inside that process are rows in `ts_bots`, unique by instance and template name. `instance_grants` lets other accounts control those bots. The owner and administrators can create and delete bots. Granted users cannot. `users.bot_limit` is the maximum number of bots on instances that account owns. NULL means unlimited. An instance with no owner has no limit. The panel does not start containers. `users.suspended` blocks sign-in and the suspend action deletes that account's sessions.
+One Docker container is one row in `instances` (address, encrypted token, owner, enabled). TeamSpeak bots inside that process are rows in `ts_bots`, unique by instance and template name. `instance_grants` lets other accounts control those bots. The owner and administrators can create and delete bots. A granted user can create bots only when `users.can_create_bots` is on. Otherwise an administrator assigns the bot (`ts_bots.assignee_user_id`). The assignee can open that bot. `users.bot_limit` counts bots assigned to the account, and unassigned bots count for the instance owner. NULL means unlimited. An instance with no owner has no limit. The panel does not start containers. `users.suspended` blocks sign-in and the suspend action deletes that account's sessions. An account with no password hash cannot sign in.
 
 `003_hosting.sql` copies old `bots` rows and is safe to run again until it is recorded. `004_drop_legacy_bots.sql` drops `bots` and `bot_grants` after that copy.
 

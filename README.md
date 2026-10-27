@@ -65,7 +65,7 @@ When MariaDB runs on the same machine as Docker, set `PANEL_DB_HOST=host.docker.
 
 The database and user must already exist and must accept connections from the Docker bridge. The panel creates its tables on startup.
 
-Schema changes are numbered files in `panel/sql/migrations/`. Each new file runs once and is stored in `schema_migrations` with a checksum. A file that has already been applied must not change. The next change is a new file with the next number, for example `006_name.sql`. The SQL statements must be safe to run again if the process stops between two statements.
+Schema changes are numbered files in `panel/sql/migrations/`. Each new file runs once and is stored in `schema_migrations` with a checksum. A file that has already been applied must not change. The next change is a new file with the next number, for example `007_name.sql`. The SQL statements must be safe to run again if the process stops between two statements.
 
 ```bash
 make compose-panel-external-up
@@ -77,7 +77,7 @@ Stop with `make compose-panel-external-down`. The external database is left as i
 
 Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when the bot volume is replaced.
 
-An administrator registers each container as an instance and can assign an owner and extra users. The owner can create and delete TeamSpeak bots on that instance. Granted users can control playback and cannot create bots. Each account can create unlimited bots or a fixed number. An administrator sets that number. It counts the bots on instances that account owns. An instance with no owner has no limit. A suspended account cannot sign in. The panel does not start containers, and it has no billing and no tickets.
+An administrator registers each container as an instance and can assign an owner and extra users. The owner can create and delete TeamSpeak bots on that instance. Granted users can control playback. They can create bots only when an administrator allows it. Otherwise an administrator assigns each bot to a user from Bots, and that user can open it. The bot list shows who it belongs to. Each account can own unlimited bots or a fixed number. An administrator sets that number. It counts bots assigned to the account. A bot with nobody assigned counts for the instance owner. An instance with no owner has no limit. A new account can be created without a password and cannot sign in until one is set. A suspended account cannot sign in. The panel does not start containers, and it has no billing and no tickets.
 
 Under Connection, an administrator writes the nickname, default channel, server password, channel password, bitrate, whether the bot connects when the process starts, and an optional HTTP or HTTPS stream into the bot template. Empty fields stay unchanged. A connected bot takes the new nickname immediately. An offline bot uses it the next time it connects. The stream plays when the bot connects. Passwords are sent to the bot and are not stored in the panel database. A TeamSpeak privilege key is sent once to the open bot and is not stored in the panel. Channel commander can be turned on or off for the connected bot. That flag is not stored.
 

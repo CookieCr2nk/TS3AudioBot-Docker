@@ -116,7 +116,7 @@ export function Overview() {
 }
 
 export function BotsPage() {
-  const { t } = useAuth();
+  const { user, t } = useAuth();
   const [params, setParams] = useSearchParams();
   const { data, error, reload } = useLoad("/api/bots");
   const [selected, setSelected] = useState([]);
@@ -287,6 +287,7 @@ export function BotsPage() {
                   <input ref={allRef} type="checkbox" checked={allPicked} disabled={!selectable.length} aria-label={t("Select all")} onChange={toggleVisible} />
                 </th>
                 <th>{t("Name")}</th>
+                <th>{t("Owner")}</th>
                 <th>{t("Instance")}</th>
                 <th>{t("Status")}</th>
                 <th>{t("Now playing")}</th>
@@ -323,11 +324,54 @@ export function BotsPage() {
                       />
                     </td>
                     <td><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
+                    <td>
+                      <div>{bot.ownerName || t("No owner")}</div>
+                      {user.role === "admin" ? (
+                        <form className="inline" onSubmit={async (event) => {
+                          event.preventDefault();
+                          const formElement = event.currentTarget;
+                          setFormError("");
+                          try {
+                            const result = await api(`/api/bots/${bot.id}/assignee`, {
+                              method: "POST",
+                              body: { userId: new FormData(formElement).get("userId") },
+                            });
+                            setNote(result.message || "");
+                            reload();
+                          } catch (err) {
+                            setFormError(err.message);
+                          }
+                        }}>
+                          <select name="userId" defaultValue={bot.assigneeUserId || ""} key={`${bot.id}-${bot.assigneeUserId || "none"}`}>
+                            <option value="">{t("Instance owner")}</option>
+                            {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+                          </select>
+                          <button className="btn" type="submit">{t("Save")}</button>
+                        </form>
+                      ) : null}
+                    </td>
                     <td>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
                     <td><span className={pill}>{status}</span>{playback?.error ? <div className="muted">{playback.error}</div> : null}</td>
                     <td>{playback?.title || "—"}</td>
                     <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
-                    <td><Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link></td>
+                    <td className="inline">
+                      <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
+                      {bot.canManage ? (
+                        <DeleteBot name={bot.name} onSubmit={async (confirm) => {
+                          setFormError("");
+                          try {
+                            const result = await api(`/api/instances/${bot.instanceId}/bots/delete`, {
+                              method: "POST",
+                              body: { name: bot.name, confirm },
+                            });
+                            setNote(result.message || "");
+                            reload();
+                          } catch (err) {
+                            setFormError(err.message);
+                          }
+                        }} />
+                      ) : null}
+                    </td>
                   </tr>
                 );
               })}
@@ -400,7 +444,7 @@ export function InstancePage() {
       </div>
       <Notice error={formError || error} note={note} />
 
-      {data.canManage ? (
+      {data.canCreate ? (
         <form className="card" onSubmit={(event) => {
           event.preventDefault();
           const name = new FormData(event.currentTarget).get("name");
@@ -416,7 +460,7 @@ export function InstancePage() {
         </form>
       ) : null}
 
-      {data.canManage ? (
+      {data.canCreate ? (
         <form className="card" onSubmit={(event) => {
           event.preventDefault();
           const name = new FormData(event.currentTarget).get("name");
@@ -431,28 +475,6 @@ export function InstancePage() {
           </div>
         </form>
       ) : null}
-
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Name")}</th><th></th></tr></thead>
-          <tbody>
-            {(data.bots || []).length === 0 ? (
-              <tr><td className="muted" colSpan={2}>{t("No bots on this instance yet.")}</td></tr>
-            ) : null}
-            {(data.bots || []).map((bot) => (
-              <tr key={bot.id}>
-                <td><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
-                <td className="inline">
-                  <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
-                  {data.canManage ? (
-                    <DeleteBot name={bot.name} onSubmit={(confirm) => run(`/api/instances/${id}/bots/delete`, { name: bot.name, confirm })} />
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
 
       {user.role === "admin" ? (
         <form className="card" onSubmit={saveInstance}>
@@ -938,7 +960,7 @@ export function Users() {
     <div className="page">
       <h1>{t("Users")}</h1>
       <p className="muted">{t("Panel accounts. These are not TeamSpeak identities.")}</p>
-      <p className="muted">{t("A bot limit counts the bots on instances this account owns. Leave it empty for unlimited.")}</p>
+      <p className="muted">{t("A bot limit counts bots assigned to this account. A bot with nobody assigned counts for the instance owner. Leave it empty for unlimited.")}</p>
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
@@ -950,6 +972,7 @@ export function Users() {
             password: form.get("password"),
             role: form.get("role"),
             botLimit: form.get("botLimit"),
+            canCreateBots: form.get("canCreateBots") === "on",
           });
           formElement.reset();
         } catch (err) {
@@ -959,7 +982,7 @@ export function Users() {
         <h2>{t("Create")}</h2>
         <div className="split">
           <label>{t("Username")}<input name="username" required maxLength={32} pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,31}" autoComplete="off" /></label>
-          <label>{t("Password")}<input name="password" type="password" required minLength={10} autoComplete="new-password" /></label>
+          <label>{t("Password")}<input name="password" type="password" autoComplete="new-password" placeholder={t("Leave empty until you set a password")} /></label>
           <label>{t("Role")}
             <select name="role" defaultValue="user">
               <option value="user">{t("User")}</option>
@@ -967,16 +990,20 @@ export function Users() {
             </select>
           </label>
           <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} /></label>
+          <label className="check"><input type="checkbox" name="canCreateBots" value="on" /> {t("Can create bots")}</label>
           <button className="btn btn-primary" type="submit">{t("Create")}</button>
         </div>
       </form>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Bot limit")}</th><th>{t("Status")}</th><th></th></tr></thead>
+          <thead><tr><th>{t("Name")}</th><th>{t("Role")}</th><th>{t("Bot limit")}</th><th>{t("Can create bots")}</th><th>{t("Status")}</th><th></th></tr></thead>
           <tbody>
             {(data?.users || []).map((account) => (
               <tr key={account.id}>
-                <td>{account.username}</td>
+                <td>
+                  {account.username}
+                  {account.hasPassword ? null : <div className="muted">{t("Cannot sign in until a password is set")}</div>}
+                </td>
                 <td>
                   <form className="inline" onSubmit={async (event) => {
                     event.preventDefault();
@@ -997,6 +1024,19 @@ export function Users() {
                     catch (err) { setFormError(err.message); }
                   }}>
                     <input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} defaultValue={account.botLimit ?? ""} key={account.botLimit ?? "unlimited"} />
+                    <button className="btn" type="submit">{t("Save")}</button>
+                  </form>
+                </td>
+                <td>
+                  <form className="inline" key={account.canCreateBots ? "yes" : "no"} onSubmit={async (event) => {
+                    event.preventDefault();
+                    try {
+                      await post(`/api/admin/users/${account.id}/create-bots`, {
+                        canCreateBots: new FormData(event.currentTarget).get("canCreateBots") === "on",
+                      });
+                    } catch (err) { setFormError(err.message); }
+                  }}>
+                    <label className="check"><input type="checkbox" name="canCreateBots" value="on" defaultChecked={account.canCreateBots} /> {t("Can create bots")}</label>
                     <button className="btn" type="submit">{t("Save")}</button>
                   </form>
                 </td>

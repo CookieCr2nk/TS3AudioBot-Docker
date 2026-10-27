@@ -17,6 +17,7 @@ import {
   assertBaseUrl,
   parseBotLimit,
   parseHostingSettings,
+  parseOptionalPassword,
   parsePassword,
   parseStreamUrl,
   parseVolume,
@@ -227,6 +228,9 @@ describe("input", () => {
     assert.throws(() => parseVolume("101"));
     assert.throws(() => parseVolume("-1"));
     assert.throws(() => parsePassword("short"));
+    assert.equal(parseOptionalPassword(""), null);
+    assert.equal(parseOptionalPassword("longenough1"), "longenough1");
+    assert.throws(() => parseOptionalPassword("short"));
   });
 });
 
@@ -251,6 +255,7 @@ describe("secrets and schema", () => {
       "003_hosting",
       "004_drop_legacy_bots",
       "005_bot_limit",
+      "006_bot_access",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
@@ -261,6 +266,8 @@ describe("secrets and schema", () => {
     assert.equal(migrations[2].statements.some((statement) => /FOREIGN KEY IF NOT EXISTS \(instance_id\)/i.test(statement)), true);
     assert.equal(migrations[3].statements.some((statement) => /DROP TABLE IF EXISTS bots/i.test(statement)), true);
     assert.equal(migrations[4].statements.some((statement) => /ADD COLUMN IF NOT EXISTS bot_limit/i.test(statement)), true);
+    assert.equal(migrations[5].statements.some((statement) => /ADD COLUMN IF NOT EXISTS can_create_bots/i.test(statement)), true);
+    assert.equal(migrations[5].statements.some((statement) => /assignee_user_id/i.test(statement)), true);
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);
@@ -293,7 +300,7 @@ describe("secrets and schema", () => {
     assert.equal(lines.filter((line) => line === "[panel] Database schema is current").length, 1);
     const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
     assert.equal(inserts.length, migrations.length);
-    assert.equal(applied.length, 5);
+    assert.equal(applied.length, 6);
 
     const changed = migrations.map((migration, index) =>
       index === 0 ? { ...migration, checksum: "0".repeat(64) } : migration,

@@ -66,6 +66,10 @@ export function mapBot(row, { token = false } = {}) {
     hasToken: Boolean(row.api_token_enc),
     enabled: Boolean(row.enabled),
     notes: row.notes || "",
+    assigneeUserId: row.assignee_user_id == null ? null : Number(row.assignee_user_id),
+    assigneeName: row.assignee_name || "",
+    ownerUserId: row.owner_user_id == null ? null : Number(row.owner_user_id),
+    ownerName: row.owner_name || "",
     createdAt: row.created_at,
   };
 }
@@ -81,6 +85,8 @@ export function publicBot(bot, { admin = false } = {}) {
     instanceMode: bot.instanceMode,
     instanceRef: bot.instanceRef,
     baseUrl: admin ? bot.baseUrl : null,
+    ownerName: bot.assigneeName || bot.ownerName || "",
+    assigneeUserId: admin ? bot.assigneeUserId : null,
   };
 }
 
@@ -129,7 +135,7 @@ export async function findUserByUsername(username) {
 
 export async function findUserById(id) {
   const [rows] = await pool.query(
-    "SELECT id, username, password_hash, role, suspended, bot_limit FROM users WHERE id = ? LIMIT 1",
+    "SELECT id, username, password_hash, role, suspended, bot_limit, can_create_bots FROM users WHERE id = ? LIMIT 1",
     [id],
   );
   return rows[0] || null;
@@ -137,7 +143,9 @@ export async function findUserById(id) {
 
 export async function listUsers() {
   const [rows] = await pool.query(
-    "SELECT id, username, role, suspended, bot_limit, created_at, last_login_at FROM users ORDER BY username",
+    `SELECT id, username, role, suspended, bot_limit, can_create_bots,
+            password_hash IS NOT NULL AS has_password, created_at, last_login_at
+     FROM users ORDER BY username`,
   );
   return rows.map((row) => ({
     id: Number(row.id),
@@ -145,16 +153,18 @@ export async function listUsers() {
     role: row.role,
     suspended: Boolean(row.suspended),
     botLimit: row.bot_limit == null ? null : Number(row.bot_limit),
+    canCreateBots: Boolean(row.can_create_bots),
+    hasPassword: Boolean(row.has_password),
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at,
   }));
 }
 
-export async function createUser({ username, passwordHash, role, botLimit = null }) {
+export async function createUser({ username, passwordHash, role, botLimit = null, canCreateBots = false }) {
   try {
     const [result] = await pool.query(
-      "INSERT INTO users (username, password_hash, role, bot_limit) VALUES (?, ?, ?, ?)",
-      [username, passwordHash, role, botLimit],
+      "INSERT INTO users (username, password_hash, role, bot_limit, can_create_bots) VALUES (?, ?, ?, ?, ?)",
+      [username, passwordHash, role, botLimit, canCreateBots ? 1 : 0],
     );
     return Number(result.insertId);
   } catch (err) {
@@ -167,13 +177,23 @@ export async function setBotLimit(id, botLimit) {
   await pool.query("UPDATE users SET bot_limit = ? WHERE id = ?", [botLimit, id]);
 }
 
-export async function countOwnedBots(userId) {
+export async function setCanCreateBots(id, allowed) {
+  await pool.query("UPDATE users SET can_create_bots = ? WHERE id = ?", [allowed ? 1 : 0, id]);
+}
+
+export async function countOwnedBots(userId, exceptBotId = null) {
+  const params = [userId];
+  let extra = "";
+  if (exceptBotId != null) {
+    extra = " AND t.id <> ?";
+    params.push(exceptBotId);
+  }
   const [rows] = await pool.query(
     `SELECT COUNT(*) AS total
      FROM ts_bots t
      JOIN instances i ON i.id = t.instance_id
-     WHERE i.owner_user_id = ?`,
-    [userId],
+     WHERE COALESCE(t.assignee_user_id, i.owner_user_id) = ?${extra}`,
+    params,
   );
   return Number(rows[0].total);
 }
@@ -240,7 +260,7 @@ export async function createSession({ id, userId, csrf, expiresAt }) {
 
 export async function getSession(id) {
   const [rows] = await pool.query(
-    `SELECT s.csrf_token, u.id AS user_id, u.username, u.role
+    `SELECT s.csrf_token, u.id AS user_id, u.username, u.role, u.can_create_bots
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP(3) AND u.suspended = 0
@@ -253,6 +273,7 @@ export async function getSession(id) {
     userId: Number(rows[0].user_id),
     username: rows[0].username,
     role: rows[0].role,
+    canCreateBots: Boolean(rows[0].can_create_bots),
   };
 }
 
@@ -283,7 +304,9 @@ const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user,
 
 const TS_BOT_JOIN = `t.id, t.name, i.base_url, 'template' AS instance_mode, t.name AS instance_ref,
             i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
-            i.id AS instance_id, i.name AS instance_name, i.owner_user_id`;
+            i.id AS instance_id, i.name AS instance_name, i.owner_user_id, t.assignee_user_id,
+            (SELECT au.username FROM users au WHERE au.id = t.assignee_user_id) AS assignee_name,
+            (SELECT ou.username FROM users ou WHERE ou.id = i.owner_user_id) AS owner_name`;
 
 function mapInstance(row, { token = false } = {}) {
   let apiToken = null;
@@ -423,13 +446,13 @@ export async function listAccessibleBots(user) {
   }
   const [rows] = await pool.query(
     `SELECT ${TS_BOT_JOIN},
-            CASE WHEN i.owner_user_id = ? THEN 1 ELSE IFNULL(g.can_control, 0) END AS can_control
+            CASE WHEN i.owner_user_id = ? OR t.assignee_user_id = ? THEN 1 ELSE IFNULL(g.can_control, 0) END AS can_control
      FROM ts_bots t
      JOIN instances i ON i.id = t.instance_id
      LEFT JOIN instance_grants g ON g.instance_id = i.id AND g.user_id = ?
-     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR g.user_id = ?)
+     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR g.user_id = ? OR t.assignee_user_id = ?)
      ORDER BY i.name, t.name`,
-    [user.id, user.id, user.id, user.id],
+    [user.id, user.id, user.id, user.id, user.id, user.id],
   );
   return rows.map((row) => ({
     bot: mapBot(row, { token: true }),
@@ -470,11 +493,14 @@ export async function findTsBotId(instanceId, name) {
   return rows[0] ? Number(rows[0].id) : null;
 }
 
-export async function ensureTsBot(instanceId, name) {
+export async function ensureTsBot(instanceId, name, assigneeUserId = null) {
   const existing = await findTsBotId(instanceId, name);
   if (existing) return existing;
   try {
-    const [result] = await pool.query("INSERT INTO ts_bots (instance_id, name) VALUES (?, ?)", [instanceId, name]);
+    const [result] = await pool.query(
+      "INSERT INTO ts_bots (instance_id, name, assignee_user_id) VALUES (?, ?, ?)",
+      [instanceId, name, assigneeUserId],
+    );
     return Number(result.insertId);
   } catch (err) {
     if (err.code !== "ER_DUP_ENTRY") throw err;
@@ -490,6 +516,10 @@ export async function deleteTsBotByName(instanceId, name) {
   await pool.query("DELETE FROM ts_bots WHERE instance_id = ? AND name = ?", [instanceId, name]);
 }
 
+export async function setBotAssignee(botId, userId) {
+  await pool.query("UPDATE ts_bots SET assignee_user_id = ? WHERE id = ?", [userId, botId]);
+}
+
 export async function accessToBot(user, botId) {
   const row = await getTsBotRow(botId);
   if (!row) return null;
@@ -498,6 +528,9 @@ export async function accessToBot(user, botId) {
   if (!row.enabled) return null;
   if (row.owner_user_id != null && Number(row.owner_user_id) === user.id) {
     return { bot, canControl: true, canManage: true };
+  }
+  if (row.assignee_user_id != null && Number(row.assignee_user_id) === user.id) {
+    return { bot, canControl: true, canManage: false };
   }
   const grant = await getGrant(row.instance_id, user.id);
   if (!grant) return null;

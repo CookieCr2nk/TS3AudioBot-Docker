@@ -86,7 +86,12 @@ export const loadSession = wrap(async (req, res, next) => {
     clearSessionCookie(res);
     return next();
   }
-  req.user = { id: session.userId, username: session.username, role: session.role };
+  req.user = {
+    id: session.userId,
+    username: session.username,
+    role: session.role,
+    canCreateBots: Boolean(session.canCreateBots),
+  };
   req.sessionId = id;
   req.csrf = session.csrf;
   res.locals.user = req.user;

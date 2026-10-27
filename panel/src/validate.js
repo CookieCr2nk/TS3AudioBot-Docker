@@ -28,6 +28,12 @@ export function parsePassword(value) {
   return rejectControls(password, "Password");
 }
 
+export function parseOptionalPassword(value) {
+  const password = String(value ?? "");
+  if (!password) return null;
+  return parsePassword(password);
+}
+
 export function parseRole(value) {
   const role = clean(value);
   if (role !== "admin" && role !== "user") throw new ValidationError("Invalid role");

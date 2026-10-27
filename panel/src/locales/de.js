@@ -486,8 +486,8 @@ const de = {
   "Bot limit is invalid": "Das Bot-Limit ist ungültig",
   "Bot limit reached ({count}).": "Bot-Limit erreicht ({count}).",
   "Bot limit saved.": "Bot-Limit gespeichert.",
-  "A bot limit counts the bots on instances this account owns. Leave it empty for unlimited.":
-    "Das Bot-Limit zählt die Bots auf Instanzen, die diesem Konto gehören. Leer lassen heißt unbegrenzt.",
+  "A bot limit counts bots assigned to this account. A bot with nobody assigned counts for the instance owner. Leave it empty for unlimited.":
+    "Das Bot-Limit zählt Bots, die diesem Konto zugewiesen sind. Ein Bot ohne Zuweisung zählt für den Instanz-Besitzer. Leer lassen heißt unbegrenzt.",
   "No bot limit. {count} bots are in use.": "Kein Bot-Limit. {count} Bots sind in Verwendung.",
   "{used} of {limit} bots are in use.": "{used} von {limit} Bots sind in Verwendung.",
   GitHub: "GitHub",
@@ -499,6 +499,14 @@ const de = {
   "Channel commander updated": "Channel-Commander geändert",
   "Channel commander is on": "Channel-Commander ist an",
   "Channel commander is off": "Channel-Commander ist aus",
+  "You cannot create bots. Ask an administrator to assign one.":
+    "Du kannst keine Bots anlegen. Ein Administrator muss dir einen zuweisen.",
+  "Bot assigned.": "Bot zugewiesen.",
+  "Bot permission saved.": "Bot-Berechtigung gespeichert.",
+  "Leave empty until you set a password": "Leer lassen, bis ein Passwort gesetzt wird",
+  "Can create bots": "Kann Bots anlegen",
+  "Cannot sign in until a password is set": "Anmeldung erst möglich, wenn ein Passwort gesetzt ist",
+  "Instance owner": "Instanz-Besitzer",
 };
 
 export default de;
