@@ -5,6 +5,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- User management lists accounts in pages of 10, with 25, 50, or 100 per page. Edit opens one account at a time
 - The bot list shows the TeamSpeak server next to the status while that bot is online
 - The overview shows a dashboard with instance, online, offline, and bot counts
 - An administrator can allow an account to create bots, or assign each bot to a user from Bots. The list shows that user. A new account can be created without a password and cannot sign in until one is set

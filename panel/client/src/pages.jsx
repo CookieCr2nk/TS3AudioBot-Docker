@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "./api.js";
@@ -1046,11 +1046,16 @@ export function Connection() {
   );
 }
 
+const USER_PAGE_SIZES = [10, 25, 50, 100];
+
 export function Users() {
   const { user, t } = useAuth();
   const { data, error, setData } = useLoad("/api/admin/users");
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
+  const [openId, setOpenId] = useState(null);
   if (user.role !== "admin") return <p className="flash flash-error">{t("Administrators only")}</p>;
   async function post(path, body) {
     setFormError("");
@@ -1059,6 +1064,16 @@ export function Users() {
     if (result.users) setData({ users: result.users, instances: result.instances || [] });
     if (result.signedOut) window.location.assign("/login");
     return result;
+  }
+  const accounts = data?.users || [];
+  const pageCount = Math.max(1, Math.ceil(accounts.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * pageSize;
+  const visible = accounts.slice(start, start + pageSize);
+  const instances = data?.instances || [];
+  function instanceNames(ids) {
+    const names = (ids || []).map((id) => instances.find((item) => item.id === id)?.name).filter(Boolean);
+    return names.length ? names.join(", ") : t("None");
   }
   return (
     <div className="page">
@@ -1104,74 +1119,122 @@ export function Users() {
           <button className="btn btn-primary" type="submit">{t("Create")}</button>
         </div>
       </form>
-      <div className="user-list">
-        {(data?.users || []).map((account) => (
-          <form className="card user-card" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            try {
-              await post(`/api/admin/users/${account.id}/role`, { role: form.get("role") });
-              await post(`/api/admin/users/${account.id}/limit`, { botLimit: form.get("botLimit") });
-              await post(`/api/admin/users/${account.id}/create-bots`, { canCreateBots: form.get("canCreateBots") === "yes" });
-              await post(`/api/admin/users/${account.id}/instances`, { instanceIds: [...form.getAll("instanceId")] });
-              const suspend = form.get("suspended") === "yes";
-              if (suspend !== account.suspended && account.id !== user.id) {
-                await post(`/api/admin/users/${account.id}/suspend`, { suspended: suspend });
-              }
-            } catch (err) {
-              setFormError(err.message);
-            }
-          }}>
-            <div className="user-card-head">
-              <h2>{account.username}</h2>
-              <span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span>
-            </div>
-            {account.hasPassword ? null : <p className="muted">{t("Cannot sign in until a password is set")}</p>}
-            <div className="split">
-              <label>{t("Role")}
-                <select name="role" defaultValue={account.role}>
-                  <option value="user">{t("User")}</option>
-                  <option value="admin">{t("Administrator")}</option>
-                </select>
-              </label>
-              <label>{t("Can create bots")}
-                <select name="canCreateBots" defaultValue={account.canCreateBots ? "yes" : "no"}>
-                  <option value="no">{t("No")}</option>
-                  <option value="yes">{t("Yes")}</option>
-                </select>
-              </label>
-              <label>{t("Status")}
-                <select name="suspended" defaultValue={account.suspended ? "yes" : "no"} disabled={account.id === user.id}>
-                  <option value="no">{t("Active")}</option>
-                  <option value="yes">{t("Suspended")}</option>
-                </select>
-              </label>
-              <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} defaultValue={account.botLimit ?? ""} /></label>
-            </div>
-            <label>{t("Instances")}
-              <select name="instanceId" multiple size={Math.min(6, Math.max((data.instances || []).length, 3))} defaultValue={(account.instanceIds || []).map(String)}>
-                {(data.instances || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
-            </label>
-            <div className="split">
-              <label className="grow">{t("New password")}<input name="password" type="password" minLength={10} autoComplete="new-password" /></label>
-              <button className="btn" type="button" onClick={async (event) => {
-                const password = new FormData(event.currentTarget.form).get("password");
-                if (!password) return;
-                try { await post(`/api/admin/users/${account.id}/password`, { password }); }
-                catch (err) { setFormError(err.message); }
-              }}>{t("Set")}</button>
-              <button className="btn btn-primary" type="submit">{t("Save")}</button>
-              {account.id !== user.id ? (
-                <button className="btn btn-danger" type="button" onClick={async () => {
-                  if (!window.confirm(t("Delete"))) return;
-                  try { await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } }).then((result) => { setNote(result.message); setData({ users: result.users, instances: result.instances || [] }); }); }
-                  catch (err) { setFormError(err.message); }
-                }}>{t("Remove")}</button>
-              ) : null}
-            </div>
-          </form>
-        ))}
+      <div className="user-pager">
+        <label>{t("Per page")}
+          <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+            {USER_PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+        </label>
+        <div className="transport">
+          <button className="btn" type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>{t("Previous page")}</button>
+          <span className="muted">{t("Page {page} of {pages}", { page: currentPage, pages: pageCount })}</span>
+          <button className="btn" type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>{t("Next page")}</button>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{t("Username")}</th>
+              <th>{t("Role")}</th>
+              <th>{t("Status")}</th>
+              <th>{t("Can create bots")}</th>
+              <th>{t("Bot limit")}</th>
+              <th>{t("Instances")}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((account) => (
+              <Fragment key={account.id}>
+                <tr>
+                  <td>
+                    {account.username}
+                    {account.hasPassword ? null : <div className="muted">{t("Cannot sign in until a password is set")}</div>}
+                  </td>
+                  <td>{account.role === "admin" ? t("Administrator") : t("User")}</td>
+                  <td><span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span></td>
+                  <td>{account.canCreateBots ? t("Yes") : t("No")}</td>
+                  <td>{account.botLimit ?? t("Unlimited")}</td>
+                  <td>{instanceNames(account.instanceIds)}</td>
+                  <td>
+                    <button className="btn" type="button" onClick={() => setOpenId(openId === account.id ? null : account.id)}>{openId === account.id ? t("Close") : t("Edit")}</button>
+                  </td>
+                </tr>
+                {openId === account.id ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <form className="user-edit" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
+                        event.preventDefault();
+                        const form = new FormData(event.currentTarget);
+                        try {
+                          await post(`/api/admin/users/${account.id}/role`, { role: form.get("role") });
+                          await post(`/api/admin/users/${account.id}/limit`, { botLimit: form.get("botLimit") });
+                          await post(`/api/admin/users/${account.id}/create-bots`, { canCreateBots: form.get("canCreateBots") === "yes" });
+                          await post(`/api/admin/users/${account.id}/instances`, { instanceIds: [...form.getAll("instanceId")] });
+                          const suspend = form.get("suspended") === "yes";
+                          if (suspend !== account.suspended && account.id !== user.id) {
+                            await post(`/api/admin/users/${account.id}/suspend`, { suspended: suspend });
+                          }
+                        } catch (err) {
+                          setFormError(err.message);
+                        }
+                      }}>
+                        <div className="split">
+                          <label>{t("Role")}
+                            <select name="role" defaultValue={account.role}>
+                              <option value="user">{t("User")}</option>
+                              <option value="admin">{t("Administrator")}</option>
+                            </select>
+                          </label>
+                          <label>{t("Can create bots")}
+                            <select name="canCreateBots" defaultValue={account.canCreateBots ? "yes" : "no"}>
+                              <option value="no">{t("No")}</option>
+                              <option value="yes">{t("Yes")}</option>
+                            </select>
+                          </label>
+                          <label>{t("Status")}
+                            <select name="suspended" defaultValue={account.suspended ? "yes" : "no"} disabled={account.id === user.id}>
+                              <option value="no">{t("Active")}</option>
+                              <option value="yes">{t("Suspended")}</option>
+                            </select>
+                          </label>
+                          <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} defaultValue={account.botLimit ?? ""} /></label>
+                        </div>
+                        <label>{t("Instances")}
+                          <select name="instanceId" multiple size={Math.min(6, Math.max(instances.length, 3))} defaultValue={(account.instanceIds || []).map(String)}>
+                            {instances.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                          </select>
+                        </label>
+                        <div className="split">
+                          <label className="grow">{t("New password")}<input name="password" type="password" minLength={10} autoComplete="new-password" /></label>
+                          <button className="btn" type="button" onClick={async (event) => {
+                            const password = new FormData(event.currentTarget.form).get("password");
+                            if (!password) return;
+                            try { await post(`/api/admin/users/${account.id}/password`, { password }); }
+                            catch (err) { setFormError(err.message); }
+                          }}>{t("Set")}</button>
+                          <button className="btn btn-primary" type="submit">{t("Save")}</button>
+                          {account.id !== user.id ? (
+                            <button className="btn btn-danger" type="button" onClick={async () => {
+                              if (!window.confirm(t("Delete"))) return;
+                              try {
+                                const result = await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } });
+                                setNote(result.message);
+                                setOpenId(null);
+                                setData({ users: result.users, instances: result.instances || [] });
+                              } catch (err) { setFormError(err.message); }
+                            }}>{t("Remove")}</button>
+                          ) : null}
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

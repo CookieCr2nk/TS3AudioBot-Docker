@@ -193,9 +193,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .page-wide { max-width: 1200px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
 .btn-plus { min-width: 40px; font-size: 1.25rem; line-height: 1; }
-.user-list { display: grid; gap: 0.8rem; }
-.user-card-head { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
-.user-card h2 { margin: 0; }
+.user-pager { display: flex; justify-content: space-between; align-items: flex-end; gap: 0.8rem; flex-wrap: wrap; }
+.user-pager select { width: auto; }
+.user-edit { display: grid; gap: 0.7rem; padding: 0.2rem 0; }
 select[multiple] { min-height: 7rem; }
 .add-pop { position: relative; }
 .add-card { position: absolute; right: 0; top: calc(100% + 0.35rem); z-index: 6; width: min(420px, 80vw); background: white; }
