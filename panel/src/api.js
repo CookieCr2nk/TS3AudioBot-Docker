@@ -507,17 +507,31 @@ api.post(
       if (!access) {
         return { id, name: "", ok: false, message: req.t("That bot does not exist or is not granted to you.") };
       }
-      if (!access.canControl) {
-        return { id, name: access.bot.name, ok: false, message: req.t("No control rights for this bot") };
+      if (req.user.role !== "admin") {
+        return { id, name: access.bot.name, ok: false, message: req.t("Administrators only") };
       }
       try {
-        const { action, args } = await runAction(access.bot, op, req.body, authOf(req, access));
+        let runOp = op;
+        let body = req.body;
+        if (op === "start") {
+          runOp = "connect";
+          body = { name: access.bot.instanceRef };
+        } else if (op === "stop") {
+          const listed = await runAction(access.bot, "bot-list", {}, authOf(req, access));
+          const live = presentBotList(listed.data).find((item) => item.name === access.bot.instanceRef);
+          if (live?.id == null) {
+            return { id, name: access.bot.name, ok: false, message: req.t("Offline") };
+          }
+          runOp = "disconnect";
+          body = { instanceId: String(live.id) };
+        }
+        const { action, args } = await runAction(access.bot, runOp, body, authOf(req, access));
         if (action.audit) {
           await addAudit({
             userId: req.user.id,
             botId: access.bot.id,
             instanceId: access.bot.instanceId,
-            action: op,
+            action: runOp,
             detail: detailText(req.t, action, args),
           });
         }

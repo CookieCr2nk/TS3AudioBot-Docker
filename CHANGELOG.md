@@ -23,6 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Pushes to `main` publish both images as `:main`. Pushes to `develop` publish both images as `:develop`
 
 ### Changed
+- Selecting several bots only offers start and stop
 - A new bot is created on TS3AudioBot under a UUID, so panel names can repeat. A normal account sees only bots assigned to that account, or every bot on an instance it owns. Users and instance access are chosen from lists
 - A bot has a panel display name separate from the TeamSpeak nickname. An account with Can create bots can pick any enabled instance. Other accounts open the instances checked on Users
 - Bots and the overview have a plus button to add a bot or an instance. A bot's connection page edits only that bot. Volume changes are not written to the audit log

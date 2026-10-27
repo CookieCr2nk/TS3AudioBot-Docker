@@ -239,8 +239,6 @@ export function BotsPage() {
   const { data, error, reload } = useLoad("/api/bots");
   const [selected, setSelected] = useState([]);
   const [query, setQuery] = useState("");
-  const [volume, setVolume] = useState("40");
-  const [resource, setResource] = useState("");
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
   const [results, setResults] = useState([]);
@@ -322,7 +320,7 @@ export function BotsPage() {
       <div className="page-head">
         <div>
           <h1>{t("Bots")}</h1>
-          <p className="muted">{t("Every TeamSpeak bot you can open. Select several to apply one playback action to all of them.")}</p>
+          <p className="muted">{t("Every TeamSpeak bot you can open. Select several to start or stop them together.")}</p>
         </div>
         <span className="inline">
           {data?.canCreate ? <AddBot /> : null}
@@ -352,39 +350,9 @@ export function BotsPage() {
           <span className="muted">{busy ? t("Working…") : t("{count} selected", { count: selected.length })}</span>
           {selected.length ? <button className="btn" type="button" onClick={() => setSelected([])}>{t("Clear selection")}</button> : null}
         </div>
-        <p className="muted">{t("Select bots in the list. Pause, volume, and stop run together. Play and append are limited to 10 bots.")}</p>
         <div className="transport">
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("previous")}>{t("Previous")}</button>
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("pause")}>{t("Pause")}</button>
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("resume")}>{t("Resume")}</button>
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("next")}>{t("Skip")}</button>
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("stop", {}, t("Stop playback on {count} bots?", { count: selected.length }))}>{t("Stop")}</button>
-          <button className="btn btn-danger" type="button" disabled={busy || !selected.length} onClick={() => apply("clear", {}, t("Clear the queue on {count} bots?", { count: selected.length }))}>{t("Clear")}</button>
-        </div>
-        <div className="split">
-          <label className="grow">{t("Volume")}
-            <input type="number" min="0" max="100" step="1" value={volume} disabled={busy || !selected.length} onChange={(event) => setVolume(event.target.value)} />
-          </label>
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => apply("volume", { volume: Number(volume) })}>{t("Apply")}</button>
-        </div>
-        <div className="split">
-          <label className="grow">{t("Link or resource")}
-            <input value={resource} disabled={busy || !selected.length} placeholder={t("https://… or media/file.mp3")} onChange={(event) => setResource(event.target.value)} />
-          </label>
-          <button className="btn btn-primary" type="button" disabled={busy || !selected.length} onClick={() => {
-            if (!resource.trim()) {
-              setFormError(t("Link is missing or too long"));
-              return;
-            }
-            apply("play", { resource });
-          }}>{t("Play")}</button>
-          <button className="btn" type="button" disabled={busy || !selected.length} onClick={() => {
-            if (!resource.trim()) {
-              setFormError(t("Link is missing or too long"));
-              return;
-            }
-            apply("add", { resource });
-          }}>{t("Append")}</button>
+          <button className="btn btn-primary" type="button" disabled={busy || !selected.length} onClick={() => apply("start", {}, t("Start {count} bots?", { count: selected.length }))}>{t("Start")}</button>
+          <button className="btn btn-danger" type="button" disabled={busy || !selected.length} onClick={() => apply("stop", {}, t("Stop {count} bots?", { count: selected.length }))}>{t("Stop")}</button>
         </div>
         {results.length ? (
           <ul className="bulk-results">

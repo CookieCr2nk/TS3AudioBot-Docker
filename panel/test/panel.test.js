@@ -89,16 +89,14 @@ describe("action guard", () => {
   });
 
   it("accepts one playback action for several bots and rejects the rest", () => {
-    assert.deepEqual(parseBulk({ op: "pause", ids: [1, "2", 2] }), { op: "pause", ids: [1, 2] });
-    assert.equal(parseBulk({ op: "volume", ids: [4], volume: 30 }).op, "volume");
-    assert.equal(parseBulk({ op: "play", ids: [3], resource: "https://example.com/a.mp3" }).ids[0], 3);
+    assert.deepEqual(parseBulk({ op: "start", ids: [1, "2", 2] }), { op: "start", ids: [1, 2] });
+    assert.equal(parseBulk({ op: "stop", ids: [4] }).op, "stop");
+    assert.throws(() => parseBulk({ op: "play", ids: [3], resource: "https://example.com/a.mp3" }), /Unknown action/);
     assert.throws(() => parseBulk({ op: "disconnect", ids: [1], instanceId: "1" }), /Unknown action/);
     assert.throws(() => parseBulk({ op: "bot-setup", ids: [1], key: "abcdefgh" }), /Unknown action/);
-    assert.throws(() => parseBulk({ op: "pause", ids: [] }), /at least one/);
-    assert.throws(() => parseBulk({ op: "play", ids: [1] }), /Link is missing/);
-    assert.throws(() => parseBulk({ op: "pause", ids: ["nope"] }), /invalid/);
-    assert.throws(() => parseBulk({ op: "pause", ids: Array.from({ length: 26 }, (_, index) => index + 1) }), /at most/);
-    assert.throws(() => parseBulk({ op: "play", ids: Array.from({ length: 11 }, (_, index) => index + 1), resource: "https://example.com/a" }), /at most/);
+    assert.throws(() => parseBulk({ op: "start", ids: [] }), /at least one/);
+    assert.throws(() => parseBulk({ op: "stop", ids: ["nope"] }), /invalid/);
+    assert.throws(() => parseBulk({ op: "start", ids: Array.from({ length: 26 }, (_, index) => index + 1) }), /at most/);
   });
 
   it("blocks playback without control and hosting actions for users", () => {

@@ -455,6 +455,10 @@ const de = {
   "Close menu": "Menü schließen",
   "Switch bot": "Bot wechseln",
   "Open in Bots": "In Bots öffnen",
+  "Every TeamSpeak bot you can open. Select several to start or stop them together.":
+    "Jeder TeamSpeak-Bot, den du öffnen kannst. Wähle mehrere, um sie gemeinsam zu starten oder zu stoppen.",
+  "Start {count} bots?": "{count} Bots starten?",
+  "Stop {count} bots?": "{count} Bots stoppen?",
   "Every TeamSpeak bot you can open. Select several to apply one playback action to all of them.":
     "Alle TeamSpeak-Bots, die du öffnen kannst. Mehrere auswählen, um dieselbe Wiedergabe-Aktion auf alle anzuwenden.",
   Refresh: "Aktualisieren",

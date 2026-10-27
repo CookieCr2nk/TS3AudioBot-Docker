@@ -468,8 +468,7 @@ export function templateIsConnected(data, name) {
   return presentBotList(data).some((item) => item.name === name && item.status === "connected");
 }
 
-const BULK_OPS = ["pause", "resume", "stop", "next", "previous", "clear", "volume", "play", "add"];
-const SLOW_BULK = new Set(["play", "add", "next", "previous"]);
+const BULK_OPS = ["start", "stop"];
 
 function bulkId(raw) {
   if (typeof raw === "number") return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
@@ -483,8 +482,7 @@ export function parseBulk(input) {
   if (!BULK_OPS.includes(op)) throw new ValidationError("Unknown action");
   const rawIds = input?.ids;
   if (!Array.isArray(rawIds) || rawIds.length === 0) throw new ValidationError("Select at least one bot");
-  const limit = SLOW_BULK.has(op) ? 10 : 25;
-  if (rawIds.length > limit) throw new ValidationError("Select at most {count} bots", { count: limit });
+  if (rawIds.length > 25) throw new ValidationError("Select at most {count} bots", { count: 25 });
   const ids = [];
   const seen = new Set();
   for (const raw of rawIds) {
@@ -494,7 +492,6 @@ export function parseBulk(input) {
     seen.add(id);
     ids.push(id);
   }
-  if (actions[op].parse) actions[op].parse(input || {});
   return { op, ids };
 }
 
