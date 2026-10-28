@@ -9,7 +9,7 @@ There are three Compose files. Each one starts on its own.
 | | Bot only | Bot, panel, MariaDB | Bot, panel, external MariaDB |
 |---|---|---|---|
 | File | `docker-compose.yml` | `docker-compose.panel.yml` | `docker-compose.panel-external-db.yml` |
-| Start | `docker compose up -d` | `make compose-panel-up` | `make compose-panel-external-up` |
+| Start | `docker compose up -d` | `docker compose up -d` | `docker compose up -d` |
 | UI | none | http://localhost:8080 | http://localhost:8080 |
 | Bot API port 58913 | not reachable from outside | panel only, on the internal network | panel only, on the internal network |
 
