@@ -4,6 +4,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.0] - 2026-11-01
+
 ### Added
 - User management lists accounts in pages of 10, with 25, 50, or 100 per page. Edit opens one account at a time
 - The bot list shows the TeamSpeak server next to the status while that bot is online
