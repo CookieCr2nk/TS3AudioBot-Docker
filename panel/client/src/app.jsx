@@ -2,27 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
-import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Overview, Playback, Playlist, Playlists, Radio, Users } from "./pages.jsx";
+import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Overview, Playback, Radio, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
-
-const PINNED_BOT = "ts3panel.activeBot";
-
-function readPinned() {
-  try {
-    return sessionStorage.getItem(PINNED_BOT) || "";
-  } catch {
-    return "";
-  }
-}
-
-function writePinned(id) {
-  try {
-    if (id) sessionStorage.setItem(PINNED_BOT, String(id));
-    else sessionStorage.removeItem(PINNED_BOT);
-  } catch {
-    /* The bar still works for this page when storage is blocked. */
-  }
-}
 
 export function App() {
   const { ready, user } = useAuth();
@@ -35,8 +16,6 @@ export function App() {
         <Route path="bots" element={<BotsPage />} />
         <Route path="instances/:id" element={<InstancePage />} />
         <Route path="bots/:id" element={<Playback />} />
-        <Route path="bots/:id/playlists" element={<Playlists />} />
-        <Route path="bots/:id/playlists/:listId" element={<Playlist />} />
         <Route path="bots/:id/streams" element={<Radio />} />
         <Route path="bots/:id/history" element={<History />} />
         <Route path="bots/:id/connection" element={<Connection />} />
@@ -54,7 +33,6 @@ function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const routeBotId = /^\/bots\/\d+(?:\/|$)/.test(location.pathname) ? id : "";
-  const [pinnedId, setPinnedId] = useState(readPinned);
   const [bot, setBot] = useState(null);
   const [roster, setRoster] = useState([]);
   const [status, setStatus] = useState(null);
@@ -62,7 +40,7 @@ function Shell() {
   const [actionError, setActionError] = useState("");
   const [tick, setTick] = useState(0);
   const [open, setOpen] = useState(false);
-  const playerBotId = routeBotId || pinnedId || "";
+  const playerBotId = routeBotId;
   const inBot = Boolean(routeBotId);
 
   useEffect(() => {
@@ -83,12 +61,6 @@ function Shell() {
     const label = inBot ? botSection(location.pathname, t) : pageSection(location.pathname, t);
     document.title = `${label} · TS3 Panel`;
   }, [location.pathname, t, inBot]);
-
-  useEffect(() => {
-    if (!routeBotId) return;
-    setPinnedId(routeBotId);
-    writePinned(routeBotId);
-  }, [routeBotId]);
 
   useEffect(() => {
     let stop = false;
@@ -123,8 +95,6 @@ function Shell() {
         if (stop) return;
         setBot(null);
         setStatus(null);
-        setPinnedId("");
-        writePinned("");
       });
     return () => {
       stop = true;
@@ -260,7 +230,6 @@ function BotTabs({ id, bot, roster, pathname, admin }) {
     <div className="bot-context">
       <nav className="bot-tabs" aria-label={bot.name}>
         <Tab to={`/bots/${id}`} end>{t("Playback")}</Tab>
-        <Tab to={`/bots/${id}/playlists`}>{t("Playlists")}</Tab>
         <Tab to={`/bots/${id}/streams`}>{t("Radio")}</Tab>
         <Tab to={`/bots/${id}/history`}>{t("History")}</Tab>
         {admin ? <Tab to={`/bots/${id}/connection`}>{t("Connection")}</Tab> : null}
@@ -299,7 +268,6 @@ function SideLink({ to, end, children }) {
 }
 
 function sectionPath(pathname) {
-  if (pathname.includes("/playlists")) return "/playlists";
   if (pathname.endsWith("/streams")) return "/streams";
   if (pathname.endsWith("/history")) return "/history";
   if (pathname.endsWith("/connection")) return "/connection";
@@ -316,7 +284,6 @@ function pageSection(pathname, t) {
 }
 
 function botSection(pathname, t) {
-  if (pathname.includes("/playlists")) return t("Playlists");
   if (pathname.endsWith("/streams")) return t("Radio");
   if (pathname.endsWith("/history")) return t("History");
   if (pathname.endsWith("/connection")) return t("Connection");

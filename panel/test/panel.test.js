@@ -6,11 +6,11 @@ import { fileURLToPath } from "node:url";
 import { createApp, panelRoot } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest, commanderSaved, hostingCalls, liveRenameParts, parseBulk, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
+import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, parseBulk, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
-import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentPlaylists, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
+import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
 import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -133,6 +133,15 @@ describe("action guard", () => {
     assert.equal(withCommander("!xecute (!bot commander on) (!play 'https://example.com/a')", false), "!play 'https://example.com/a'");
     assert.equal(commanderSaved("!bot commander on"), true);
     assert.equal(commanderSaved("!play 'https://example.com/a'"), false);
+    assert.equal(hostingLiveMessage({ nickname: true, channel: true, connected: false }), "Connection settings saved. The nickname and channel apply when this bot connects.");
+    assert.equal(hostingLiveMessage({ channel: true, connected: true, moveOk: true }), "Connection settings saved. The bot moved to that channel.");
+    assert.equal(hostingLiveMessage({ channel: true, connected: true, moveOk: false }), "Connection settings saved. The bot could not be moved.");
+    assert.equal(hostingLiveMessage({ nickname: true, connected: true, nicknameOk: true }), "Connection settings saved. The nickname is updated.");
+    assert.equal(buildApiPath(liveMoveParts("lobby", "/5")), "/bot/template/lobby/(/bot/move/%2F5)");
+    const moved = buildActionRequest(templateBot, "move", { channel: "/5" }, admin);
+    assert.equal(buildApiPath(moved.parts), "/bot/template/default/(/bot/move/%2F5)");
+    assert.equal(JSON.stringify(moved.parts).includes("connect.channel"), false);
+    assert.throws(() => buildActionRequest(templateBot, "move", { channel: "/5" }, user), /Administrators only/);
     assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "on" }, user), /Administrators only/);
     assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "maybe" }, admin), /invalid/);
     assert.throws(() => buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin), /Unknown action/);
@@ -144,11 +153,6 @@ describe("action guard", () => {
     assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).clientId, "12");
   });
 
-  it("requires an explicit confirm before deleting a playlist", () => {
-    assert.throws(() => buildActionRequest(templateBot, "list-delete", { listId: "mix" }, user), /confirmed/);
-    const built = buildActionRequest(templateBot, "list-delete", { listId: "mix", confirm: "on" }, user);
-    assert.equal(buildApiPath(built.parts), "/bot/template/default/(/list/delete/mix)");
-  });
 });
 
 describe("status and lists", () => {
@@ -175,10 +179,7 @@ describe("status and lists", () => {
     assert.equal(status.problems.length, 0);
   });
 
-  it("normalizes playlists, history and bot rows", () => {
-    assert.deepEqual(presentPlaylists([{ Id: "mix", Title: "Mix", SongCount: 2 }]), [
-      { id: "mix", title: "Mix", count: 2 },
-    ]);
+  it("normalizes history and bot rows", () => {
     assert.equal(presentHistory([{ Id: 4, Title: "Alt", AudioType: "youtube" }])[0].id, 4);
     assert.equal(presentSearch("0: Sonne\n1: Ich will")[1].title, "Ich will");
     assert.deepEqual(presentBotList([

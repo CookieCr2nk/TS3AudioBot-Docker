@@ -230,14 +230,6 @@ export function parseVolume(value) {
   return parseIndex(value, "Volume", 100);
 }
 
-export function parseListId(value) {
-  const id = clean(value);
-  if (!NAME_RE.test(id)) {
-    throw new ValidationError("Playlist ID may contain only letters, digits, dot, underscore, and hyphen");
-  }
-  return id;
-}
-
 export function parseTitle(value, label = "Title") {
   const title = rejectControls(clean(value), label);
   if (!title || title.length > 120) throw new ValidationError("{label} is missing or too long", { label });

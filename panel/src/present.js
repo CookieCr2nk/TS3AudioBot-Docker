@@ -201,40 +201,6 @@ export function presentHistory(data, t = applyParams) {
   });
 }
 
-export function presentPlaylists(data) {
-  const list = asList(data) || [];
-  return list
-    .map((item) => {
-      if (typeof item === "string") return { id: item, title: item, count: null };
-      const id = item.Id ?? item.id;
-      if (id === undefined || id === null || id === "") return null;
-      return {
-        id: String(id),
-        title: item.Title || String(id),
-        count: item.SongCount ?? null,
-      };
-    })
-    .filter(Boolean);
-}
-
-export function presentPlaylist(data, t = applyParams) {
-  if (!data || typeof data !== "object" || isApiError(data)) return null;
-  const offset = Number(data.DisplayOffset) || 0;
-  const items = Array.isArray(data.Items) ? data.Items : [];
-  return {
-    id: data.Id ? String(data.Id) : "",
-    title: data.Title || data.Id || "Playlist",
-    count: Number.isFinite(Number(data.SongCount)) ? Number(data.SongCount) : items.length,
-    offset,
-    items: items.map((item, index) => ({
-      index: offset + index,
-      title: item.Title || item.Link || t("Untitled"),
-      link: item.Link || "",
-      audioType: item.AudioType || "",
-    })),
-  };
-}
-
 export function presentSearch(data, t = applyParams) {
   if (typeof data === "string") {
     return data

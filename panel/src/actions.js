@@ -5,11 +5,9 @@ import {
   parseChannel,
   parseHostingSettings,
   parseIndex,
-  parseListId,
   parseResource,
   parseSearchQuery,
   parseTemplateName,
-  parseTitle,
   parseTsAddress,
   parseVolume,
 } from "./validate.js";
@@ -20,12 +18,6 @@ function choice(value, allowed, label) {
   const text = String(value ?? "").trim().toLowerCase();
   if (!allowed.includes(text)) throw new ValidationError("{label} is invalid", { label });
   return text;
-}
-
-function listTarget(input) {
-  const id = parseListId(input.listId);
-  if (input.index === undefined || input.index === "") return { id, index: null };
-  return { id, index: parseIndex(input.index, "Position", 100000) };
 }
 
 export const actions = {
@@ -164,88 +156,6 @@ export const actions = {
     build: (args) => ["search", "add", String(args.index)],
     detail: (args) => ({ key: "Result {index}", params: { index: args.index } }),
   },
-  "list-list": {
-    build: () => ["list", "list"],
-  },
-  "list-show": {
-    parse: (input) => ({
-      id: parseListId(input.listId),
-      offset: parseIndex(input.offset ?? 0, "Offset", 1_000_000),
-      count: parseIndex(input.count ?? 50, "Count", 100),
-    }),
-    build: (args) => ["list", "show", args.id, String(args.offset), String(args.count)],
-  },
-  "list-create": {
-    control: true,
-    audit: true,
-    success: "Playlist created",
-    parse: (input) => ({ id: parseListId(input.listId), title: parseTitle(input.title) }),
-    build: (args) => ["list", "create", args.id, args.title],
-    detail: (args) => args.id,
-  },
-  "list-rename": {
-    control: true,
-    audit: true,
-    success: "Playlist renamed",
-    parse: (input) => ({ id: parseListId(input.listId), title: parseTitle(input.title) }),
-    build: (args) => ["list", "name", args.id, args.title],
-    detail: (args) => `${args.id} → ${args.title}`,
-  },
-  "list-delete": {
-    control: true,
-    audit: true,
-    success: "Playlist deleted",
-    parse: (input) => {
-      if (input.confirm !== "on") throw new ValidationError("Delete must be confirmed");
-      return { id: parseListId(input.listId) };
-    },
-    build: (args) => ["list", "delete", args.id],
-    detail: (args) => args.id,
-  },
-  "list-add": {
-    control: true,
-    audit: true,
-    success: "Track added to the playlist",
-    timeoutMs: SLOW,
-    parse: (input) => ({ id: parseListId(input.listId), resource: parseResource(input.resource) }),
-    build: (args) => ["list", "add", args.id, args.resource],
-    detail: (args) => `${args.id}: ${args.resource.slice(0, 140)}`,
-  },
-  "list-import": {
-    control: true,
-    audit: true,
-    success: "Playlist imported",
-    timeoutMs: SLOW,
-    parse: (input) => ({ id: parseListId(input.listId), resource: parseResource(input.resource) }),
-    build: (args) => ["list", "import", args.id, args.resource],
-    detail: (args) => `${args.id}: ${args.resource.slice(0, 140)}`,
-  },
-  "list-play": {
-    control: true,
-    audit: true,
-    success: "Playlist started",
-    timeoutMs: SLOW,
-    parse: listTarget,
-    build: (args) => (args.index === null ? ["list", "play", args.id] : ["list", "play", args.id, String(args.index)]),
-    detail: (args) => (args.index === null ? args.id : { key: "{id} from {index}", params: { id: args.id, index: args.index } }),
-  },
-  "list-queue": {
-    control: true,
-    audit: true,
-    success: "Playlist appended to the queue",
-    timeoutMs: SLOW,
-    parse: (input) => ({ id: parseListId(input.listId) }),
-    build: (args) => ["list", "queue", args.id],
-    detail: (args) => args.id,
-  },
-  "list-item-delete": {
-    control: true,
-    audit: true,
-    success: "Track removed from the playlist",
-    parse: (input) => ({ id: parseListId(input.listId), index: parseIndex(input.index, "Position", 100000) }),
-    build: (args) => ["list", "item", "delete", args.id, String(args.index)],
-    detail: (args) => `${args.id} #${args.index}`,
-  },
   "bot-list": {
     admin: true,
     scoped: false,
@@ -326,7 +236,7 @@ export const actions = {
         if (next) parts.push(next);
         await call(parts, 15000);
       }
-      if (!args.nickname) return undefined;
+      if (!args.nickname && !args.channel) return undefined;
       let connected = false;
       try {
         connected = templateIsConnected(await call(["bot", "list"], 15000), args.name);
@@ -334,14 +244,36 @@ export const actions = {
         if (!(err instanceof Ts3ApiError)) throw err;
         connected = true;
       }
-      if (!connected) return { messageKey: "Connection settings saved. The nickname changes when this bot connects." };
-      try {
-        await call(liveRenameParts(args.name, args.nickname), 15000);
-      } catch (err) {
-        if (!(err instanceof Ts3ApiError)) throw err;
-        return { messageKey: "Connection settings saved. The connected name could not be changed." };
+      if (!connected) {
+        return { messageKey: hostingLiveMessage({ nickname: Boolean(args.nickname), channel: Boolean(args.channel), connected: false }) };
       }
-      return { messageKey: "Connection settings saved. The nickname is updated." };
+      let nicknameOk = !args.nickname;
+      let moveOk = !args.channel;
+      if (args.nickname) {
+        try {
+          await call(liveRenameParts(args.name, args.nickname), 15000);
+          nicknameOk = true;
+        } catch (err) {
+          if (!(err instanceof Ts3ApiError)) throw err;
+        }
+      }
+      if (args.channel) {
+        try {
+          await call(liveMoveParts(args.name, args.channel), 15000);
+          moveOk = true;
+        } catch (err) {
+          if (!(err instanceof Ts3ApiError)) throw err;
+        }
+      }
+      return {
+        messageKey: hostingLiveMessage({
+          nickname: Boolean(args.nickname),
+          channel: Boolean(args.channel),
+          connected: true,
+          nicknameOk,
+          moveOk,
+        }),
+      };
     },
     detail: (args) => ({ key: "Connection settings for {name}", params: { name: args.name } }),
   },
@@ -462,6 +394,32 @@ export function commanderSaved(current) {
 
 export function liveRenameParts(name, nickname) {
   return ["bot", "template", name, ["bot", "name", nickname]];
+}
+
+export function liveMoveParts(name, channel) {
+  return ["bot", "template", name, ["bot", "move", channel]];
+}
+
+export function hostingLiveMessage({ nickname, channel, connected, nicknameOk = false, moveOk = false }) {
+  if (!connected) {
+    if (nickname && channel) return "Connection settings saved. The nickname and channel apply when this bot connects.";
+    if (channel) return "Connection settings saved. The channel applies when this bot connects.";
+    return "Connection settings saved. The nickname changes when this bot connects.";
+  }
+  if (nickname && channel) {
+    if (nicknameOk && moveOk) return "Connection settings saved. The nickname is updated and the bot moved.";
+    if (nicknameOk) return "Connection settings saved. The nickname is updated. The bot could not be moved.";
+    if (moveOk) return "Connection settings saved. The bot moved. The connected name could not be changed.";
+    return "Connection settings saved. The connected bot could not be updated.";
+  }
+  if (channel) {
+    return moveOk
+      ? "Connection settings saved. The bot moved to that channel."
+      : "Connection settings saved. The bot could not be moved.";
+  }
+  return nicknameOk
+    ? "Connection settings saved. The nickname is updated."
+    : "Connection settings saved. The connected name could not be changed.";
 }
 
 export function templateIsConnected(data, name) {

@@ -24,7 +24,7 @@ sql/migrations/       NNN_name.sql, in order
 test/panel.test.js    node:test, no database
 ```
 
-The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell. Bots is a separate page: it lists every bot the account can open, and one playback action can apply to the selected bots. That action is only pause, resume, stop, previous, next, clear, volume, play, or add.
+The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell, and only while a bot page is open. Bots is a separate page: it lists every bot the account can open, and one playback action can apply to the selected bots. That action is only pause, resume, stop, previous, next, clear, volume, play, or add.
 
 Commands to the bot go only through `actions.js`. There is no free-form command from the client. `quit`, `eval`, `rights`, `system`, and `api` stay blocked. A new command is an entry with a parser, a path, and a right (`control` or `admin`), plus a test.
 
@@ -42,7 +42,7 @@ Radio stations live in `radio_streams`, not in the bot files. `shared = 1` is th
 
 ## Hosting fields
 
-On Connection, `template-hosting` writes nickname, channel, server password, channel password, bitrate, default volume (`audio.volume.default`), start-on-launch, and an optional HTTP or HTTPS stream into the bot template. The stream is stored as a quoted `!play` command on `events.onconnect`. The panel builds that command. Empty fields stay as they are. A connected bot also receives `bot name` so the nickname changes without a reconnect. Passwords are not stored in the panel database and are not written into the audit text. Channel commander is saved in `events.onconnect` as `!bot commander on`, together with a startup stream when one is set, and is also applied to the connected bot. Connection reads `bot info client` and shows the TeamSpeak ID. Creating a bot calls `settings/create` on the instance and inserts a `ts_bots` row only after the API accepts it. Attaching an existing template name, such as `default`, inserts the row without calling the API.
+On Connection, `template-hosting` writes nickname, channel, server password, channel password, bitrate, default volume (`audio.volume.default`), start-on-launch, and an optional HTTP or HTTPS stream into the bot template. The stream is stored as a quoted `!play` command on `events.onconnect`. The panel builds that command. Empty fields stay as they are. A connected bot also receives `bot name` so the nickname changes without a reconnect, and `bot move` so it enters the saved channel. `move` changes only the current channel and does not write `connect.channel`. Passwords are not stored in the panel database and are not written into the audit text. Channel commander is saved in `events.onconnect` as `!bot commander on`, together with a startup stream when one is set, and is also applied to the connected bot. Connection reads `bot info client` and shows the TeamSpeak ID. Creating a bot calls `settings/create` on the instance and inserts a `ts_bots` row only after the API accepts it. Attaching an existing template name, such as `default`, inserts the row without calling the API.
 
 ## Security
 

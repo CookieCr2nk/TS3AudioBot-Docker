@@ -85,7 +85,7 @@ export function AddBot({ instanceId = "" }) {
         </select>
       </label>
       <div className="split">
-        <label className="grow">{t("Name")}<input name="name" required maxLength={120} placeholder="lobby" /></label>
+        <label className="grow">{t("Name")}<input name="name" required maxLength={120} placeholder={t("Evening radio")} /></label>
         <button className="btn btn-primary" type="submit" disabled={!choices.length}>{t("Create")}</button>
         <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
       </div>
@@ -244,6 +244,7 @@ export function BotsPage() {
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
   const allRef = useRef(null);
+  const allNarrowRef = useRef(null);
   const [dockSlot, setDockSlot] = useState(null);
   const bots = data?.bots || [];
   const instanceId = params.get("instance") || "";
@@ -270,7 +271,9 @@ export function BotsPage() {
   }, [data]);
 
   useEffect(() => {
-    if (allRef.current) allRef.current.indeterminate = somePicked && !allPicked;
+    const indeterminate = somePicked && !allPicked;
+    if (allRef.current) allRef.current.indeterminate = indeterminate;
+    if (allNarrowRef.current) allNarrowRef.current.indeterminate = indeterminate;
   }, [somePicked, allPicked]);
 
   useEffect(() => {
@@ -341,6 +344,12 @@ export function BotsPage() {
             </select>
           </label>
           {instanceId || query ? <button className="btn" type="button" onClick={() => { setQuery(""); setInstance(""); }}>{t("Reset")}</button> : null}
+          {selectable.length ? (
+            <label className="check bot-select-all">
+              <input ref={allNarrowRef} type="checkbox" checked={allPicked} aria-label={t("Select all")} onChange={toggleVisible} />
+              {t("Select all")}
+            </label>
+          ) : null}
         </div>
       ) : null}
       {dockSlot && (selected.length || results.length) ? createPortal(
@@ -368,8 +377,8 @@ export function BotsPage() {
       dockSlot) : null}
       {data && filtered.length === 0 ? <p className="muted">{bots.length ? t("Nothing matches.") : t("No bots yet.")}</p> : null}
       {filtered.length ? (
-        <div className="table-wrap">
-          <table>
+        <div className="table-wrap bot-list">
+          <table className="bot-table">
             <thead>
               <tr>
                 <th>
@@ -402,7 +411,7 @@ export function BotsPage() {
                 }
                 return (
                   <tr key={bot.id} className={picked ? "picked" : ""}>
-                    <td>
+                    <td className="bot-check">
                       <input
                         type="checkbox"
                         checked={picked}
@@ -412,8 +421,8 @@ export function BotsPage() {
                         onChange={() => toggle(bot.id)}
                       />
                     </td>
-                    <td><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
-                    <td className="owner">
+                    <td className="bot-name"><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
+                    <td className="owner" data-label={t("Owner")}>
                       {user.role === "admin" ? (
                         <select
                           className="owner-select"
@@ -440,15 +449,15 @@ export function BotsPage() {
                         </select>
                       ) : (bot.ownerName || t("No owner"))}
                     </td>
-                    <td>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
-                    <td>
+                    <td data-label={t("Instance")}>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
+                    <td data-label={t("Status")}>
                       <span className={pill}>{status}</span>
                       {playback?.online && playback.server ? <span className="mono muted"> {playback.server}</span> : null}
                       {playback?.error ? <div className="muted">{playback.error}</div> : null}
                     </td>
-                    <td>{playback?.title || "—"}</td>
-                    <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
-                    <td className="inline">
+                    <td data-label={t("Now playing")}>{playback?.title || "—"}</td>
+                    <td className="mono" data-label={t("Volume")}>{playback?.volume != null ? playback.volume : "—"}</td>
+                    <td className="inline bot-actions">
                       <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
                       {bot.canManage ? (
                         <DeleteBot name={bot.name} onSubmit={async (confirm) => {
@@ -546,7 +555,7 @@ export function InstancePage() {
           <h2>{t("Create a bot")}</h2>
           <div className="split">
             <label className="grow">{t("Name")}
-              <input name="name" required maxLength={120} placeholder="lobby" />
+              <input name="name" required maxLength={120} placeholder={t("Evening radio")} />
             </label>
             <button className="btn btn-primary" type="submit">{t("Create")}</button>
           </div>
@@ -767,59 +776,6 @@ export function Playback() {
   );
 }
 
-export function Playlists() {
-  const { id } = useParams();
-  const { t } = useAuth();
-  const { data, error } = useLoad(`/api/bots/${id}/playlists`);
-  return (
-    <div className="page">
-      <h1>{t("Playlists")}</h1>
-      <Notice error={error} />
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Name")}</th><th></th></tr></thead>
-          <tbody>
-            {(data?.lists || []).map((list) => (
-              <tr key={list.id}>
-                <td>{list.title}{list.count != null ? <span className="muted"> · {list.count}</span> : null}</td>
-                <td><Link className="btn" to={`/bots/${id}/playlists/${encodeURIComponent(list.id)}`}>{t("Open")}</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-export function Playlist() {
-  const { id, listId } = useParams();
-  const { t } = useAuth();
-  const player = usePlayer();
-  const { note, error, act } = useBotAction(id, player?.refresh);
-  const { data, error: loadError } = useLoad(`/api/bots/${id}/playlists/${listId}`);
-  return (
-    <div className="page">
-      <h1>{data?.playlist?.title || t("Playlists")}</h1>
-      <Notice error={error || loadError} note={note} />
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>#</th><th>{t("Name")}</th><th></th></tr></thead>
-          <tbody>
-            {(data?.playlist?.items || []).map((item) => (
-              <tr key={item.index}>
-                <td className="mono">{item.index}</td>
-                <td>{item.title}</td>
-                <td><button className="btn" type="button" onClick={() => act({ op: "list-play", listId, index: item.index })}>{t("Play from here")}</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export function Radio() {
   const { id } = useParams();
   const { user, t } = useAuth();
@@ -987,6 +943,7 @@ export function Connection() {
         <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" /></label>
         <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
         <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} /></label>
+        <p className="muted">{t("Saved as the channel this bot joins. A connected bot moves there when you save.")}</p>
         <div className="split">
           <label className="grow">{t("Server password")}<input name="serverPassword" type="password" autoComplete="off" /></label>
           <label className="grow">{t("Channel password")}<input name="channelPassword" type="password" autoComplete="off" /></label>
@@ -1007,6 +964,23 @@ export function Connection() {
         <label className="check"><input type="checkbox" name="clearStartup" value="on" /> {t("Clear the stream on connect")}</label>
         <button className="btn btn-primary" type="submit">{t("Save")}</button>
       </form>
+      <section className="card">
+        <h2>{t("Move now")}</h2>
+        <p className="muted">{t("Moves this bot into a channel. The default channel stays unchanged.")}</p>
+        <form className="split" onSubmit={(event) => {
+          event.preventDefault();
+          const formElement = event.currentTarget;
+          const channel = new FormData(formElement).get("channel");
+          act({ op: "move", channel }).then((result) => {
+            if (result) formElement.reset();
+          });
+        }}>
+          <label className="grow">{t("Channel")}
+            <input name="channel" required maxLength={200} placeholder={t("/5 or Home/Lobby")} />
+          </label>
+          <button className="btn" type="submit">{t("Move")}</button>
+        </form>
+      </section>
       {data?.connection ? (
         <section className="card">
           <h2>{t("Server")}</h2>

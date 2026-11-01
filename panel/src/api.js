@@ -69,8 +69,6 @@ import {
   presentSetting,
   presentTsIdentity,
   presentHistory,
-  presentPlaylist,
-  presentPlaylists,
   presentSearch,
   presentStatus,
   presentVersion,
@@ -80,7 +78,6 @@ import {
   parseBotLimit,
   parseGrants,
   parseInstanceForm,
-  parseListId,
   parseName,
   parseNotes,
   parseOptionalPassword,
@@ -661,34 +658,6 @@ api.get(
     const op = query ? "history-search" : "history-last";
     const { data } = await runAction(access.bot, op, { query }, authOf(req, access));
     ok(res, { rows: presentHistory(data, req.t), bot: botView(access, req.user.role === "admin") });
-  }),
-);
-
-api.get(
-  "/bots/:id/playlists",
-  wrap(async (req, res) => {
-    const access = await openBot(req);
-    const { data } = await runAction(access.bot, "list-list", {}, authOf(req, access));
-    ok(res, { lists: presentPlaylists(data), bot: botView(access, req.user.role === "admin") });
-  }),
-);
-
-api.get(
-  "/bots/:id/playlists/:listId",
-  wrap(async (req, res) => {
-    const access = await openBot(req);
-    const listId = parseListId(req.params.listId);
-    const page = Math.max(1, numericId(req.query.page) || 1);
-    const perPage = 50;
-    const { data } = await runAction(
-      access.bot,
-      "list-show",
-      { listId, offset: (page - 1) * perPage, count: perPage },
-      authOf(req, access),
-    );
-    const playlist = presentPlaylist(data, req.t);
-    if (!playlist) throw new HttpError("The playlist could not be read", 502);
-    ok(res, { playlist, page, perPage, bot: botView(access, req.user.role === "admin") });
   }),
 );
 

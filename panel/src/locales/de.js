@@ -74,7 +74,6 @@ const de = {
   "rights.toml therefore allows every API call (isapi = true). Do not publish port 58913.":
     "rights.toml erlaubt deshalb jeden API-Aufruf (isapi = true). Port 58913 nicht nach außen veröffentlichen.",
   Playback: "Wiedergabe",
-  Playlists: "Playlists",
   History: "Verlauf",
   Instances: "Instanzen",
   "On the Compose network the API address is enough. A token is stored encrypted only if you enter one.":
@@ -121,8 +120,7 @@ const de = {
   ID: "ID",
   Title: "Titel",
   Play: "Spielen",
-  "New playlist": "Neue Playlist",
-  "No playlists.": "Keine Playlists.",
+  "Evening radio": "Abendradio",
   tracks: "Titel",
   Append: "Anhängen",
   "Templates in this TS3AudioBot process. Playback is controlled by:":
@@ -147,7 +145,6 @@ const de = {
   "Deletes the bot configuration inside TS3AudioBot. The confirmation must match the name.":
     "Löscht die Bot-Konfiguration im TS3AudioBot. Die Eingabe muss dem Namen entsprechen.",
   Confirmation: "Bestätigung",
-  "Play playlist": "Playlist spielen",
   "Add to queue": "An Warteschlange",
   Rename: "Umbenennen",
   Link: "Link",
@@ -155,15 +152,12 @@ const de = {
   Import: "Importieren",
   "This page is empty.": "Diese Seite ist leer.",
   Source: "Quelle",
-  "Play from here": "Ab hier",
-  "Remove this track from the playlist?": "Titel aus der Playlist entfernen?",
   "Previous page": "Vorherige Seite",
   "Next page": "Nächste Seite",
   "Per page": "Pro Seite",
   "Page {page} of {pages}": "Seite {page} von {pages}",
   Close: "Schließen",
   "Confirm delete": "Löschen bestätigen",
-  "Delete playlist": "Playlist löschen",
   "No instance context": "Ohne Instanzkontext",
   "Template {name}": "Template {name}",
   "Instance ID {name}": "Instanz-ID {name}",
@@ -235,14 +229,6 @@ const de = {
   "Started from history": "Aus dem Verlauf gestartet",
   "Playing search result": "Treffer wird abgespielt",
   "Search result added to the queue": "Treffer zur Warteschlange hinzugefügt",
-  "Playlist created": "Playlist angelegt",
-  "Playlist renamed": "Playlist umbenannt",
-  "Playlist deleted": "Playlist gelöscht",
-  "Track added to the playlist": "Titel zur Playlist hinzugefügt",
-  "Playlist imported": "Playlist importiert",
-  "Playlist started": "Playlist gestartet",
-  "Playlist appended to the queue": "Playlist an die Warteschlange gehängt",
-  "Track removed from the playlist": "Titel aus der Playlist entfernt",
   "Instance is starting": "Instanz wird gestartet",
   "Instance is disconnecting": "Instanz wird getrennt",
   "Template created": "Instanzvorlage angelegt",
@@ -253,7 +239,6 @@ const de = {
   "Repeat {mode}": "Wiederholung {mode}",
   "Shuffle {mode}": "Zufall {mode}",
   "History {id}": "Verlauf {id}",
-  "{id} from {index}": "{id} ab {index}",
   "Empty API segment": "Leeres API-Segment",
   "This bot has no instance set": "Für diesen Bot ist keine Instanz gesetzt",
   "Bot response is too large": "Antwort des Bots ist zu groß",
@@ -286,8 +271,6 @@ const de = {
   "Search is missing or too long": "Die Suche fehlt oder ist zu lang",
   "{label} must be a whole number from 0": "{label} muss eine ganze Zahl ab 0 sein",
   "{label} is too large": "{label} ist zu groß",
-  "Playlist ID may contain only letters, digits, dot, underscore, and hyphen":
-    "Die Playlist-ID darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten",
   "{label} is missing or too long": "{label} fehlt oder ist zu lang",
   "Template name may contain only letters, digits, dot, underscore, and hyphen":
     "Der Instanzname darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten",
@@ -305,12 +288,10 @@ const de = {
   "That bot does not exist or is not granted to you.": "Der Bot ist nicht vorhanden oder dir nicht freigegeben.",
   "No control rights for search.": "Keine Steuerrechte für die Suche.",
   "Too many searches. Wait a moment.": "Zu viele Suchen. Bitte kurz warten.",
-  "The playlist could not be read": "Die Playlist konnte nicht gelesen werden",
   "Too many actions. Wait a moment.": "Zu viele Aktionen. Bitte kurz warten.",
   "This instance now controls playback.": "Diese Instanz steuert jetzt die Wiedergabe.",
   Done: "Erledigt",
   "History · {name}": "Verlauf · {name}",
-  "Playlists · {name}": "Playlists · {name}",
   "Instances · {name}": "Instanzen · {name}",
   "Bot saved.": "Bot gespeichert.",
   "Bot not found.": "Bot nicht gefunden.",
@@ -364,6 +345,11 @@ const de = {
     "Wird im Bot-Template gespeichert. Leere Felder bleiben unverändert. Passwörter gehen an den Bot und stehen nicht in der Panel-Datenbank.",
   Nickname: "Nickname",
   "Default channel": "Standard-Channel",
+  "Saved as the channel this bot joins. A connected bot moves there when you save.":
+    "Wird als Channel gespeichert, den dieser Bot betritt. Ein verbundener Bot wird beim Speichern dorthin verschoben.",
+  "Move now": "Jetzt verschieben",
+  "Moves this bot into a channel. The default channel stays unchanged.":
+    "Verschiebt diesen Bot in einen Channel. Der Standard-Channel bleibt unverändert.",
   "Server password": "Serverpasswort",
   "Channel password": "Channelpasswort",
   "Bitrate (kbps)": "Bitrate (kbps)",
@@ -497,6 +483,22 @@ const de = {
     "Verbindung gespeichert. Der Nickname gilt, sobald dieser Bot verbunden ist.",
   "Connection settings saved. The connected name could not be changed.":
     "Verbindung gespeichert. Der verbundene Name konnte nicht geändert werden.",
+  "Connection settings saved. The nickname and channel apply when this bot connects.":
+    "Verbindung gespeichert. Nickname und Channel gelten, sobald dieser Bot verbunden ist.",
+  "Connection settings saved. The channel applies when this bot connects.":
+    "Verbindung gespeichert. Der Channel gilt, sobald dieser Bot verbunden ist.",
+  "Connection settings saved. The nickname is updated and the bot moved.":
+    "Verbindung gespeichert. Der Nickname ist aktualisiert und der Bot wurde verschoben.",
+  "Connection settings saved. The nickname is updated. The bot could not be moved.":
+    "Verbindung gespeichert. Der Nickname ist aktualisiert. Der Bot konnte nicht verschoben werden.",
+  "Connection settings saved. The bot moved. The connected name could not be changed.":
+    "Verbindung gespeichert. Der Bot wurde verschoben. Der verbundene Name konnte nicht geändert werden.",
+  "Connection settings saved. The connected bot could not be updated.":
+    "Verbindung gespeichert. Der verbundene Bot konnte nicht aktualisiert werden.",
+  "Connection settings saved. The bot moved to that channel.":
+    "Verbindung gespeichert. Der Bot wurde in diesen Channel verschoben.",
+  "Connection settings saved. The bot could not be moved.":
+    "Verbindung gespeichert. Der Bot konnte nicht verschoben werden.",
   "Bot limit": "Bot-Limit",
   Unlimited: "Unbegrenzt",
   "Bot limit is invalid": "Das Bot-Limit ist ungültig",

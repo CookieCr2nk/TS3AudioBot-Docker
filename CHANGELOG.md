@@ -4,6 +4,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- Connection can move a connected bot into a channel without saving that channel as the default
+
+### Changed
+- The name field for a new bot shows Evening radio as the example
+- Saving a default channel moves a connected bot into that channel
+- The playback bar stays empty until a bot page is open
+- The bot list stacks each bot on a narrow screen
+
+### Removed
+- Playlists. The panel no longer lists or plays them
+
 ## [1.0] - 2026-11-01
 
 ### Added
