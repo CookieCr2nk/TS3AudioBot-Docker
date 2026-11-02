@@ -322,9 +322,8 @@ export function BotsPage() {
     });
   }
 
-  async function apply(op, extra = {}, confirmText = "") {
+  async function apply(op, extra = {}) {
     if (!selected.length || busy) return;
-    if (confirmText && !window.confirm(confirmText)) return;
     setBusy(true);
     setFormError("");
     setNote("");
@@ -397,8 +396,8 @@ export function BotsPage() {
           {selected.length ? <button className="btn" type="button" onClick={() => setSelected([])}>{t("Clear selection")}</button> : null}
         </div>
         <div className="transport">
-          <button className="btn btn-primary" type="button" disabled={busy || !selected.length} onClick={() => apply("start", {}, t("Start {count} bots?", { count: selected.length }))}>{t("Start")}</button>
-          <button className="btn btn-danger" type="button" disabled={busy || !selected.length} onClick={() => apply("stop", {}, t("Stop {count} bots?", { count: selected.length }))}>{t("Stop")}</button>
+          <button className="btn btn-primary" type="button" disabled={busy || !selected.length} onClick={() => apply("start")}>{t("Start")}</button>
+          <button className="btn btn-danger" type="button" disabled={busy || !selected.length} onClick={() => apply("stop")}>{t("Stop")}</button>
         </div>
         {results.length ? (
           <ul className="bulk-results">
@@ -416,16 +415,6 @@ export function BotsPage() {
       {filtered.length ? (
         <div className="table-wrap bot-list">
           <table className="bot-table">
-            <colgroup>
-              <col className="col-check" />
-              <col className="col-name" />
-              <col className="col-owner" />
-              <col className="col-instance" />
-              <col className="col-status" />
-              <col className="col-playing" />
-              <col className="col-volume" />
-              <col className="col-actions" />
-            </colgroup>
             <thead>
               <tr>
                 <th>
@@ -435,8 +424,8 @@ export function BotsPage() {
                 <th>{t("Owner")}</th>
                 <th>{t("Instance")}</th>
                 <th>{t("Status")}</th>
-                <th>{t("Now playing")}</th>
-                <th>{t("Volume")}</th>
+                <th className="bot-playing">{t("Now playing")}</th>
+                <th className="bot-volume">{t("Volume")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -456,6 +445,7 @@ export function BotsPage() {
                   status = t("Paused");
                   pill = "pill pill-warn";
                 }
+                const server = playback?.online && playback.server ? playback.server : bot.address;
                 return (
                   <tr key={bot.id} className={picked ? "picked" : ""}>
                     <td className="bot-check">
@@ -499,10 +489,10 @@ export function BotsPage() {
                     <td>{bot.instanceId ? <Link className="bot-clip" to={`/instances/${bot.instanceId}`} title={bot.instanceName}>{bot.instanceName}</Link> : <span className="bot-clip" title={bot.instanceName}>{bot.instanceName}</span>}</td>
                     <td>
                       <span className={pill} title={playback?.error || ""}>{status}</span>
-                      {playback?.online && playback.server ? <span className="mono muted bot-clip" title={playback.server}> {playback.server}</span> : null}
+                      {server ? <span className="mono muted bot-server" title={server}>{server}</span> : null}
                     </td>
                     <td className="bot-playing"><span className="bot-clip" title={playback?.title || ""}>{playback?.title || "—"}</span></td>
-                    <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
+                    <td className="mono bot-volume">{playback?.volume != null ? playback.volume : "—"}</td>
                     <td className="inline bot-actions">
                       <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
                       {bot.canDelete ? (
@@ -1125,7 +1115,7 @@ export function Connection() {
           )}
           <div className="inline">
             {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (result) reload(); })}>{t("Start")}</button> : null}
-            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => window.confirm(t("Disconnect this bot?")) && act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (result) reload(); })}>{t("Disconnect")}</button> : null}
+            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (result) reload(); })}>{t("Disconnect")}</button> : null}
           </div>
         </section>
       ) : null}

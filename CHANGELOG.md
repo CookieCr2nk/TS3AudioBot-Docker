@@ -10,7 +10,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Connection can use a saved radio station as the stream that plays when the bot connects
 
 ### Changed
-- The bot list shortens a long now-playing title instead of widening the table
+- The bot list shortens only the current title. The server address and the volume heading stay fully visible
+- The bot list and the bot switcher show the saved TeamSpeak address, including while the bot is offline
+- Start, stop, and disconnect no longer ask the browser to confirm
 - A user account must be assigned to at least one instance. Administrators do not
 - Accounts other than administrators see only bots assigned to them
 - Connection chooses the stream on connect from a saved station or another address. Not set removes it

@@ -96,6 +96,7 @@ export function publicBot(bot, { admin = false } = {}) {
     instanceMode: bot.instanceMode,
     instanceRef: bot.instanceRef,
     baseUrl: admin ? bot.baseUrl : null,
+    address: bot.connectAddress || "",
     ownerName: bot.assigneeName || bot.ownerName || "",
     assigneeUserId: admin ? bot.assigneeUserId : null,
   };

@@ -277,28 +277,25 @@ tr.picked td, tr.picked:hover td { background: #e7f1f8; }
 .tab-link:hover { color: var(--text); text-decoration: none; }
 .tab-link.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 650; }
 .bot-switch { margin: 0; }
-.bot-table { width: 100%; min-width: 48rem; table-layout: fixed; }
+.bot-table { width: 100%; }
 .bot-table th,
-.bot-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bot-table td.bot-actions,
-.bot-table td.bot-check,
-.bot-table td.owner { overflow: visible; }
-.col-check { width: 2.6rem; }
-.col-name { width: 16%; }
-.col-owner { width: 11rem; }
-.col-instance { width: 14%; }
-.col-status { width: 18%; }
-.col-playing { width: 22%; }
-.col-volume { width: 4.5rem; }
-.col-actions { width: 13.5rem; }
+.bot-table td { white-space: nowrap; }
+.bot-table .bot-playing {
+  width: 16rem;
+  max-width: 16rem;
+  overflow: hidden;
+}
+.bot-table .bot-volume { white-space: nowrap; }
+.bot-server { margin-left: 0.45rem; }
 .bot-clip {
   display: inline-block;
-  max-width: 100%;
+  max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: bottom;
   white-space: nowrap;
 }
+.bot-table .bot-playing .bot-clip { display: block; max-width: 16rem; }
 .bot-table td.bot-actions .inline { flex-wrap: nowrap; }
 .fit-table { width: 100%; table-layout: fixed; }
 .fit-table .col-index { width: 3rem; }
@@ -330,7 +327,7 @@ tr.picked td, tr.picked:hover td { background: #e7f1f8; }
 .bot-table td.bot-actions { white-space: nowrap; }
 .nowrap { white-space: nowrap; }
 .nowrap .pill { margin-left: 0.45rem; }
-.bot-switch select { max-width: 240px; }
+.bot-switch select { max-width: 28rem; }
 
 .player {
   display: grid;

@@ -50,7 +50,7 @@ Read this section before changing a page. The human guide is `../README.md`. Thi
 
 The playback bar is `client/src/player.jsx`. It is empty until a bot route is open. Notices render inline on the login page and through `#toast-dock`, above that bar, everywhere else. Do not put them back at the top of the page.
 
-The bot table uses `table-layout: fixed`. The Now playing column ellipsizes. Do not set that table back to `width: max-content`. A long title must not add a horizontal scrollbar.
+The bot table ellipsizes only the Now playing column. The server address and the Volume heading stay fully visible. A bot row shows the connected server name while that bot is online, and `ts_bots.connect_address` while it is offline. The bot switcher uses that same saved address. Start, stop, and disconnect do not ask the browser to confirm.
 
 ### Client files
 

@@ -244,7 +244,7 @@ function BotTabs({ id, bot, roster, pathname, admin }) {
           <select value={String(id)} onChange={(event) => navigate(`/bots/${event.target.value}${sectionPath(pathname)}`)}>
             {options.map((item) => (
               <option key={item.id} value={String(item.id)}>
-                {item.instanceName ? `${item.name} · ${item.instanceName}` : item.name}
+                {botMenuLabel(item)}
               </option>
             ))}
           </select>
@@ -268,6 +268,12 @@ function SideLink({ to, end, children }) {
       {children}
     </NavLink>
   );
+}
+
+function botMenuLabel(item) {
+  if (item.address) return `${item.name} · ${item.address}`;
+  if (item.instanceName) return `${item.name} · ${item.instanceName}`;
+  return item.name;
 }
 
 function sectionPath(pathname) {
