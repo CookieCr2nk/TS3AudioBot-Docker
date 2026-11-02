@@ -346,18 +346,23 @@ api.post(
 api.post(
   "/instances/:id/bots/delete",
   wrap(async (req, res) => {
-    const access = await openInstance(req);
-    manageable(access);
+    const instanceId = numericId(req.params.id);
+    if (!instanceId) throw new HttpError("That bot does not exist or is not granted to you.", 404);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
     const typed = String(req.body.confirm || "").trim();
-    const rowId = await findTsBotId(access.instance.id, name);
-    const row = rowId ? await getTsBotRow(rowId) : null;
-    const visible = String(row?.label || row?.name || name).trim();
+    const rowId = await findTsBotId(instanceId, name);
+    const access = rowId ? await accessToBot(req.user, rowId) : null;
+    if (!access?.canDelete || access.bot.instanceId !== instanceId) {
+      throw new HttpError("That bot does not exist or is not granted to you.", 404);
+    }
+    const visible = String(access.bot.label || access.bot.name || name).trim();
     if (typed !== name && typed !== visible) throw new HttpError("Type the bot name exactly to confirm.", 400);
-    await callBot(instanceClient(access.instance), ["settings", "delete", name]);
-    await deleteTsBotByName(access.instance.id, name);
-    await addAudit({ userId: req.user.id, instanceId: access.instance.id, action: "bot-delete", detail: name });
+    const instance = await getInstanceRow(instanceId);
+    if (!instance) throw new HttpError("That bot does not exist or is not granted to you.", 404);
+    await callBot(instanceClient(instance), ["settings", "delete", name]);
+    await deleteTsBotByName(instanceId, name);
+    await addAudit({ userId: req.user.id, instanceId, action: "bot-delete", detail: name });
     ok(res, { message: req.t("Bot removed.") });
   }),
 );
@@ -382,7 +387,12 @@ function detailText(t, action, args) {
 }
 
 function botView(access, admin) {
-  return { ...publicBot(access.bot, { admin }), canControl: access.canControl, canManage: access.canManage };
+  return {
+    ...publicBot(access.bot, { admin }),
+    canControl: access.canControl,
+    canManage: access.canManage,
+    canDelete: Boolean(access.canDelete),
+  };
 }
 
 async function mapPool(items, limit, fn) {
@@ -459,6 +469,7 @@ api.get(
         ...publicBot(row.bot, { admin }),
         canControl: row.canControl,
         canManage: row.canManage,
+        canDelete: Boolean(row.canDelete),
         playback,
       };
     });
@@ -813,7 +824,7 @@ api.get(
       connection: botConnection,
       bot: botView(access, req.user.role === "admin"),
       hosting,
-      stations: streams.map((stream) => ({ id: stream.id, name: stream.name })),
+      stations: streams.map((stream) => ({ id: stream.id, name: stream.name, url: displayStreamUrl(stream.url) })),
       commander,
       commanderError,
       commanderSaved: commanderSavedValue,
@@ -913,6 +924,23 @@ api.delete(
   }),
 );
 
+function chosenInstanceIds(raw, known) {
+  const ids = [];
+  const seen = new Set();
+  for (const value of Array.isArray(raw) ? raw : []) {
+    const id = numericId(value);
+    if (!id || !known.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+async function assertInstanceMembership(user, instanceIds) {
+  if (user.role === "admin" || instanceIds.length > 0) return;
+  throw new ValidationError("Assign at least one instance");
+}
+
 async function adminDirectory() {
   const grants = await listGrantIds();
   const users = (await listUsers()).map((account) => ({
@@ -937,8 +965,8 @@ api.post(
     const user = id ? await findUserById(id) : null;
     if (!user) throw new HttpError("User not found", 404);
     const known = new Set((await listInstances()).map((row) => row.id));
-    const raw = Array.isArray(req.body.instanceIds) ? req.body.instanceIds : [];
-    const instanceIds = [...new Set(raw.map((value) => numericId(value)).filter((value) => known.has(value)))];
+    const instanceIds = chosenInstanceIds(req.body.instanceIds, known);
+    await assertInstanceMembership(user, instanceIds);
     await replaceUserGrants(user.id, instanceIds);
     await addAudit({
       userId: req.user.id,
@@ -957,6 +985,9 @@ api.post(
     const role = parseRole(req.body.role || "user");
     const botLimit = parseBotLimit(req.body.botLimit);
     const canCreateBots = req.body.canCreateBots === true || req.body.canCreateBots === "on" || req.body.canCreateBots === "1";
+    const known = new Set((await listInstances()).map((row) => row.id));
+    const instanceIds = chosenInstanceIds(req.body.instanceIds, known);
+    if (role !== "admin" && instanceIds.length === 0) throw new ValidationError("Assign at least one instance");
     const id = await createUser({
       username,
       passwordHash: password ? await hashPassword(password) : null,
@@ -964,6 +995,7 @@ api.post(
       botLimit,
       canCreateBots,
     });
+    await replaceUserGrants(id, instanceIds);
     await addAudit({ userId: req.user.id, action: "user-create", detail: `${username} (${role}) id ${id}` });
     ok(res, { message: req.t("User created."), ...(await adminDirectory()) });
   }),

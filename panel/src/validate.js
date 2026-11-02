@@ -167,10 +167,15 @@ function parseOptionalSecret(value, label) {
   return rejectControls(text, label);
 }
 
+function optionalClear(input, key, parse) {
+  if (!Object.hasOwn(input, key)) return undefined;
+  return clean(input[key]) ? parse(input[key]) : null;
+}
+
 export function parseHostingSettings(input) {
   const name = parseTemplateName(input.name);
-  const nickname = clean(input.nickname) ? parseBotNick(input.nickname) : null;
-  const channel = clean(input.channel) ? parseChannel(input.channel) : null;
+  const nickname = optionalClear(input, "nickname", parseBotNick);
+  const channel = optionalClear(input, "channel", parseChannel);
   const serverPassword = parseOptionalSecret(input.serverPassword, "Server password");
   const channelPassword = parseOptionalSecret(input.channelPassword, "Channel password");
   let bitrate = null;
@@ -188,7 +193,10 @@ export function parseHostingSettings(input) {
   const clearStartup = input.clearStartup === true || input.clearStartup === "on" || input.clearStartup === "1";
   const startup = clean(input.startup) ? parseStreamUrl(input.startup) : null;
   if (startup && clearStartup) throw new ValidationError("Clear the startup stream or set an address");
-  if (!nickname && !channel && !serverPassword && !channelPassword && bitrate == null && volume == null && run == null && !startup && !clearStartup) {
+  if (
+    nickname === undefined && channel === undefined && !serverPassword && !channelPassword
+    && bitrate == null && volume == null && run == null && !startup && !clearStartup
+  ) {
     throw new ValidationError("Enter at least one connection setting");
   }
   return {

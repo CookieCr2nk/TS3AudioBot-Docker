@@ -10,6 +10,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Connection can use a saved radio station as the stream that plays when the bot connects
 
 ### Changed
+- A user account must be assigned to at least one instance. Administrators do not
+- Accounts other than administrators see only bots assigned to them
+- Connection keeps the stream address and a saved station in one field. Leaving it empty removes the stream on connect
+- Notices sit at the bottom right, above the playback bar
 - The name field for a new bot shows Evening radio as the example
 - Saving a default channel moves a connected bot into that channel
 - The playback bar stays empty until a bot page is open
@@ -18,6 +22,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The panel image uses the Node.js LTS tag `lts-bookworm-slim`, which is Node.js 26.13.0. CI runs that same version
 
 ### Fixed
+- The account a bot is assigned to can delete that bot
+- Clearing the nickname or the default channel on Connection saves that reset
 - Saving connection settings sends only the fields that changed, so a connected bot is not moved again
 - Start and stop on the bot list work for anyone who can control that bot
 - The connection page still shows the saved settings when the bot API cannot be reached. The panel also remembers the TeamSpeak address

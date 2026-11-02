@@ -344,8 +344,8 @@ const de = {
   "Stream address must be http or https": "Die Stream-Adresse muss http oder https sein",
   "This stream address is not allowed": "Diese Stream-Adresse ist nicht erlaubt",
   "Connection settings": "Verbindungseinstellungen",
-  "The panel remembers these settings. An empty field stays as it is. Passwords go to the bot and are not stored here.":
-    "Das Panel merkt sich diese Einstellungen. Ein leeres Feld bleibt, wie es ist. Passwörter gehen an den Bot und werden hier nicht gespeichert.",
+  "The panel remembers these settings. Clear the nickname or the default channel and save to reset it. An empty password, bitrate, or volume stays as it is. Passwords go to the bot and are not stored here.":
+    "Das Panel merkt sich diese Einstellungen. Nickname oder Standard-Channel leer lassen und speichern setzt sie zurück. Ein leeres Passwort, eine leere Bitrate oder eine leere Lautstärke bleibt, wie sie ist. Passwörter gehen an den Bot und werden hier nicht gespeichert.",
   "Nothing changed.": "Nichts geändert.",
   "Not set": "Nicht gesetzt",
   "Not playing": "Spielt nicht",
@@ -355,8 +355,8 @@ const de = {
   "Instance owner ({name})": "Instanz-Besitzer ({name})",
   Nickname: "Nickname",
   "Default channel": "Standard-Channel",
-  "Saved as the channel this bot joins. A connected bot moves there when you save.":
-    "Wird als Channel gespeichert, den dieser Bot betritt. Ein verbundener Bot wird beim Speichern dorthin verschoben.",
+  "Saved as the channel this bot joins. Leave it empty and save to reset it. A connected bot moves only when you set a channel.":
+    "Wird als Channel gespeichert, den dieser Bot betritt. Leer lassen und speichern setzt ihn zurück. Ein verbundener Bot wird nur verschoben, wenn ein Channel gesetzt ist.",
   "Move now": "Jetzt verschieben",
   "Moves this bot into a channel. The default channel stays unchanged.":
     "Verschiebt diesen Bot in einen Channel. Der Standard-Channel bleibt unverändert.",
@@ -493,8 +493,11 @@ const de = {
   "The connected name changes immediately. An offline bot uses it the next time it connects.":
     "Der verbundene Name ändert sich sofort. Ein offline Bot übernimmt ihn beim nächsten Verbinden.",
   "Stream on connect": "Stream beim Verbinden",
-  "An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.":
-    "Eine http- oder https-Adresse. Der Bot spielt sie ab, sobald er verbunden ist. Leer lassen behält den aktuellen Stream.",
+  "Leave this empty to remove the stream. Pick a saved station or type an http or https address.":
+    "Leer lassen entfernt den Stream. Wähle einen gespeicherten Sender oder gib eine http- oder https-Adresse ein.",
+  "Assign at least one instance": "Mindestens eine Instanz zuweisen",
+  "A user needs at least one instance. More than one is allowed. An administrator does not. Can create bots also lets that account pick any enabled instance.":
+    "Ein Benutzer braucht mindestens eine Instanz. Mehrere sind erlaubt. Ein Administrator nicht. Bots erstellen erlaubt zusätzlich jede aktive Instanz.",
   "Clear the stream on connect": "Stream beim Verbinden entfernen",
   "Clear the startup stream or set an address": "Den Start-Stream entfernen oder eine Adresse eintragen",
   "Connection settings saved. The nickname is updated.": "Verbindung gespeichert. Der Nickname ist aktualisiert.",

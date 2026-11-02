@@ -375,7 +375,7 @@ export async function listInstances() {
 export async function listInstancesForUser(userId) {
   const [rows] = await pool.query(
     `SELECT ${INSTANCE_COLUMNS}, u.username AS owner_name,
-            (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id) AS bot_count,
+            (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id AND t.assignee_user_id = ?) AS bot_count,
             (SELECT COUNT(*) FROM instance_grants g2 WHERE g2.instance_id = i.id) AS grant_count,
             CASE WHEN i.owner_user_id = ? THEN 1 ELSE IFNULL(g.can_control, 0) END AS can_control
      FROM instances i
@@ -383,7 +383,7 @@ export async function listInstancesForUser(userId) {
      LEFT JOIN instance_grants g ON g.instance_id = i.id AND g.user_id = ?
      WHERE i.enabled = 1 AND (i.owner_user_id = ? OR g.user_id = ?)
      ORDER BY i.name`,
-    [userId, userId, userId, userId],
+    [userId, userId, userId, userId, userId],
   );
   return rows.map((row) => ({ ...mapInstance(row), canControl: Boolean(row.can_control) }));
 }
@@ -447,6 +447,12 @@ export async function deleteInstance(id) {
   await pool.query("DELETE FROM instances WHERE id = ?", [id]);
 }
 
+export function canDeleteBot(user, bot) {
+  if (!user || !bot) return false;
+  if (user.role === "admin") return true;
+  return bot.assigneeUserId != null && Number(bot.assigneeUserId) === Number(user.id);
+}
+
 export async function listAccessibleBots(user) {
   if (user.role === "admin") {
     const [rows] = await pool.query(
@@ -455,21 +461,25 @@ export async function listAccessibleBots(user) {
        JOIN instances i ON i.id = t.instance_id
        ORDER BY i.name, t.name`,
     );
-    return rows.map((row) => ({ bot: mapBot(row, { token: true }), canControl: true, canManage: true }));
+    return rows.map((row) => ({ bot: mapBot(row, { token: true }), canControl: true, canManage: true, canDelete: true }));
   }
   const [rows] = await pool.query(
-    `SELECT ${TS_BOT_JOIN}, 1 AS can_control
+    `SELECT ${TS_BOT_JOIN}
      FROM ts_bots t
      JOIN instances i ON i.id = t.instance_id
-     WHERE i.enabled = 1 AND (i.owner_user_id = ? OR t.assignee_user_id = ?)
+     WHERE i.enabled = 1 AND t.assignee_user_id = ?
      ORDER BY i.name, t.name`,
-    [user.id, user.id],
+    [user.id],
   );
-  return rows.map((row) => ({
-    bot: mapBot(row, { token: true }),
-    canControl: Boolean(row.can_control),
-    canManage: row.owner_user_id != null && Number(row.owner_user_id) === user.id,
-  }));
+  return rows.map((row) => {
+    const bot = mapBot(row, { token: true });
+    return {
+      bot,
+      canControl: true,
+      canManage: bot.ownerUserId != null && bot.ownerUserId === user.id,
+      canDelete: canDeleteBot(user, bot),
+    };
+  });
 }
 
 export async function listTsBots(instanceId) {
@@ -585,15 +595,15 @@ export async function accessToBot(user, botId) {
   const row = await getTsBotRow(botId);
   if (!row) return null;
   const bot = mapBot(row, { token: true });
-  if (user.role === "admin") return { bot, canControl: true, canManage: true };
+  if (user.role === "admin") return { bot, canControl: true, canManage: true, canDelete: true };
   if (!row.enabled) return null;
-  if (row.owner_user_id != null && Number(row.owner_user_id) === user.id) {
-    return { bot, canControl: true, canManage: true };
-  }
-  if (row.assignee_user_id != null && Number(row.assignee_user_id) === user.id) {
-    return { bot, canControl: true, canManage: false };
-  }
-  return null;
+  if (!canDeleteBot(user, bot)) return null;
+  return {
+    bot,
+    canControl: true,
+    canManage: bot.ownerUserId != null && bot.ownerUserId === user.id,
+    canDelete: true,
+  };
 }
 
 export async function getGrant(instanceId, userId) {

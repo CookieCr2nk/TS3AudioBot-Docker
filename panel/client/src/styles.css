@@ -180,6 +180,19 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .pill-ok { background: #e5f6ec; color: var(--ok); }
 .pill-warn { background: #fff4d6; color: var(--warn); }
 .pill-bad { background: #fde8e6; color: var(--bad); }
+.toast-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem 0.55rem;
+  flex-shrink: 0;
+}
+.toast-dock:empty { display: none; }
+.toast-dock .flash {
+  width: min(22rem, 100%);
+  box-shadow: 0 8px 24px rgba(20, 28, 36, 0.16);
+}
 .flash { margin: 0; padding: 0.65rem 0.8rem; border-radius: 6px; background: #e8f2fa; color: #184868; }
 .flash-error { background: #fde8e6; color: #8d2d27; }
 .flash-ok { background: #e5f6ec; color: #146338; }

@@ -51,7 +51,6 @@ export function PlayerBar() {
   if (!bot || !player) return null;
 
   const canSeek = Boolean(player.canControl && song?.length);
-  const problem = player.status?.problems?.[0];
 
   return (
     <section className="player" aria-label={t("Playback")}>
@@ -62,10 +61,7 @@ export function PlayerBar() {
           {bot.instanceName ? <span> · {bot.instanceName}</span> : null}
           {song?.source ? <span className="player-source"> · {song.source}</span> : null}
         </p>
-        {player.error ? <p className="player-note bad" role="alert">{player.error}</p> : null}
-        {!player.error && player.note ? <p className="player-note" role="status">{player.note}</p> : null}
-        {!player.error && !player.note && problem ? <p className="player-note bad">{problem}</p> : null}
-        {!player.error && !player.note && !problem && !player.canControl ? <p className="player-note">{t("Read only")}</p> : null}
+        {!player.canControl ? <p className="player-note">{t("Read only")}</p> : null}
       </div>
       <div className="player-center">
         <div className="player-buttons">

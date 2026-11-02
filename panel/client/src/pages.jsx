@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "./api.js";
@@ -29,10 +29,21 @@ function useLoad(path) {
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
-function Notice({ error, note }) {
-  if (error) return <p className="flash flash-error" role="alert">{error}</p>;
-  if (note) return <p className="flash flash-ok" role="status">{note}</p>;
-  return null;
+function useToastDock() {
+  const [dock, setDock] = useState(null);
+  useLayoutEffect(() => {
+    setDock(document.getElementById("toast-dock"));
+  }, []);
+  return dock;
+}
+
+export function Notice({ error, note }) {
+  const dock = useToastDock();
+  if (!error && !note) return null;
+  const node = error
+    ? <p className="flash flash-error" role="alert">{error}</p>
+    : <p className="flash flash-ok" role="status">{note}</p>;
+  return dock ? createPortal(node, dock) : node;
 }
 
 export function AddBot({ instanceId = "" }) {
@@ -479,7 +490,7 @@ export function BotsPage() {
                     <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
                     <td className="inline bot-actions">
                       <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
-                      {bot.canManage ? (
+                      {bot.canDelete ? (
                         <DeleteBot name={bot.name} onSubmit={async (confirm) => {
                           setFormError("");
                           try {
@@ -720,8 +731,6 @@ export function Playback() {
         </div>
         <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Not playing")}</span>
       </div>
-      <Notice error={player?.error || ""} note={player?.note || ""} />
-      {(status?.problems || []).map((problem) => <p key={problem} className="flash flash-error">{problem}</p>)}
       <div className="transport">
         {[-30, -10, 10, 30].map((delta) => (
           <button key={delta} className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "nudge", delta })}>
@@ -904,25 +913,25 @@ export function History() {
 
 function StartupStream({ hosting, stations }) {
   const { t } = useAuth();
-  const [stationId, setStationId] = useState(hosting?.startupStreamId ? String(hosting.startupStreamId) : "");
+  const [value, setValue] = useState(hosting?.startup || "");
+  const match = stations.find((station) => station.url && station.url === value.trim());
   return (
-    <>
-      {hosting?.startup ? <p className="muted">{t("Current stream")}: <span className="mono">{hosting.startup}</span></p> : null}
+    <label>{t("Stream on connect")}
+      <input
+        name="startup"
+        list="startup-stations"
+        value={value}
+        placeholder="https://"
+        onChange={(event) => setValue(event.target.value)}
+      />
       {stations.length ? (
-        <label>{t("Saved station")}
-          <select name="streamId" value={stationId} onChange={(event) => setStationId(event.target.value)}>
-            <option value="">{t("Type an address")}</option>
-            {stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}
-          </select>
-        </label>
+        <datalist id="startup-stations">
+          {stations.map((station) => <option key={station.id} value={station.url}>{station.name}</option>)}
+        </datalist>
       ) : null}
-      {stationId ? <p className="muted">{t("This station plays when the bot connects.")}</p> : (
-        <>
-          <label>{t("Stream on connect")}<input name="startup" placeholder="https://" /></label>
-          <p className="muted">{t("An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.")}</p>
-        </>
-      )}
-    </>
+      {match ? <input type="hidden" name="streamId" value={match.id} /> : null}
+      <span className="muted">{t("Leave this empty to remove the stream. Pick a saved station or type an http or https address.")}</span>
+    </label>
   );
 }
 
@@ -937,7 +946,7 @@ export function Connection() {
   return (
     <div className="page">
       <h1>{t("Connection")}</h1>
-      <p className="muted">{t("The panel remembers these settings. An empty field stays as it is. Passwords go to the bot and are not stored here.")}</p>
+      <p className="muted">{t("The panel remembers these settings. Clear the nickname or the default channel and save to reset it. An empty password, bitrate, or volume stays as it is. Passwords go to the bot and are not stored here.")}</p>
       <Notice error={error || actionError} note={note || localNote} />
       <form className="card" key={[
         data?.bot?.name,
@@ -988,7 +997,7 @@ export function Connection() {
         <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" defaultValue={data?.hosting?.nickname || ""} /></label>
         <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
         <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} defaultValue={data?.hosting?.channel || ""} /></label>
-        <p className="muted">{t("Saved as the channel this bot joins. A connected bot moves there when you save.")}</p>
+        <p className="muted">{t("Saved as the channel this bot joins. Leave it empty and save to reset it. A connected bot moves only when you set a channel.")}</p>
         <div className="split">
           <label className="grow">{t("Server password")}
             <input name="serverPassword" type="password" autoComplete="off" />
@@ -1011,7 +1020,6 @@ export function Connection() {
           </label>
         </div>
         <StartupStream hosting={data?.hosting} stations={data?.stations || []} />
-        <label className="check"><input type="checkbox" name="clearStartup" value="on" /> {t("Clear the stream on connect")}</label>
         <button className="btn btn-primary" type="submit">{t("Save")}</button>
       </form>
       <section className="card">
@@ -1114,19 +1122,26 @@ export function Users() {
       <h1>{t("Users")}</h1>
       <p className="muted">{t("Panel accounts. These are not TeamSpeak identities.")}</p>
       <p className="muted">{t("A bot limit counts bots assigned to this account. A bot with nobody assigned counts for the instance owner. Leave it empty for unlimited.")}</p>
-      <p className="muted">{t("Check the instances an account may open. Can create bots also lets that account pick any enabled instance.")}</p>
+      <p className="muted">{t("A user needs at least one instance. More than one is allowed. An administrator does not. Can create bots also lets that account pick any enabled instance.")}</p>
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
         const formElement = event.currentTarget;
         const form = new FormData(formElement);
         try {
+          const role = form.get("role");
+          const instanceIds = [...form.getAll("instanceId")];
+          if (role !== "admin" && instanceIds.length === 0) {
+            setFormError(t("Assign at least one instance"));
+            return;
+          }
           await post("/api/admin/users", {
             username: form.get("username"),
             password: form.get("password"),
-            role: form.get("role"),
+            role,
             botLimit: form.get("botLimit"),
             canCreateBots: form.get("canCreateBots") === "yes",
+            instanceIds,
           });
           formElement.reset();
         } catch (err) {
@@ -1148,6 +1163,11 @@ export function Users() {
             <select name="canCreateBots" defaultValue="no">
               <option value="no">{t("No")}</option>
               <option value="yes">{t("Yes")}</option>
+            </select>
+          </label>
+          <label>{t("Instances")}
+            <select name="instanceId" multiple size={Math.min(6, Math.max(instances.length, 3))}>
+              {instances.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
           <button className="btn btn-primary" type="submit">{t("Create")}</button>
@@ -1201,11 +1221,17 @@ export function Users() {
                       <form className="user-edit" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
                         event.preventDefault();
                         const form = new FormData(event.currentTarget);
+                        const role = form.get("role");
+                        const instanceIds = [...form.getAll("instanceId")];
+                        if (role !== "admin" && instanceIds.length === 0) {
+                          setFormError(t("Assign at least one instance"));
+                          return;
+                        }
                         try {
-                          await post(`/api/admin/users/${account.id}/role`, { role: form.get("role") });
+                          await post(`/api/admin/users/${account.id}/role`, { role });
                           await post(`/api/admin/users/${account.id}/limit`, { botLimit: form.get("botLimit") });
                           await post(`/api/admin/users/${account.id}/create-bots`, { canCreateBots: form.get("canCreateBots") === "yes" });
-                          await post(`/api/admin/users/${account.id}/instances`, { instanceIds: [...form.getAll("instanceId")] });
+                          await post(`/api/admin/users/${account.id}/instances`, { instanceIds });
                           const suspend = form.get("suspended") === "yes";
                           if (suspend !== account.suspended && account.id !== user.id) {
                             await post(`/api/admin/users/${account.id}/suspend`, { suspended: suspend });

@@ -328,8 +328,8 @@ export const actions = {
 
 export function settingsRecord(args) {
   const patch = {};
-  if (args.nickname) patch.nickname = args.nickname;
-  if (args.channel) patch.channel = args.channel;
+  if (args.nickname !== undefined) patch.nickname = args.nickname;
+  if (args.channel !== undefined) patch.channel = args.channel;
   if (args.bitrate != null) patch.bitrate = args.bitrate;
   if (args.volume != null) patch.volume = args.volume;
   if (args.run != null) patch.run = args.run ? 1 : 0;
@@ -346,10 +346,19 @@ export function ownLiveId(data, name) {
   return item ? String(item.id) : "";
 }
 
+function settingCall(name, path, value) {
+  if (value === undefined) return null;
+  const parts = ["settings", "bot", "set", name, path];
+  if (value != null && String(value) !== "") parts.push(String(value));
+  return parts;
+}
+
 export function hostingCalls(args) {
   const calls = [];
-  if (args.nickname) calls.push(["settings", "bot", "set", args.name, "connect.name", args.nickname]);
-  if (args.channel) calls.push(["settings", "bot", "set", args.name, "connect.channel", args.channel]);
+  const nickname = settingCall(args.name, "connect.name", args.nickname);
+  const channel = settingCall(args.name, "connect.channel", args.channel);
+  if (nickname) calls.push(nickname);
+  if (channel) calls.push(channel);
   if (args.serverPassword) calls.push(["settings", "bot", "set", args.name, "connect.server_password.pw", args.serverPassword]);
   if (args.channelPassword) calls.push(["settings", "bot", "set", args.name, "connect.channel_password.pw", args.channelPassword]);
   if (args.bitrate != null) calls.push(["settings", "bot", "set", args.name, "audio.bitrate", String(args.bitrate)]);

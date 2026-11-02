@@ -2,13 +2,20 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
-// Only fields that differ from the saved snapshot. An empty field stays unchanged.
+// null clears a saved nickname or channel. A blank password, bitrate, volume, or stream stays unchanged.
+function textChange(raw, savedRaw) {
+  const next = clean(raw);
+  const previous = clean(savedRaw);
+  if (next === previous) return undefined;
+  return next || null;
+}
+
 export function hostingChanges(input, saved = {}) {
   const patch = {};
-  const nickname = clean(input.nickname);
-  if (nickname && nickname !== (saved.nickname || "")) patch.nickname = nickname;
-  const channel = clean(input.channel);
-  if (channel && channel !== (saved.channel || "")) patch.channel = channel;
+  const nickname = textChange(input.nickname, saved.nickname);
+  if (nickname !== undefined) patch.nickname = nickname;
+  const channel = textChange(input.channel, saved.channel);
+  if (channel !== undefined) patch.channel = channel;
   const serverPassword = String(input.serverPassword ?? "");
   if (serverPassword.trim()) patch.serverPassword = serverPassword;
   const channelPassword = String(input.channelPassword ?? "");
@@ -20,16 +27,15 @@ export function hostingChanges(input, saved = {}) {
   const run = clean(input.run);
   const savedRun = saved.run == null ? "" : saved.run ? "on" : "off";
   if (run && run !== savedRun) patch.run = run;
-  if (input.clearStartup === true || input.clearStartup === "on" || input.clearStartup === "1") {
-    patch.clearStartup = "on";
-  } else {
+  if (Object.hasOwn(input, "startup") || Object.hasOwn(input, "streamId")) {
+    const startup = clean(input.startup);
+    const savedStartup = clean(saved.startup);
     const streamId = clean(input.streamId);
     const savedStreamId = saved.startupStreamId == null ? "" : String(saved.startupStreamId);
-    if (streamId && streamId !== savedStreamId) patch.streamId = streamId;
-    else if (!streamId) {
-      const startup = clean(input.startup);
-      if (startup) patch.startup = startup;
-    }
+    if (!startup) {
+      if (savedStartup) patch.clearStartup = "on";
+    } else if (streamId && streamId !== savedStreamId) patch.streamId = streamId;
+    else if (!streamId && startup !== savedStartup) patch.startup = startup;
   }
   return patch;
 }

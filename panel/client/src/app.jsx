@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
-import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Overview, Playback, Radio, Users } from "./pages.jsx";
+import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Notice, Overview, Playback, Radio, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
 
 export function App() {
@@ -215,6 +215,9 @@ function Shell() {
             <Outlet />
           </main>
           <div id="bulk-slot" />
+          <div id="toast-dock" className="toast-dock" />
+          <Notice error={actionError} note={note} />
+          {(shownBot ? status?.problems || [] : []).map((problem, index) => <Notice key={`${index}:${problem}`} error={problem} />)}
           <PlayerBar />
         </div>
       </div>
