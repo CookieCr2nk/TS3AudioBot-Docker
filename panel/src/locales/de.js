@@ -351,7 +351,10 @@ const de = {
   "Moves this bot into a channel. The default channel stays unchanged.":
     "Verschiebt diesen Bot in einen Channel. Der Standard-Channel bleibt unverändert.",
   "Server password": "Serverpasswort",
+  "A server password is saved on the bot.": "Ein Serverpasswort ist auf dem Bot gespeichert.",
   "Channel password": "Channelpasswort",
+  "A channel password is saved on the bot.": "Ein Channelpasswort ist auf dem Bot gespeichert.",
+  "Current stream": "Aktueller Stream",
   "Bitrate (kbps)": "Bitrate (kbps)",
   Bitrate: "Bitrate",
   "Default volume": "Standard-Lautstärke",

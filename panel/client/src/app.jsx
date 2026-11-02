@@ -232,7 +232,7 @@ function BotTabs({ id, bot, roster, pathname, admin }) {
         <Tab to={`/bots/${id}`} end>{t("Playback")}</Tab>
         <Tab to={`/bots/${id}/streams`}>{t("Radio")}</Tab>
         <Tab to={`/bots/${id}/history`}>{t("History")}</Tab>
-        {admin ? <Tab to={`/bots/${id}/connection`}>{t("Connection")}</Tab> : null}
+        <Tab to={`/bots/${id}/connection`}>{t("Connection")}</Tab>
       </nav>
       {admin || user.canCreateBots || bot.canManage ? <AddBot instanceId={bot.instanceId || ""} /> : null}
       {options.length > 1 ? (

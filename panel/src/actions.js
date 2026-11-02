@@ -1,5 +1,5 @@
 import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
-import { presentBotList, presentSetting } from "./present.js";
+import { displayStreamUrl, presentBotList, presentSetting } from "./present.js";
 import { callBot, scope } from "./ts3ab.js";
 import {
   parseChannel,
@@ -105,7 +105,7 @@ export const actions = {
     detail: (args) => `Index ${args.index}`,
   },
   move: {
-    admin: true,
+    control: true,
     audit: true,
     success: "Bot moved",
     parse: (input) => ({ channel: parseChannel(input.channel) }),
@@ -162,7 +162,7 @@ export const actions = {
     build: () => ["bot", "list"],
   },
   connect: {
-    admin: true,
+    control: true,
     audit: true,
     scoped: false,
     success: "Instance is starting",
@@ -172,7 +172,7 @@ export const actions = {
     detail: (args) => args.name,
   },
   disconnect: {
-    admin: true,
+    control: true,
     audit: true,
     scoped: false,
     success: "Instance is disconnecting",
@@ -206,7 +206,7 @@ export const actions = {
     detail: (args) => args.name,
   },
   "template-address": {
-    admin: true,
+    control: true,
     audit: true,
     scoped: false,
     success: "Server address saved",
@@ -215,7 +215,7 @@ export const actions = {
     detail: (args) => `${args.name} → ${args.address}`,
   },
   "template-hosting": {
-    admin: true,
+    control: true,
     audit: true,
     scoped: false,
     success: "Connection settings saved",
@@ -278,7 +278,7 @@ export const actions = {
     detail: (args) => ({ key: "Connection settings for {name}", params: { name: args.name } }),
   },
   commander: {
-    admin: true,
+    control: true,
     audit: true,
     scoped: false,
     success: "Channel commander updated",
@@ -325,6 +325,25 @@ export const actions = {
     detail: (args) => ({ key: args.mode === "on" ? "Channel commander is on" : "Channel commander is off" }),
   },
 };
+
+export function settingsRecord(args) {
+  const patch = {};
+  if (args.nickname) patch.nickname = args.nickname;
+  if (args.channel) patch.channel = args.channel;
+  if (args.bitrate != null) patch.bitrate = args.bitrate;
+  if (args.volume != null) patch.volume = args.volume;
+  if (args.run != null) patch.run = args.run ? 1 : 0;
+  if (args.clearStartup) patch.startup = null;
+  else if (args.startup) patch.startup = displayStreamUrl(args.startup);
+  if (args.serverPassword) patch.serverPassword = 1;
+  if (args.channelPassword) patch.channelPassword = 1;
+  return patch;
+}
+
+export function ownLiveId(data, name) {
+  const item = presentBotList(data).find((row) => row.name === name && row.id != null);
+  return item ? String(item.id) : "";
+}
 
 export function hostingCalls(args) {
   const calls = [];

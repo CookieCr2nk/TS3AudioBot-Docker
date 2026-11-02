@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createApp, panelRoot } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, parseBulk, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
+import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
@@ -88,7 +88,8 @@ describe("action guard", () => {
 
   it("blocks playback without control and hosting actions for users", () => {
     assert.throws(() => buildActionRequest(templateBot, "play", { resource: "https://example.com/a" }, reader), /control rights/);
-    assert.throws(() => buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, user), /Administrators only/);
+    assert.throws(() => buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, reader), /control rights/);
+    assert.equal(buildApiPath(buildActionRequest(templateBot, "disconnect", { instanceId: "1" }, user).parts), "/bot/use/1/(/bot/disconnect)");
   });
 
   it("keeps hosting secrets out of the audit text", () => {
@@ -105,7 +106,22 @@ describe("action guard", () => {
       ["settings", "bot", "set", "lobby", "audio.volume.default", "40"],
     ]);
     assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby" }, admin), /at least one/);
-    assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby", nickname: "Music" }, user), /Administrators only/);
+    const opened = buildActionRequest(templateBot, "template-hosting", { name: "lobby", nickname: "Music" }, user);
+    assert.equal(opened.args.nickname, "Music");
+    assert.throws(() => buildActionRequest(templateBot, "template-hosting", { name: "lobby", nickname: "Music" }, reader), /control rights/);
+    const remembered = settingsRecord(parseHostingSettings({
+      name: "lobby",
+      nickname: "Music",
+      channel: "/5",
+      serverPassword: "s3cret-pass",
+      startup: "https://user:pass@example.com/a",
+    }));
+    assert.equal(JSON.stringify(remembered).includes("s3cret-pass"), false);
+    assert.equal(JSON.stringify(remembered).includes("user:pass"), false);
+    assert.equal(remembered.serverPassword, 1);
+    assert.equal(remembered.startup, "https://example.com/a");
+    assert.equal(ownLiveId([{ Id: 7, Name: "lobby", Status: 2 }], "lobby"), "7");
+    assert.equal(ownLiveId([{ Id: 7, Name: "other", Status: 2 }], "lobby"), "");
     const stream = buildActionRequest(
       templateBot,
       "template-hosting",
@@ -141,8 +157,9 @@ describe("action guard", () => {
     const moved = buildActionRequest(templateBot, "move", { channel: "/5" }, admin);
     assert.equal(buildApiPath(moved.parts), "/bot/template/default/(/bot/move/%2F5)");
     assert.equal(JSON.stringify(moved.parts).includes("connect.channel"), false);
-    assert.throws(() => buildActionRequest(templateBot, "move", { channel: "/5" }, user), /Administrators only/);
-    assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "on" }, user), /Administrators only/);
+    assert.throws(() => buildActionRequest(templateBot, "move", { channel: "/5" }, reader), /control rights/);
+    assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "on" }, reader), /control rights/);
+    assert.equal(buildActionRequest(templateBot, "move", { channel: "/5" }, user).args.channel, "/5");
     assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "maybe" }, admin), /invalid/);
     assert.throws(() => buildActionRequest(templateBot, "bot-setup", { key: "abcdefgh" }, admin), /Unknown action/);
     assert.equal(presentCommander({ Value: true }), true);
@@ -267,6 +284,7 @@ describe("secrets and schema", () => {
       "008_bot_template",
       "009_bot_admins",
       "010_drop_bot_admins",
+      "011_bot_settings",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
@@ -279,6 +297,8 @@ describe("secrets and schema", () => {
     assert.equal(migrations[4].statements.some((statement) => /ADD COLUMN IF NOT EXISTS bot_limit/i.test(statement)), true);
     assert.equal(migrations[5].statements.some((statement) => /ADD COLUMN IF NOT EXISTS can_create_bots/i.test(statement)), true);
     assert.equal(migrations[5].statements.some((statement) => /assignee_user_id/i.test(statement)), true);
+    assert.equal(migrations[10].statements.some((statement) => /connect_nickname/i.test(statement)), true);
+    assert.equal(migrations[10].statements.some((statement) => /connect_server_password/i.test(statement)), true);
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);

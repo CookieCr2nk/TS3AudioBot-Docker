@@ -26,6 +26,8 @@ function useLoad(path) {
   return { data, error, setData, reload: () => setTick((value) => value + 1) };
 }
 
+const PAGE_SIZES = [10, 25, 50, 100];
+
 function Notice({ error, note }) {
   if (error) return <p className="flash flash-error" role="alert">{error}</p>;
   if (note) return <p className="flash flash-ok" role="status">{note}</p>;
@@ -243,8 +245,9 @@ export function BotsPage() {
   const [formError, setFormError] = useState("");
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
   const allRef = useRef(null);
-  const allNarrowRef = useRef(null);
   const [dockSlot, setDockSlot] = useState(null);
   const bots = data?.bots || [];
   const instanceId = params.get("instance") || "";
@@ -257,7 +260,10 @@ export function BotsPage() {
     if (query && !bot.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
     return true;
   });
-  const selectable = filtered.filter((bot) => bot.canControl);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selectable = visible.filter((bot) => bot.canControl);
   const allPicked = selectable.length > 0 && selectable.every((bot) => selected.includes(bot.id));
   const somePicked = selectable.some((bot) => selected.includes(bot.id));
 
@@ -271,10 +277,16 @@ export function BotsPage() {
   }, [data]);
 
   useEffect(() => {
-    const indeterminate = somePicked && !allPicked;
-    if (allRef.current) allRef.current.indeterminate = indeterminate;
-    if (allNarrowRef.current) allNarrowRef.current.indeterminate = indeterminate;
+    if (allRef.current) allRef.current.indeterminate = somePicked && !allPicked;
   }, [somePicked, allPicked]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, instanceId, pageSize]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   useEffect(() => {
     setDockSlot(document.getElementById("bulk-slot"));
@@ -344,12 +356,20 @@ export function BotsPage() {
             </select>
           </label>
           {instanceId || query ? <button className="btn" type="button" onClick={() => { setQuery(""); setInstance(""); }}>{t("Reset")}</button> : null}
-          {selectable.length ? (
-            <label className="check bot-select-all">
-              <input ref={allNarrowRef} type="checkbox" checked={allPicked} aria-label={t("Select all")} onChange={toggleVisible} />
-              {t("Select all")}
-            </label>
-          ) : null}
+        </div>
+      ) : null}
+      {bots.length ? (
+        <div className="user-pager">
+          <label>{t("Per page")}
+            <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
+              {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+          <div className="transport">
+            <button className="btn" type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>{t("Previous page")}</button>
+            <span className="muted">{t("Page {page} of {pages}", { page: currentPage, pages: pageCount })}</span>
+            <button className="btn" type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>{t("Next page")}</button>
+          </div>
         </div>
       ) : null}
       {dockSlot && (selected.length || results.length) ? createPortal(
@@ -394,7 +414,7 @@ export function BotsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((bot) => {
+              {visible.map((bot) => {
                 const playback = bot.playback;
                 const picked = selected.includes(bot.id);
                 let status = t("Empty");
@@ -421,8 +441,8 @@ export function BotsPage() {
                         onChange={() => toggle(bot.id)}
                       />
                     </td>
-                    <td className="bot-name"><Link to={`/bots/${bot.id}`}>{bot.name}</Link></td>
-                    <td className="owner" data-label={t("Owner")}>
+                    <td className="bot-name"><Link className="bot-clip" to={`/bots/${bot.id}`} title={bot.name}>{bot.name}</Link></td>
+                    <td className="owner">
                       {user.role === "admin" ? (
                         <select
                           className="owner-select"
@@ -449,14 +469,13 @@ export function BotsPage() {
                         </select>
                       ) : (bot.ownerName || t("No owner"))}
                     </td>
-                    <td data-label={t("Instance")}>{bot.instanceId ? <Link to={`/instances/${bot.instanceId}`}>{bot.instanceName}</Link> : bot.instanceName}</td>
-                    <td data-label={t("Status")}>
-                      <span className={pill}>{status}</span>
-                      {playback?.online && playback.server ? <span className="mono muted"> {playback.server}</span> : null}
-                      {playback?.error ? <div className="muted">{playback.error}</div> : null}
+                    <td>{bot.instanceId ? <Link className="bot-clip" to={`/instances/${bot.instanceId}`} title={bot.instanceName}>{bot.instanceName}</Link> : <span className="bot-clip" title={bot.instanceName}>{bot.instanceName}</span>}</td>
+                    <td>
+                      <span className={pill} title={playback?.error || ""}>{status}</span>
+                      {playback?.online && playback.server ? <span className="mono muted bot-clip" title={playback.server}> {playback.server}</span> : null}
                     </td>
-                    <td data-label={t("Now playing")}>{playback?.title || "—"}</td>
-                    <td className="mono" data-label={t("Volume")}>{playback?.volume != null ? playback.volume : "—"}</td>
+                    <td><span className="bot-clip" title={playback?.title || ""}>{playback?.title || "—"}</span></td>
+                    <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
                     <td className="inline bot-actions">
                       <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
                       {bot.canManage ? (
@@ -894,7 +913,15 @@ export function Connection() {
       <h1>{t("Connection")}</h1>
       <p className="muted">{t("Saved on the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel.")}</p>
       <Notice error={error || actionError} note={note || localNote} />
-      <form className="card" key={data?.hosting?.name || "hosting"} onSubmit={async (event) => {
+      <form className="card" key={[
+        data?.hosting?.name,
+        data?.hosting?.nickname,
+        data?.hosting?.channel,
+        data?.hosting?.bitrate,
+        data?.hosting?.volume,
+        data?.hosting?.run,
+        data?.hosting?.startup,
+      ].join("|") || "hosting"} onSubmit={async (event) => {
         event.preventDefault();
         const formElement = event.currentTarget;
         const form = new FormData(formElement);
@@ -929,9 +956,7 @@ export function Connection() {
         });
         if (result) {
           setLocalNote(result.message || "");
-          formElement.querySelectorAll("input[type=password], input[name=startup]").forEach((input) => { input.value = ""; });
-          const clearStartup = formElement.querySelector("input[name=clearStartup]");
-          if (clearStartup) clearStartup.checked = false;
+          reload();
         }
       }}>
         <h2>{t("Connection settings")}</h2>
@@ -940,25 +965,32 @@ export function Connection() {
         </label>
         <p className="muted">{t("This is the name in the panel. The TeamSpeak nickname is separate.")}</p>
         <input type="hidden" name="name" value={data?.hosting?.name || ""} />
-        <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" /></label>
+        <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" defaultValue={data?.hosting?.nickname || ""} /></label>
         <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
-        <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} /></label>
+        <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} defaultValue={data?.hosting?.channel || ""} /></label>
         <p className="muted">{t("Saved as the channel this bot joins. A connected bot moves there when you save.")}</p>
         <div className="split">
-          <label className="grow">{t("Server password")}<input name="serverPassword" type="password" autoComplete="off" /></label>
-          <label className="grow">{t("Channel password")}<input name="channelPassword" type="password" autoComplete="off" /></label>
+          <label className="grow">{t("Server password")}
+            <input name="serverPassword" type="password" autoComplete="off" />
+            {data?.hosting?.hasServerPassword ? <span className="muted">{t("A server password is saved on the bot.")}</span> : null}
+          </label>
+          <label className="grow">{t("Channel password")}
+            <input name="channelPassword" type="password" autoComplete="off" />
+            {data?.hosting?.hasChannelPassword ? <span className="muted">{t("A channel password is saved on the bot.")}</span> : null}
+          </label>
         </div>
         <div className="split">
-          <label>{t("Bitrate")}<input name="bitrate" inputMode="numeric" placeholder="96" /></label>
-          <label>{t("Default volume")}<input name="volume" inputMode="numeric" min="0" max="100" placeholder="50" /></label>
+          <label>{t("Bitrate")}<input name="bitrate" inputMode="numeric" placeholder="96" defaultValue={data?.hosting?.bitrate ?? ""} /></label>
+          <label>{t("Default volume")}<input name="volume" inputMode="numeric" min="0" max="100" placeholder="50" defaultValue={data?.hosting?.volume ?? ""} /></label>
           <label>{t("Start when the process launches")}
-            <select name="run" defaultValue="">
+            <select name="run" defaultValue={data?.hosting?.run == null ? "" : data.hosting.run ? "on" : "off"}>
               <option value="">{t("Leave unchanged")}</option>
               <option value="on">{t("Yes")}</option>
               <option value="off">{t("No")}</option>
             </select>
           </label>
         </div>
+        {data?.hosting?.startup ? <p className="muted">{t("Current stream")}: <span className="mono">{data.hosting.startup}</span></p> : null}
         <label>{t("Stream on connect")}<input name="startup" placeholder="https://" /></label>
         <p className="muted">{t("An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.")}</p>
         <label className="check"><input type="checkbox" name="clearStartup" value="on" /> {t("Clear the stream on connect")}</label>
@@ -1027,8 +1059,6 @@ export function Connection() {
     </div>
   );
 }
-
-const USER_PAGE_SIZES = [10, 25, 50, 100];
 
 export function Users() {
   const { user, t } = useAuth();
@@ -1104,7 +1134,7 @@ export function Users() {
       <div className="user-pager">
         <label>{t("Per page")}
           <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
-            {USER_PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+            {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
           </select>
         </label>
         <div className="transport">

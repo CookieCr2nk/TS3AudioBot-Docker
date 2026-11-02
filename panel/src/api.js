@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomBytes, randomUUID } from "node:crypto";
-import { commanderSaved, parseBulk, runAction } from "./actions.js";
+import { commanderSaved, ownLiveId, parseBulk, runAction, settingsRecord } from "./actions.js";
 import { sha256 } from "./crypto.js";
 import {
   accessToBot,
@@ -38,6 +38,7 @@ import {
   publicBot,
   replaceGrants,
   replaceUserGrants,
+  saveBotSettings,
   setBotAssignee,
   setBotLabel,
   setBotLimit,
@@ -615,6 +616,13 @@ api.post(
     if (op === "template-address" || op === "template-hosting" || op === "connect") {
       req.body.name = access.bot.instanceRef;
     }
+    if (op === "disconnect" && req.user.role !== "admin") {
+      const listed = await callBot(access.bot, ["bot", "list"], { timeoutMs: 15000 });
+      const liveId = ownLiveId(listed, access.bot.instanceRef);
+      if (!liveId || liveId !== String(req.body.instanceId ?? "").trim()) {
+        throw new HttpError("You cannot manage bots on this instance.", 403);
+      }
+    }
     if (op === "use-instance") {
       if (!access.canManage) throw new HttpError("You cannot manage bots on this instance.", 403);
       const picked = parseUseInstance(req.body);
@@ -632,6 +640,7 @@ api.post(
     }
     if (op === "template-create") await assertNewBot(access.bot.instanceId, parseTemplateName(req.body.name));
     const { action, args, data } = await runAction(access.bot, op, req.body, authOf(req, access));
+    if (op === "template-hosting") await saveBotSettings(access.bot.id, settingsRecord(args));
     let botId = access.bot.id;
     if (op === "template-create") botId = await ensureTsBot(access.bot.instanceId, args.name, args.name, access.bot.ownerUserId ?? null);
     else if (op === "template-delete") await deleteTsBotByName(access.bot.instanceId, args.name);
@@ -737,11 +746,10 @@ api.delete(
 
 api.get(
   "/bots/:id/connection",
-  requireAdmin,
   wrap(async (req, res) => {
     const access = await openBot(req);
     const template = access.bot.instanceMode === "template" ? access.bot.instanceRef : "";
-    const { data } = await runAction(access.bot, "bot-list", {}, authOf(req, access));
+    const data = await callBot(access.bot, ["bot", "list"], { timeoutMs: 15000 });
     const live = presentBotList(data, req.t).find((item) => item.name === template) || null;
     let storedAddress = "";
     if (template && !live?.server) {
@@ -788,8 +796,8 @@ api.get(
     }
     ok(res, {
       connection: botConnection,
-      bot: botView(access, true),
-      hosting: parseHostingPreview(access.bot),
+      bot: botView(access, req.user.role === "admin"),
+      hosting: hostingFromBot(access.bot),
       commander,
       commanderError,
       commanderSaved: commanderSavedValue,
@@ -800,8 +808,18 @@ api.get(
   }),
 );
 
-function parseHostingPreview(bot) {
-  return { name: bot.instanceMode === "template" ? bot.instanceRef : bot.name || "" };
+function hostingFromBot(bot) {
+  return {
+    name: bot.instanceMode === "template" ? bot.instanceRef : bot.name || "",
+    nickname: bot.connectNickname || "",
+    channel: bot.connectChannel || "",
+    bitrate: bot.connectBitrate,
+    volume: bot.connectVolume,
+    run: bot.connectRun,
+    startup: bot.connectStartup || "",
+    hasServerPassword: Boolean(bot.hasServerPassword),
+    hasChannelPassword: Boolean(bot.hasChannelPassword),
+  };
 }
 
 api.use("/admin", requireAdmin);

@@ -72,6 +72,14 @@ export function mapBot(row, { token = false } = {}) {
     ownerUserId: row.owner_user_id == null ? null : Number(row.owner_user_id),
     ownerName: row.owner_name || "",
     createdAt: row.created_at,
+    connectNickname: row.connect_nickname || "",
+    connectChannel: row.connect_channel || "",
+    connectBitrate: row.connect_bitrate == null ? null : Number(row.connect_bitrate),
+    connectVolume: row.connect_volume == null ? null : Number(row.connect_volume),
+    connectRun: row.connect_run == null ? null : Boolean(row.connect_run),
+    connectStartup: row.connect_startup || "",
+    hasServerPassword: Boolean(row.connect_server_password),
+    hasChannelPassword: Boolean(row.connect_channel_password),
   };
 }
 
@@ -306,6 +314,8 @@ const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user,
 
 const TS_BOT_JOIN = `t.id, t.name, t.label, t.template, i.base_url, 'template' AS instance_mode, IFNULL(t.template, t.name) AS instance_ref,
             i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
+            t.connect_nickname, t.connect_channel, t.connect_bitrate, t.connect_volume, t.connect_run, t.connect_startup,
+            t.connect_server_password, t.connect_channel_password,
             i.id AS instance_id, i.name AS instance_name, i.owner_user_id, t.assignee_user_id,
             (SELECT au.username FROM users au WHERE au.id = t.assignee_user_id) AS assignee_name,
             (SELECT ou.username FROM users ou WHERE ou.id = i.owner_user_id) AS owner_name`;
@@ -519,6 +529,29 @@ export async function setBotAssignee(botId, userId) {
 
 export async function setBotLabel(botId, label) {
   await pool.query("UPDATE ts_bots SET label = ? WHERE id = ?", [label || null, botId]);
+}
+
+export async function saveBotSettings(botId, patch) {
+  const columns = {
+    nickname: "connect_nickname",
+    channel: "connect_channel",
+    bitrate: "connect_bitrate",
+    volume: "connect_volume",
+    run: "connect_run",
+    startup: "connect_startup",
+    serverPassword: "connect_server_password",
+    channelPassword: "connect_channel_password",
+  };
+  const sets = [];
+  const params = [];
+  for (const [key, column] of Object.entries(columns)) {
+    if (!Object.prototype.hasOwnProperty.call(patch, key)) continue;
+    sets.push(`${column} = ?`);
+    params.push(patch[key]);
+  }
+  if (!sets.length) return;
+  params.push(botId);
+  await pool.query(`UPDATE ts_bots SET ${sets.join(", ")} WHERE id = ?`, params);
 }
 
 export async function listGrantIds() {
