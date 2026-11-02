@@ -10,6 +10,8 @@ export const pool = mysql.createPool({
   ...databaseConfig(),
   waitForConnections: true,
   connectionLimit: 10,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
   charset: "utf8mb4",
   timezone: "Z",
   decimalNumbers: true,
@@ -297,30 +299,19 @@ export async function deleteOtherSessions(userId, keepId) {
   await pool.query("DELETE FROM sessions WHERE user_id = ? AND id <> ?", [userId, keepId]);
 }
 
-export async function setFlash(id, type, message) {
-  await pool.query("UPDATE sessions SET flash_type = ?, flash_message = ? WHERE id = ?", [
-    type,
-    clip(message),
-    id,
-  ]);
-}
-
-export async function takeFlash(id) {
-  const [rows] = await pool.query("SELECT flash_type, flash_message FROM sessions WHERE id = ? LIMIT 1", [id]);
-  if (!rows[0]?.flash_message) return null;
-  await pool.query("UPDATE sessions SET flash_type = NULL, flash_message = NULL WHERE id = ?", [id]);
-  return { type: rows[0].flash_type || "info", message: rows[0].flash_message };
-}
-
 const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user, i.api_token_enc, i.enabled, i.notes, i.created_at`;
 
-const TS_BOT_JOIN = `t.id, t.name, t.label, t.template, i.base_url, 'template' AS instance_mode, IFNULL(t.template, t.name) AS instance_ref,
+const TS_BOT_COLUMNS = `t.id, t.name, t.label, t.template, i.base_url, 'template' AS instance_mode, IFNULL(t.template, t.name) AS instance_ref,
             i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
             t.connect_nickname, t.connect_channel, t.connect_bitrate, t.connect_volume, t.connect_run, t.connect_startup, t.connect_address,
             t.connect_server_password, t.connect_channel_password,
             i.id AS instance_id, i.name AS instance_name, i.owner_user_id, t.assignee_user_id,
-            (SELECT au.username FROM users au WHERE au.id = t.assignee_user_id) AS assignee_name,
-            (SELECT ou.username FROM users ou WHERE ou.id = i.owner_user_id) AS owner_name`;
+            au.username AS assignee_name, ou.username AS owner_name`;
+
+const TS_BOT_FROM = `ts_bots t
+     JOIN instances i ON i.id = t.instance_id
+     LEFT JOIN users au ON au.id = t.assignee_user_id
+     LEFT JOIN users ou ON ou.id = i.owner_user_id`;
 
 function mapInstance(row, { token = false } = {}) {
   let apiToken = null;
@@ -361,7 +352,7 @@ export function instanceClient(instance) {
   };
 }
 
-export async function listInstances() {
+export async function listInstances({ token = false } = {}) {
   const [rows] = await pool.query(
     `SELECT ${INSTANCE_COLUMNS}, u.username AS owner_name,
             (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id) AS bot_count,
@@ -370,10 +361,10 @@ export async function listInstances() {
      LEFT JOIN users u ON u.id = i.owner_user_id
      ORDER BY i.name`,
   );
-  return rows.map((row) => mapInstance(row));
+  return rows.map((row) => mapInstance(row, { token }));
 }
 
-export async function listInstancesForUser(userId) {
+export async function listInstancesForUser(userId, { token = false } = {}) {
   const [rows] = await pool.query(
     `SELECT ${INSTANCE_COLUMNS}, u.username AS owner_name,
             (SELECT COUNT(*) FROM ts_bots t WHERE t.instance_id = i.id AND t.assignee_user_id = ?) AS bot_count,
@@ -386,7 +377,7 @@ export async function listInstancesForUser(userId) {
      ORDER BY i.name`,
     [userId, userId, userId, userId, userId],
   );
-  return rows.map((row) => ({ ...mapInstance(row), canControl: Boolean(row.can_control) }));
+  return rows.map((row) => ({ ...mapInstance(row, { token }), canControl: Boolean(row.can_control) }));
 }
 
 export async function getInstanceRow(id) {
@@ -454,26 +445,24 @@ export function canDeleteBot(user, bot) {
   return bot.assigneeUserId != null && Number(bot.assigneeUserId) === Number(user.id);
 }
 
-export async function listAccessibleBots(user) {
+export async function listAccessibleBots(user, { token = true } = {}) {
   if (user.role === "admin") {
     const [rows] = await pool.query(
-      `SELECT ${TS_BOT_JOIN}
-       FROM ts_bots t
-       JOIN instances i ON i.id = t.instance_id
+      `SELECT ${TS_BOT_COLUMNS}
+       FROM ${TS_BOT_FROM}
        ORDER BY i.name, t.name`,
     );
-    return rows.map((row) => ({ bot: mapBot(row, { token: true }), canControl: true, canManage: true, canDelete: true }));
+    return rows.map((row) => ({ bot: mapBot(row, { token }), canControl: true, canManage: true, canDelete: true }));
   }
   const [rows] = await pool.query(
-    `SELECT ${TS_BOT_JOIN}
-     FROM ts_bots t
-     JOIN instances i ON i.id = t.instance_id
+    `SELECT ${TS_BOT_COLUMNS}
+     FROM ${TS_BOT_FROM}
      WHERE i.enabled = 1 AND t.assignee_user_id = ?
      ORDER BY i.name, t.name`,
     [user.id],
   );
   return rows.map((row) => {
-    const bot = mapBot(row, { token: true });
+    const bot = mapBot(row, { token });
     return {
       bot,
       canControl: true,
@@ -485,9 +474,8 @@ export async function listAccessibleBots(user) {
 
 export async function listTsBots(instanceId) {
   const [rows] = await pool.query(
-    `SELECT ${TS_BOT_JOIN}
-     FROM ts_bots t
-     JOIN instances i ON i.id = t.instance_id
+    `SELECT ${TS_BOT_COLUMNS}
+     FROM ${TS_BOT_FROM}
      WHERE t.instance_id = ?
      ORDER BY t.name`,
     [instanceId],
@@ -497,9 +485,8 @@ export async function listTsBots(instanceId) {
 
 export async function getTsBotRow(id) {
   const [rows] = await pool.query(
-    `SELECT ${TS_BOT_JOIN}
-     FROM ts_bots t
-     JOIN instances i ON i.id = t.instance_id
+    `SELECT ${TS_BOT_COLUMNS}
+     FROM ${TS_BOT_FROM}
      WHERE t.id = ?
      LIMIT 1`,
     [id],

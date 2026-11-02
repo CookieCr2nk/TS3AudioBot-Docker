@@ -1,11 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { config } from "./config.js";
 import { sha256, tokensEqual } from "./crypto.js";
-import { deleteSession, getSession, takeFlash } from "./db.js";
+import { deleteSession, getSession } from "./db.js";
 import { HttpError } from "./errors.js";
 import { safeNext } from "./validate.js";
 
 const hits = new Map();
+const RATE_KEEP_MS = 15 * 60 * 1000;
 
 export function wrap(fn) {
   return (req, res, next) => {
@@ -53,20 +54,30 @@ export function safeReferrer(req) {
   }
 }
 
+function pruneRateLimits(now) {
+  for (const [entry, times] of hits) {
+    const fresh = times.filter((time) => now - time < RATE_KEEP_MS);
+    if (!fresh.length) hits.delete(entry);
+    else if (fresh.length !== times.length) hits.set(entry, fresh);
+  }
+  while (hits.size > 4000) {
+    const oldest = hits.keys().next().value;
+    if (oldest === undefined) break;
+    hits.delete(oldest);
+  }
+}
+
 export function rateLimit(key, limit, windowMs) {
   const now = Date.now();
+  if (hits.size > 1000) pruneRateLimits(now);
   const fresh = (hits.get(key) || []).filter((time) => now - time < windowMs);
   if (fresh.length >= limit) {
-    hits.set(key, fresh);
+    if (fresh.length) hits.set(key, fresh);
+    else hits.delete(key);
     return false;
   }
   fresh.push(now);
   hits.set(key, fresh);
-  if (hits.size > 5000) {
-    for (const [entry, times] of hits) {
-      if (times.every((time) => now - time >= windowMs)) hits.delete(entry);
-    }
-  }
   return true;
 }
 
@@ -96,7 +107,6 @@ export const loadSession = wrap(async (req, res, next) => {
   req.csrf = session.csrf;
   res.locals.user = req.user;
   res.locals.csrf = session.csrf;
-  res.locals.flash = await takeFlash(id);
   return next();
 });
 

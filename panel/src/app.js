@@ -45,6 +45,10 @@ export function createApp({ startupError = null } = {}) {
   app.use(express.json({ limit: "32kb" }));
   app.use(cookieParser());
   app.use((req, res, next) => {
+    res.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    next();
+  });
+  app.use((req, res, next) => {
     applyRequestLanguage(req, res);
     next();
   });
@@ -75,12 +79,23 @@ export function createApp({ startupError = null } = {}) {
     return app;
   }
 
-  app.use(loadSession);
+  app.use("/api", (req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
+  app.use("/api", loadSession);
   app.use("/api", api);
   app.use("/api", apiError);
 
   if (existsSync(dist)) {
-    app.use(express.static(dist, { index: false, maxAge: "1h" }));
+    app.use("/assets", express.static(join(dist, "assets"), { immutable: true, maxAge: "365d", index: false }));
+    app.use(express.static(dist, {
+      index: false,
+      maxAge: "1h",
+      setHeaders(res, filePath) {
+        if (filePath.endsWith(`${path.sep}index.html`)) res.set("Cache-Control", "no-store");
+      },
+    }));
     app.use((req, res, next) => {
       if (req.method !== "GET" && req.method !== "HEAD") return next();
       if (req.path === "/healthz" || req.path.startsWith("/api")) return next();

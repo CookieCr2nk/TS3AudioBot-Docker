@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - The panel database schema is one migration file. A database from release 1.0, or one that already applied the older migration files, is upgraded when the panel starts
+- Bot lists and the player ask the database for less work. Built files stay cached, and authenticated API responses are not stored by the browser. A password longer than 200 characters cannot be used to sign in
 - The sidebar, the sign-in page, and the browser title use the name TS-Bot Panel
 - The bot list shortens only the current title. The server address and the volume heading stay fully visible
 - The bot list and the bot switcher show the saved TeamSpeak address, including while the bot is offline

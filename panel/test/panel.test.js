@@ -10,6 +10,7 @@ import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
+import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
@@ -332,6 +333,13 @@ describe("secrets and schema", () => {
     const payload = encrypt("tök:en/+= ");
     assert.equal(decrypt(payload), "tök:en/+= ");
     assert.notEqual(payload.includes("tök"), true);
+  });
+
+  it("rejects an overlong password instead of matching its prefix", async () => {
+    const hash = await hashPassword("correct-horse");
+    assert.equal(await verifyPassword("correct-horse", hash), true);
+    assert.equal(await verifyPassword(`${"x".repeat(200)}correct-horse`, hash), false);
+    assert.equal(await verifyPassword("correct-horse", null), false);
   });
 
   it("compares tokens without accepting a different length", () => {

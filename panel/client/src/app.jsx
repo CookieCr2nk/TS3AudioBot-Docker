@@ -63,6 +63,7 @@ function Shell() {
     document.title = `${label} · TS-Bot Panel`;
   }, [location.pathname, t, inBot]);
 
+  const rosterScope = routeBotId ? "bot" : location.pathname;
   useEffect(() => {
     let stop = false;
     api("/api/bots?status=0")
@@ -75,7 +76,7 @@ function Shell() {
     return () => {
       stop = true;
     };
-  }, [location.pathname]);
+  }, [rosterScope]);
 
   useEffect(() => {
     if (!playerBotId) {

@@ -77,7 +77,7 @@ A submit handler must read `event.currentTarget` and `FormData` before the first
 - `/bots/:id/search`, `/history`, `/streams`, `/connection`
 - `/admin/instances`, `/admin/users`, `/admin/audit`, `/admin/audit/trim`
 
-`/bots?status=0` is the shell roster. It skips the live playback lookup. The bot list page uses `/bots` with playback.
+`/bots?status=0` is the shell roster. It skips the live playback lookup and does not decrypt API tokens. The bot list page uses `/bots` with playback. The shell loads that roster once while a bot page stays open.
 
 ### Who can do what
 

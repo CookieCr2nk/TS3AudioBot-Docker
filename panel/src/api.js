@@ -244,13 +244,14 @@ api.get(
   "/overview",
   wrap(async (req, res) => {
     const admin = req.user.role === "admin";
-    const rows = admin ? await listInstances() : await listInstancesForUser(req.user.id);
+    const rows = admin
+      ? await listInstances({ token: true })
+      : await listInstancesForUser(req.user.id, { token: true });
     const cards = await Promise.all(
       rows.map(async (row) => {
         const card = { ...publicInstance(row, admin), canControl: admin ? true : Boolean(row.canControl), online: false, version: null, error: null };
         try {
-          const full = await getInstanceRow(row.id);
-          card.version = presentVersion(await callBot(instanceClient(full), ["version"], { timeoutMs: 4000 }));
+          card.version = presentVersion(await callBot(instanceClient(row), ["version"], { timeoutMs: 4000 }));
           card.online = true;
         } catch (err) {
           card.error = errorText(err, req.t);
@@ -497,7 +498,7 @@ api.get(
   wrap(async (req, res) => {
     const admin = req.user.role === "admin";
     const live = req.query.status !== "0";
-    const rows = await listAccessibleBots(req.user);
+    const rows = await listAccessibleBots(req.user, { token: live });
     const servers = live ? await serverByTemplate(rows) : new Map();
     const bots = await mapPool(rows, live ? 4 : rows.length || 1, async (row) => {
       const playback = live ? await playbackOf(row.bot, req.t) : null;
@@ -512,11 +513,16 @@ api.get(
         playback,
       };
     });
-    const users = admin ? (await listUsers()).map((account) => ({ id: account.id, username: account.username })) : [];
-    let canCreate = admin || Boolean(req.user.canCreateBots) || rows.some((row) => row.canManage);
-    if (!canCreate) {
-      const owned = await listInstancesForUser(req.user.id);
-      canCreate = owned.some((row) => row.ownerUserId === req.user.id);
+    const users = live && admin
+      ? (await listUsers()).map((account) => ({ id: account.id, username: account.username }))
+      : [];
+    let canCreate = false;
+    if (live) {
+      canCreate = admin || Boolean(req.user.canCreateBots) || rows.some((row) => row.canManage);
+      if (!canCreate) {
+        const owned = await listInstancesForUser(req.user.id);
+        canCreate = owned.some((row) => row.ownerUserId === req.user.id);
+      }
     }
     ok(res, { bots, users, canCreate });
   }),
