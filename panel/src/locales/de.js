@@ -43,6 +43,7 @@ const de = {
   "New password": "Neues Passwort",
   Set: "Setzen",
   Delete: "Löschen",
+  "Delete this account?": "Dieses Konto löschen?",
   Remove: "Entfernen",
   Save: "Speichern",
   "The last 200 actions. API tokens are not listed here.": "Die letzten 200 Aktionen. API-Tokens stehen hier nicht.",

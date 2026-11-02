@@ -10,9 +10,14 @@ function useLoad(path) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
+  const [loadedPath, setLoadedPath] = useState(path);
+  if (loadedPath !== path) {
+    setLoadedPath(path);
+    setData(null);
+    setError("");
+  }
   useEffect(() => {
     let stop = false;
-    setError("");
     api(path)
       .then((value) => {
         if (!stop) setData(value);
@@ -411,6 +416,16 @@ export function BotsPage() {
       {filtered.length ? (
         <div className="table-wrap bot-list">
           <table className="bot-table">
+            <colgroup>
+              <col className="col-check" />
+              <col className="col-name" />
+              <col className="col-owner" />
+              <col className="col-instance" />
+              <col className="col-status" />
+              <col className="col-playing" />
+              <col className="col-volume" />
+              <col className="col-actions" />
+            </colgroup>
             <thead>
               <tr>
                 <th>
@@ -486,7 +501,7 @@ export function BotsPage() {
                       <span className={pill} title={playback?.error || ""}>{status}</span>
                       {playback?.online && playback.server ? <span className="mono muted bot-clip" title={playback.server}> {playback.server}</span> : null}
                     </td>
-                    <td><span className="bot-clip" title={playback?.title || ""}>{playback?.title || "—"}</span></td>
+                    <td className="bot-playing"><span className="bot-clip" title={playback?.title || ""}>{playback?.title || "—"}</span></td>
                     <td className="mono">{playback?.volume != null ? playback.volume : "—"}</td>
                     <td className="inline bot-actions">
                       <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
@@ -713,6 +728,13 @@ export function Playback() {
   const [factory, setFactory] = useState("youtube");
   const [results, setResults] = useState([]);
   const [searchError, setSearchError] = useState("");
+  const [loadedId, setLoadedId] = useState(id);
+  if (loadedId !== id) {
+    setLoadedId(id);
+    setQuery("");
+    setResults([]);
+    setSearchError("");
+  }
   const sameBot = String(player?.bot?.id || "") === String(id);
   const status = sameBot ? player.status : null;
   const song = status?.song;
@@ -727,7 +749,7 @@ export function Playback() {
       <div className="page-head">
         <div>
           <h1>{t("Playback")}</h1>
-          <p className="muted">{song?.title || t("Nothing is playing.")}</p>
+          <p className="muted song-title" title={song?.title || ""}>{song?.title || t("Nothing is playing.")}</p>
         </div>
         <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Not playing")}</span>
       </div>
@@ -742,13 +764,13 @@ export function Playback() {
       </div>
       {queue?.items?.length ? (
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>{queue.title || t("Queue")}</th><th></th></tr></thead>
+          <table className="fit-table">
+            <thead><tr><th className="col-index">#</th><th>{queue.title || t("Queue")}</th><th className="fit-action"></th></tr></thead>
             <tbody>
               {queue.items.map((item) => (
                 <tr key={item.index} className={item.index === queue.index ? "picked" : ""}>
                   <td className="mono">{item.index}</td>
-                  <td>{item.title}</td>
+                  <td className="clip-cell" title={item.title}>{item.title}</td>
                   <td><button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "jump", index: item.index })}>{t("Jump")}</button></td>
                 </tr>
               ))}
@@ -796,7 +818,7 @@ export function Playback() {
         </div>
         {results.map((item) => (
           <div className="split" key={`${item.index}-${item.title}`}>
-            <span className="grow">{item.title}</span>
+            <span className="grow search-title" title={item.title}>{item.title}</span>
             <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-play", index: item.index })}>{t("Play")}</button>
             <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-add", index: item.index })}>{t("Append")}</button>
           </div>
@@ -813,6 +835,12 @@ export function Radio() {
   const { data, error, reload } = useLoad(`/api/bots/${id}/streams`);
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
+  const [loadedId, setLoadedId] = useState(id);
+  if (loadedId !== id) {
+    setLoadedId(id);
+    setNote("");
+    setFormError("");
+  }
   async function call(path, options) {
     setFormError("");
     try {
@@ -877,7 +905,16 @@ export function History() {
   const { id } = useParams();
   const { t } = useAuth();
   const [query, setQuery] = useState("");
-  const [path, setPath] = useState(`/api/bots/${id}/history`);
+  const [submitted, setSubmitted] = useState("");
+  const [loadedId, setLoadedId] = useState(id);
+  if (loadedId !== id) {
+    setLoadedId(id);
+    setQuery("");
+    setSubmitted("");
+  }
+  const path = loadedId === id && submitted
+    ? `/api/bots/${id}/history?q=${encodeURIComponent(submitted)}`
+    : `/api/bots/${id}/history`;
   const { data, error } = useLoad(path);
   const player = usePlayer();
   const { note, error: actionError, act } = useBotAction(id, player?.refresh);
@@ -887,7 +924,7 @@ export function History() {
       <Notice error={error || actionError} note={note} />
       <form className="card" onSubmit={(event) => {
         event.preventDefault();
-        setPath(`/api/bots/${id}/history?q=${encodeURIComponent(query)}`);
+        setSubmitted(query.trim());
       }}>
         <div className="split">
           <label className="grow">{t("Title contains")}<input value={query} onChange={(event) => setQuery(event.target.value)} /></label>
@@ -895,12 +932,15 @@ export function History() {
         </div>
       </form>
       <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Name")}</th><th></th></tr></thead>
+        <table className="fit-table">
+          <thead><tr><th>{t("Name")}</th><th className="fit-action"></th></tr></thead>
           <tbody>
             {(data?.rows || []).map((row, index) => (
               <tr key={`${row.id}-${index}`}>
-                <td>{row.title}<div className="muted">{row.meta}</div></td>
+                <td>
+                  <span className="clip-line" title={row.title}>{row.title}</span>
+                  {row.meta ? <span className="muted clip-line" title={row.meta}>{row.meta}</span> : null}
+                </td>
                 <td>{row.id != null ? <button className="btn" type="button" onClick={() => act({ op: "history-play", historyId: row.id })}>{t("Play")}</button> : null}</td>
               </tr>
             ))}
@@ -1233,7 +1273,7 @@ export function Users() {
                   <td className="nowrap"><span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span></td>
                   <td className="nowrap">{account.canCreateBots ? t("Yes") : t("No")}</td>
                   <td className="nowrap">{account.botLimit ?? t("Unlimited")}</td>
-                  <td className="nowrap">{instanceNames(account.instanceIds)}</td>
+                  <td><span className="user-instances" title={instanceNames(account.instanceIds)}>{instanceNames(account.instanceIds)}</span></td>
                   <td>
                     <button className="btn" type="button" onClick={() => setOpenId(openId === account.id ? null : account.id)}>{openId === account.id ? t("Close") : t("Edit")}</button>
                   </td>
@@ -1300,7 +1340,7 @@ export function Users() {
                           <button className="btn btn-primary" type="submit">{t("Save")}</button>
                           {account.id !== user.id ? (
                             <button className="btn btn-danger" type="button" onClick={async () => {
-                              if (!window.confirm(t("Delete"))) return;
+                              if (!window.confirm(t("Delete this account?"))) return;
                               try {
                                 const result = await api(`/api/admin/users/${account.id}`, { method: "DELETE", body: { confirm: true } });
                                 setNote(result.message);
@@ -1340,7 +1380,7 @@ export function Audit() {
                 <td className="mono">{row.createdAt ? new Date(row.createdAt).toLocaleString() : ""}</td>
                 <td>{row.username}</td>
                 <td>{row.action}</td>
-                <td>{row.detail}{row.botName ? <div className="muted">{row.botName}</div> : null}</td>
+                <td className="audit-detail">{row.detail}{row.botName ? <div className="muted">{row.botName}</div> : null}</td>
               </tr>
             ))}
           </tbody>

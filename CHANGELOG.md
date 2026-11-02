@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Connection can use a saved radio station as the stream that plays when the bot connects
 
 ### Changed
+- The bot list shortens a long now-playing title instead of widening the table
 - A user account must be assigned to at least one instance. Administrators do not
 - Accounts other than administrators see only bots assigned to them
 - Connection chooses the stream on connect from a saved station or another address. Not set removes it
@@ -22,6 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The panel image uses the Node.js LTS tag `lts-bookworm-slim`, which is Node.js 26.13.0. CI runs that same version
 
 ### Fixed
+- Switching bots clears the previous bot's connection form, history search, and playback search
 - The account a bot is assigned to can delete that bot
 - Clearing the nickname or the default channel on Connection saves that reset
 - Saving connection settings sends only the fields that changed, so a connected bot is not moved again

@@ -24,9 +24,69 @@ sql/migrations/       NNN_name.sql, in order
 test/panel.test.js    node:test, no database
 ```
 
-The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell, and only while a bot page is open. Bots is a separate page: it lists every bot the account can open, and one playback action can apply to the selected bots. That action is only pause, resume, stop, previous, next, clear, volume, play, or add.
+The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell, and only while a bot page is open. Bots is a separate page. It lists every bot the account can open. The bulk bar under that list only starts or stops the selected bots.
 
 Commands to the bot go only through `actions.js`. There is no free-form command from the client. `quit`, `eval`, `rights`, `system`, and `api` stay blocked. A new command is an entry with a parser, a path, and a right (`control` or `admin`), plus a test.
+
+## Map
+
+Read this section before changing a page. The human guide is `../README.md`. This section is the code map.
+
+### Browser routes
+
+`client/src/app.jsx` keeps one shell mounted. Bot pages do not remount when the id in `/bots/:id` changes. `useLoad` drops the previous payload when its path changes. A page that keeps its own state, such as a search box, must reset that state when the id changes.
+
+| Route | Page | Who |
+|---|---|---|
+| `/` | Overview. Counts and instance cards | Signed in. A non-admin count includes only assigned bots |
+| `/bots` | Bot table, filter, pages, bulk start and stop | Signed in. Rows come from `listAccessibleBots` |
+| `/instances/:id` | Create, attach, and, for an administrator, edit or delete the instance | Signed in if the instance is visible. Settings are admin |
+| `/bots/:id` | Playback, search, queue | Anyone who can open that bot |
+| `/bots/:id/streams` | Radio stations | Same, plus delete on stations they may delete |
+| `/bots/:id/history` | History search and play | Same |
+| `/bots/:id/connection` | Nickname, channel, passwords, bitrate, volume, start, stream | Same. Saving does not require `canManage` |
+| `/users`, `/audit` | Accounts and the audit log | Administrator. The page also checks the role |
+| `/account` | Own password and bot limit | Signed in |
+
+The playback bar is `client/src/player.jsx`. It is empty until a bot route is open. Notices render inline on the login page and through `#toast-dock`, above that bar, everywhere else. Do not put them back at the top of the page.
+
+The bot table uses `table-layout: fixed`. The Now playing column ellipsizes. Do not set that table back to `width: max-content`. A long title must not add a horizontal scrollbar.
+
+### Client files
+
+| File | Role |
+|---|---|
+| `client/src/api.js` | `fetch` wrapper. Sends the CSRF header and the session cookie |
+| `client/src/auth.jsx` | Session user and `t()` |
+| `client/src/pages.jsx` | Every page. `useLoad(path)` is the GET helper |
+| `client/src/hostingForm.js` | Diff for Connection. The server applies that patch |
+| `client/src/player.jsx` | Bottom bar. It reads the shell player context |
+
+A submit handler must read `event.currentTarget` and `FormData` before the first `await`. After that, React may clear the event. Do not build a choice with `<datalist>`, the `list` attribute, or the browser's suggestion popup. Use a `<select>` or another control the panel renders itself.
+
+### JSON API
+
+`src/api.js` mounts these groups. Writes need the session and `X-CSRF-Token`.
+
+- `/session`, `/login`, `/logout`, `/account`, `/account/password`
+- `/overview`, `/instances`, `/instances/:id`
+- `/instances/:id/bots`, `/bots/attach`, `/bots/delete`
+- `/bots`, `/bots/:id`, `/bots/:id/status`, `/bots/:id/label`, `/bots/:id/assignee`, `/bots/bulk`
+- `/bots/:id/action` runs one entry from `actions.js`
+- `/bots/:id/search`, `/history`, `/streams`, `/connection`
+- `/admin/instances`, `/admin/users`, `/admin/audit`
+
+`/bots?status=0` is the shell roster. It skips the live playback lookup. The bot list page uses `/bots` with playback.
+
+### Who can do what
+
+`accessToBot` in `src/db.js` is the check. An administrator can open, edit, and delete every bot. Anyone else can open a bot only when `ts_bots.assignee_user_id` is their id. Owning the instance does not reveal the other bots. The assignee can delete that bot. `canManage` is true for that assignee only when they also own the instance. The Add bot button is shown for an administrator, an instance owner, or an account with `users.can_create_bots`. That flag lets the account pick any enabled instance. A user account must have at least one `instance_grants` row. An administrator may have none. An existing user with no grant can still sign in until an administrator saves them.
+
+Passwords are not stored in the panel database. A new account may have no password and cannot sign in until one is set. Login is limited to 8 attempts per 15 minutes per `login:${ip}:${username}`. Do not change that limit unless the user asks.
+
+### Connection save
+
+`hostingChanges` sends only fields that differ. Empty nickname or default channel becomes null and clears the bot setting. Empty password, bitrate, or volume does not. Stream on connect is a `<select>`: Not set clears it, a saved station sends `streamId` so the server copies the real URL, and Other address sends `startup`. Do not send the station URL from the browser when a station id is available. The visible station address has no credentials.
 
 ## Database
 
