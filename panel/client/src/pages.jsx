@@ -260,7 +260,6 @@ export function BotsPage() {
   const [query, setQuery] = useState("");
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
-  const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
@@ -322,15 +321,22 @@ export function BotsPage() {
     });
   }
 
-  async function apply(op, extra = {}) {
+  async function apply(op) {
     if (!selected.length || busy) return;
+    const ids = selected;
     setBusy(true);
     setFormError("");
     setNote("");
     try {
-      const result = await api("/api/bots/bulk", { method: "POST", body: { ids: selected, op, ...extra } });
-      setNote(result.message || "");
-      setResults(result.results || []);
+      const result = await api("/api/bots/bulk", { method: "POST", body: { ids, op } });
+      const failed = (result.results || []).filter((item) => !item.ok);
+      setSelected((current) => current.filter((id) => !ids.includes(id)));
+      if (failed.length) {
+        const detail = failed.map((item) => `${item.name || item.id}: ${item.message}`).filter(Boolean).join(" ");
+        setFormError([result.message, detail].filter(Boolean).join(" "));
+      } else {
+        setNote(result.message || "");
+      }
       reload();
     } catch (err) {
       setFormError(err.message);
@@ -388,27 +394,17 @@ export function BotsPage() {
           </div>
         </div>
       ) : null}
-      {dockSlot && (selected.length || results.length) ? createPortal(
+      {dockSlot && selected.length ? createPortal(
       <section className="card bulk-bar">
         <div className="split">
           <h2>{t("Apply to selected")}</h2>
           <span className="muted">{busy ? t("Working…") : t("{count} selected", { count: selected.length })}</span>
-          {selected.length ? <button className="btn" type="button" onClick={() => setSelected([])}>{t("Clear selection")}</button> : null}
+          <button className="btn" type="button" onClick={() => setSelected([])}>{t("Clear selection")}</button>
         </div>
         <div className="transport">
-          <button className="btn btn-primary" type="button" disabled={busy || !selected.length} onClick={() => apply("start")}>{t("Start")}</button>
-          <button className="btn btn-danger" type="button" disabled={busy || !selected.length} onClick={() => apply("stop")}>{t("Stop")}</button>
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => apply("start")}>{t("Start")}</button>
+          <button className="btn btn-danger" type="button" disabled={busy} onClick={() => apply("stop")}>{t("Stop")}</button>
         </div>
-        {results.length ? (
-          <ul className="bulk-results">
-            {results.map((item) => (
-              <li key={item.id} className={item.ok ? "ok" : "bad"}>
-                <span>{item.name || item.id}</span>
-                <span>{item.message}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </section>,
       dockSlot) : null}
       {data && filtered.length === 0 ? <p className="muted">{bots.length ? t("Nothing matches.") : t("No bots yet.")}</p> : null}

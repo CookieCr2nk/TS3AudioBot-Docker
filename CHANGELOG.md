@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The bot list shortens only the current title. The server address and the volume heading stay fully visible
 - The bot list and the bot switcher show the saved TeamSpeak address, including while the bot is offline
 - Start, stop, and disconnect no longer ask the browser to confirm
+- Starting or stopping the selected bots clears that selection and closes the start and stop bar. The outcome stays in a notice
 - A user account must be assigned to at least one instance. Administrators do not
 - Accounts other than administrators see only bots assigned to them
 - Connection chooses the stream on connect from a saved station or another address. Not set removes it

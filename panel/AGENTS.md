@@ -24,7 +24,7 @@ sql/migrations/       NNN_name.sql, in order
 test/panel.test.js    node:test, no database
 ```
 
-The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell, and only while a bot page is open. Bots is a separate page. It lists every bot the account can open. The bulk bar under that list only starts or stops the selected bots.
+The shell in `client/src/app.jsx` stays mounted while the open bot changes page. A save posts JSON and stays on the current route. Do not replace that with a full document load. Playback stays in the bar at the bottom of that shell, and only while a bot page is open. Bots is a separate page. It lists every bot the account can open. The bulk bar under that list only starts or stops the selected bots. It is open only while at least one bot is selected. A finished start or stop clears the selection, so the bar closes. The outcome is a notice. A failed bot is named in that notice.
 
 Commands to the bot go only through `actions.js`. There is no free-form command from the client. `quit`, `eval`, `rights`, `system`, and `api` stay blocked. A new command is an entry with a parser, a path, and a right (`control` or `admin`), plus a test.
 

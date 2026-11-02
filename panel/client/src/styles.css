@@ -371,21 +371,8 @@ tr.picked td, tr.picked:hover td { background: #e7f1f8; }
   border-radius: 0;
   border-left: 0;
   border-right: 0;
-  max-height: 42vh;
-  overflow: auto;
   box-shadow: 0 -1px 2px rgba(40, 50, 60, 0.06);
 }
-.bulk-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
-.bulk-results li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.4rem 0.55rem;
-  border-radius: 6px;
-  background: #f4f7f9;
-}
-.bulk-results li.ok { background: #e5f6ec; }
-.bulk-results li.bad { background: #fde8e6; }
 
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; }
