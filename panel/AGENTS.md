@@ -4,7 +4,7 @@ Read this file before changing anything under `panel/`. Repository rules are in 
 
 ## What the panel is
 
-Hosting UI for the TS3AudioBot web API. Node.js 22, ESM, Express, MariaDB through `mysql2`. The browser UI is a Vite and React app in `client/`. The server sends JSON under `/api` and, after `npm run build`, serves `dist/`. Start the API with `node src/index.js`. During development, run `npm run client` as well. Vite proxies `/api` to port 8080.
+Hosting UI for the TS3AudioBot web API. Node.js 26, ESM, Express, MariaDB through `mysql2`. The browser UI is a Vite and React app in `client/`. The server sends JSON under `/api` and, after `npm run build`, serves `dist/`. Start the API with `node src/index.js`. During development, run `npm run client` as well. Vite proxies `/api` to port 8080.
 
 The repository language rule is in `../AGENTS.md`: everything is English except translation catalogs. The UI source strings are English. When the browser prefers German, those strings are looked up in `src/locales/de.js`. Every new `t("...")` string and every `HttpError`, `ValidationError`, or `Ts3ApiError` with a fixed English sentence needs an entry there. Otherwise `keeps every panel phrase in the German catalog` fails. Do not add a second catalog unless the user asks for another language.
 
@@ -58,4 +58,4 @@ From `panel/`: `node --test`. From the repo: `make panel-test`. `npm run build` 
 
 The tests do not need MariaDB. They check the command allow-list, the schema, and that every `t("...")` string in `src/` and `client/` is in the German catalog.
 
-Node is often missing from `PATH` on this Windows checkout. Run the tests with a Node 22 binary, and do not treat a missing `node` on `PATH` as a pass.
+Node is often missing from `PATH` on this Windows checkout. Run the tests with a Node 26 binary, and do not treat a missing `node` on `PATH` as a pass.

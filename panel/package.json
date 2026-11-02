@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Hosting panel for the TS3AudioBot web API",
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "scripts": {
     "start": "node src/index.js",

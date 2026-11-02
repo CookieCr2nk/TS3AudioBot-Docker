@@ -14,6 +14,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The playback bar stays empty until a bot page is open
 - The bot list is paged like the user list, and each bot stays on one line
 - Connection, disconnect, and the form for an existing bot use clearer wording
+- The panel image uses the Node.js LTS tag `lts-bookworm-slim`, which is Node.js 26.13.0. CI runs that same version
 
 ### Fixed
 - Saving connection settings sends only the fields that changed, so a connected bot is not moved again
