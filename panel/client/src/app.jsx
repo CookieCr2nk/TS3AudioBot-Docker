@@ -108,8 +108,18 @@ function Shell() {
       try {
         const data = await api(`/api/bots/${bot.id}/status`);
         if (!stop) setStatus(data.status);
-      } catch (err) {
-        if (!stop) setStatus({ problems: [err.message], song: null, volume: null, queue: null });
+      } catch {
+        if (!stop) {
+          setStatus({
+            unreachable: true,
+            song: null,
+            volume: null,
+            repeat: null,
+            shuffle: null,
+            queue: null,
+            problems: [],
+          });
+        }
       }
     }
     pull();

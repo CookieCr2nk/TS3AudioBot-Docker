@@ -139,7 +139,7 @@ export async function ensureAdmin() {
 
 export async function findUserByUsername(username) {
   const [rows] = await pool.query(
-    "SELECT id, username, password_hash, role, suspended FROM users WHERE username = ? LIMIT 1",
+    "SELECT id, username, password_hash, role, suspended, can_create_bots FROM users WHERE username = ? LIMIT 1",
     [username],
   );
   return rows[0] || null;

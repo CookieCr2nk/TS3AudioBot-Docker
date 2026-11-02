@@ -726,6 +726,13 @@ export function Playback() {
   const song = status?.song;
   const queue = status?.queue;
   const canControl = Boolean(player?.canControl);
+  const offline = status?.online === false;
+  const unreachable = Boolean(status?.unreachable);
+  const headline = unreachable ? t("Status unreachable") : offline ? t("Offline") : song?.title || t("Nothing is playing.");
+  let pill = t("Not playing");
+  if (offline) pill = t("Offline");
+  else if (unreachable) pill = t("Status unreachable");
+  else if (song) pill = song.paused ? t("Paused") : t("Playing");
   function act(body) {
     return player?.act(body);
   }
@@ -735,9 +742,9 @@ export function Playback() {
       <div className="page-head">
         <div>
           <h1>{t("Playback")}</h1>
-          <p className="muted song-title" title={song?.title || ""}>{song?.title || t("Nothing is playing.")}</p>
+          <p className="muted song-title" title={song?.title || ""}>{headline}</p>
         </div>
-        <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Not playing")}</span>
+        <span className="pill">{pill}</span>
       </div>
       <div className="transport">
         {[-30, -10, 10, 30].map((delta) => (

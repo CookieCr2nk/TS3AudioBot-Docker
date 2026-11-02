@@ -26,6 +26,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The panel image uses the Node.js LTS tag `lts-bookworm-slim`, which is Node.js 26.13.0. CI runs that same version
 
 ### Fixed
+- An open bot page shows offline instead of an error while that template is not running
+- A wrong password on a suspended account returns the same error as any other wrong password
+- After sign-in, Add bot follows users.can_create_bots without a reload
+- The playback queue lists the playlist from the start, up to 20 songs
 - German wording for play, an empty instance list, the bot-name rule, and a few form hints
 - Switching bots clears the previous bot's connection form, history search, and playback search
 - The account a bot is assigned to can delete that bot

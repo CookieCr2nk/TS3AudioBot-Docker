@@ -49,7 +49,7 @@ import {
   touchLogin,
   updateInstanceRecord,
 } from "./db.js";
-import { HttpError, ValidationError } from "./errors.js";
+import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
 import {
   clearSessionCookie,
   cookieOptions,
@@ -101,9 +101,24 @@ api.use((req, res, next) => {
   next();
 });
 
+const LINE_LOG = new Set(["Bot API timed out", "Bot API is unreachable"]);
+
+export function missingLiveBot(message) {
+  return message === "This bot does not exist.";
+}
+
+export function serverErrorLog(err) {
+  const status = err?.status || 500;
+  if (status < 500) return "skip";
+  if (err instanceof Ts3ApiError) return LINE_LOG.has(err.message) ? "line" : "skip";
+  return "dump";
+}
+
 function sendError(err, req, res) {
   const status = err.status || 500;
-  if (status >= 500) console.error(err);
+  const logged = serverErrorLog(err);
+  if (logged === "line") console.error(`[panel] ${err.message}`);
+  else if (logged === "dump") console.error(err);
   res.status(status).json({ ok: false, error: errorText(err, req.t) });
 }
 
@@ -122,6 +137,21 @@ function sessionPayload(req) {
 
 api.get("/session", (req, res) => ok(res, sessionPayload(req)));
 
+export function loginDecision({ user, valid }) {
+  if (!user || !valid) return "invalid";
+  if (user.suspended) return "suspended";
+  return "ok";
+}
+
+export function signedInUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    canCreateBots: Boolean(user.can_create_bots),
+  };
+}
+
 api.post(
   "/login",
   wrap(async (req, res) => {
@@ -132,8 +162,8 @@ api.post(
     }
     const user = await findUserByUsername(username);
     const valid = await verifyPassword(password, user?.password_hash);
-    if (user?.suspended) throw new HttpError("This account is suspended.", 401);
-    if (!user || !valid) {
+    const decision = loginDecision({ user, valid });
+    if (decision === "invalid") {
       await addAudit({
         userId: user?.id ?? null,
         action: "login-failed",
@@ -141,6 +171,7 @@ api.post(
       });
       throw new HttpError("Username or password is wrong.", 401);
     }
+    if (decision === "suspended") throw new HttpError("This account is suspended.", 401);
     const token = randomBytes(32).toString("base64url");
     const csrf = newCsrf();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -148,7 +179,7 @@ api.post(
     await touchLogin(user.id);
     await addAudit({ userId: user.id, action: "login", detail: req.ip });
     res.cookie("ts3panel", token, cookieOptions());
-    req.user = { id: user.id, username: user.username, role: user.role };
+    req.user = signedInUser(user);
     req.csrf = csrf;
     ok(res, sessionPayload(req));
   }),
@@ -421,7 +452,14 @@ async function playbackOf(bot, t) {
       error: status.problems[0] || null,
     };
   } catch (err) {
-    return { online: false, title: null, paused: null, volume: null, error: err instanceof HttpError ? errorText(err, t) : t("Action failed") };
+    const missing = err instanceof Ts3ApiError && missingLiveBot(err.message);
+    return {
+      online: false,
+      title: null,
+      paused: null,
+      volume: null,
+      error: missing ? null : err instanceof HttpError ? errorText(err, t) : t("Action failed"),
+    };
   }
 }
 
@@ -598,8 +636,18 @@ api.get(
   "/bots/:id/status",
   wrap(async (req, res) => {
     const access = await openBot(req);
-    const status = presentStatus(await callBot(access.bot, statusParts(access.bot), { timeoutMs: 8000 }), req.t);
-    ok(res, { status });
+    try {
+      const status = presentStatus(await callBot(access.bot, statusParts(access.bot), { timeoutMs: 8000 }), req.t);
+      ok(res, { status: { ...status, online: true } });
+    } catch (err) {
+      if (err instanceof Ts3ApiError && missingLiveBot(err.message)) {
+        ok(res, {
+          status: { online: false, song: null, volume: null, repeat: null, shuffle: null, queue: null, problems: [] },
+        });
+        return;
+      }
+      throw err;
+    }
   }),
 );
 

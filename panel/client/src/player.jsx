@@ -32,6 +32,11 @@ export function PlayerBar() {
   const bot = player?.bot;
   const song = player?.status?.song;
   const playing = Boolean(song && song.paused === false);
+  const title = player?.status?.unreachable
+    ? t("Status unreachable")
+    : player?.status?.online === false
+      ? t("Offline")
+      : song?.title || t("Nothing is playing.");
 
   useEffect(() => {
     setVolume(50);
@@ -55,7 +60,7 @@ export function PlayerBar() {
   return (
     <section className="player" aria-label={t("Playback")}>
       <div className="player-track">
-        <Link className="player-title" to={`/bots/${bot.id}`}>{song?.title || t("Nothing is playing.")}</Link>
+        <Link className="player-title" to={`/bots/${bot.id}`}>{title}</Link>
         <p className="player-meta">
           <Link to={`/bots/${bot.id}`}>{bot.name}</Link>
           {bot.instanceName ? <span> · {bot.instanceName}</span> : null}

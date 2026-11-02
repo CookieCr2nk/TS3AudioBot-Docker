@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { after, describe, it } from "node:test";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../src/api.js";
 import { createApp, panelRoot } from "../src/app.js";
 import { canDeleteBot, pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
@@ -36,7 +37,7 @@ const admin = { role: "admin", canControl: true };
 
 describe("api paths", () => {
   it("wraps template commands the way the official client does", () => {
-    assert.equal(buildApiPath(statusParts(templateBot)), "/bot/template/default/(/json/merge/(/song)/(/volume)/(/repeat)/(/random)/(/info))");
+    assert.equal(buildApiPath(statusParts(templateBot)), "/bot/template/default/(/json/merge/(/song)/(/volume)/(/repeat)/(/random)/(/info/0/20))");
   });
 
   it("uses a running id when configured that way", () => {
@@ -207,6 +208,38 @@ describe("action guard", () => {
     assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).clientId, "12");
   });
 
+});
+
+describe("offline status and login", () => {
+  it("treats only a missing live bot as offline", () => {
+    assert.equal(missingLiveBot("This bot does not exist."), true);
+    assert.equal(missingLiveBot("Bot API timed out"), false);
+    assert.equal(missingLiveBot("Bot API is unreachable"), false);
+    assert.equal(missingLiveBot("This bot does not exist"), false);
+  });
+
+  it("logs a bot API failure as one line or not at all", () => {
+    assert.equal(serverErrorLog(new Ts3ApiError("This bot does not exist.")), "skip");
+    assert.equal(serverErrorLog(new Ts3ApiError("Bot API timed out")), "line");
+    assert.equal(serverErrorLog(new Ts3ApiError("Bot API is unreachable")), "line");
+    assert.equal(serverErrorLog(new Ts3ApiError("Bot said no")), "skip");
+    assert.equal(serverErrorLog(new HttpError("Broken", 500)), "dump");
+    assert.equal(serverErrorLog(new Error("boom")), "dump");
+    assert.equal(serverErrorLog(new HttpError("Username or password is wrong.", 401)), "skip");
+  });
+
+  it("does not reveal a suspended account until the password matches", () => {
+    const suspended = { id: 3, suspended: 1 };
+    assert.equal(loginDecision({ user: null, valid: false }), "invalid");
+    assert.equal(loginDecision({ user: suspended, valid: false }), "invalid");
+    assert.equal(loginDecision({ user: suspended, valid: true }), "suspended");
+    assert.equal(loginDecision({ user: { id: 3, suspended: 0 }, valid: true }), "ok");
+  });
+
+  it("keeps can create bots on the signed-in user", () => {
+    assert.equal(signedInUser({ id: 4, username: "ada", role: "user", can_create_bots: 1 }).canCreateBots, true);
+    assert.equal(signedInUser({ id: 4, username: "ada", role: "user", can_create_bots: 0 }).canCreateBots, false);
+  });
 });
 
 describe("status and lists", () => {

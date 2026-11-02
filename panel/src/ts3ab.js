@@ -23,7 +23,7 @@ export function scope(bot, parts) {
 }
 
 export function statusParts(bot) {
-  return scope(bot, ["json", "merge", ["song"], ["volume"], ["repeat"], ["random"], ["info"]]);
+  return scope(bot, ["json", "merge", ["song"], ["volume"], ["repeat"], ["random"], ["info", "0", "20"]]);
 }
 
 function basicAuth(user, token) {
