@@ -67,16 +67,17 @@ function pruneRateLimits(now) {
   }
 }
 
-export function rateLimit(key, limit, windowMs) {
+export function rateLimit(key, limit, windowMs, cost = 1) {
   const now = Date.now();
+  const slots = Math.max(1, Math.trunc(Number(cost)) || 1);
   if (hits.size > 1000) pruneRateLimits(now);
   const fresh = (hits.get(key) || []).filter((time) => now - time < windowMs);
-  if (fresh.length >= limit) {
+  if (fresh.length + slots > limit) {
     if (fresh.length) hits.set(key, fresh);
     else hits.delete(key);
     return false;
   }
-  fresh.push(now);
+  for (let index = 0; index < slots; index += 1) fresh.push(now);
   hits.set(key, fresh);
   return true;
 }

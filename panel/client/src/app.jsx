@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
 import { LanguageSelect } from "./language.jsx";
@@ -35,6 +35,7 @@ function Shell() {
   const navigate = useNavigate();
   const routeBotId = /^\/bots\/\d+(?:\/|$)/.test(location.pathname) ? id : "";
   const [bot, setBot] = useState(null);
+  const [botError, setBotError] = useState("");
   const [roster, setRoster] = useState([]);
   const [status, setStatus] = useState(null);
   const [note, setNote] = useState("");
@@ -81,22 +82,26 @@ function Shell() {
   useEffect(() => {
     if (!playerBotId) {
       setBot(null);
+      setBotError("");
       setStatus(null);
       return undefined;
     }
     let stop = false;
     setNote("");
     setActionError("");
+    setBotError("");
     api(`/api/bots/${playerBotId}`)
       .then((data) => {
         if (stop) return;
         setStatus(null);
+        setBotError("");
         setBot(data.bot);
       })
-      .catch(() => {
+      .catch((err) => {
         if (stop) return;
         setBot(null);
         setStatus(null);
+        setBotError(err.message || "");
       });
     return () => {
       stop = true;
@@ -132,18 +137,23 @@ function Shell() {
     };
   }, [bot?.id, playerBotId, tick]);
 
+  const openBotId = useRef(playerBotId);
+  openBotId.current = playerBotId;
   const act = useCallback(async (body) => {
-    if (!playerBotId) return null;
+    const here = openBotId.current;
+    if (!here) return null;
     setActionError("");
     setNote("");
     try {
-      const result = await api(`/api/bots/${playerBotId}/action`, { method: "POST", body });
+      const result = await api(`/api/bots/${here}/action`, { method: "POST", body });
+      if (openBotId.current !== here) return result;
       if (result.redirect) navigate(result.redirect);
-      else if (result.botId && String(result.botId) !== String(playerBotId)) navigate(`/bots/${result.botId}`);
+      else if (result.botId && String(result.botId) !== String(here)) navigate(`/bots/${result.botId}`);
       else if (body.op !== "volume" && body.op !== "seek") setNote(result.message || "");
       setTick((value) => value + 1);
       return result;
     } catch (err) {
+      if (openBotId.current !== here) return null;
       setActionError(err.message);
       return null;
     }
@@ -155,6 +165,7 @@ function Shell() {
     botId: playerBotId,
     bot: shownBot,
     status: shownBot ? status : null,
+    botError,
     note,
     error: actionError,
     act,
@@ -169,10 +180,10 @@ function Shell() {
       <div className="shell">
         <aside id="sidebar" className={open ? "sidebar open" : "sidebar"}>
           <div className="brand-row">
-            <a className="brand" href="/">
+            <Link className="brand" to="/">
               <img src="/favicon.svg" alt="" />
               TS-Bot Panel
-            </a>
+            </Link>
             <LanguageSelect />
           </div>
           <nav className="side-scroll" aria-label={t("Main")}>
@@ -190,7 +201,7 @@ function Shell() {
           <div className="side-foot">
             <SideLink to="/account">{t("Account")}</SideLink>
             <p className="who">{user.username}</p>
-            <button className="btn btn-ghost" type="button" onClick={() => signOut().then(() => navigate("/login"))}>
+            <button className="btn btn-ghost" type="button" onClick={() => signOut().then(() => navigate("/login")).catch((err) => setActionError(err.message))}>
               {t("Sign out")}
             </button>
             <a className="side-link" href="https://github.com/CookieCr2nk/TS3AudioBot-Docker" target="_blank" rel="noopener noreferrer">

@@ -62,6 +62,10 @@ export function AddBot({ instanceId = "" }) {
   const choices = instances.filter((item) => item.canCreate);
 
   useEffect(() => {
+    if (instanceId) setPicked(String(instanceId));
+  }, [instanceId]);
+
+  useEffect(() => {
     if (!open) return undefined;
     let stop = false;
     api("/api/instances")
@@ -467,21 +471,25 @@ export function BotsPage() {
                           key={`${bot.id}-${bot.assigneeUserId || "none"}`}
                           defaultValue={bot.assigneeUserId || ""}
                           onChange={async (event) => {
+                            const select = event.currentTarget;
+                            const next = select.value;
+                            const previous = String(bot.assigneeUserId || "");
                             setFormError("");
                             try {
                               const result = await api(`/api/bots/${bot.id}/assignee`, {
                                 method: "POST",
-                                body: { userId: event.target.value },
+                                body: { userId: next },
                               });
                               setNote(result.message || "");
                               reload();
                             } catch (err) {
+                              select.value = previous;
                               setFormError(err.message);
                               reload();
                             }
                           }}
                         >
-                          <option value="">{bot.ownerName ? t("Instance owner ({name})", { name: bot.ownerName }) : t("Instance owner")}</option>
+                          <option value="">{bot.instanceOwnerName ? t("Instance owner ({name})", { name: bot.instanceOwnerName }) : t("Instance owner")}</option>
                           {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
                         </select>
                       ) : (bot.ownerName || t("No owner"))}
@@ -529,6 +537,12 @@ export function InstancePage() {
   const { data, error, reload } = useLoad(`/api/instances/${id}`);
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
+  const [seenId, setSeenId] = useState(id);
+  if (seenId !== id) {
+    setSeenId(id);
+    setNote("");
+    setFormError("");
+  }
   const instance = data?.instance;
 
   async function run(path, body, after) {
@@ -692,6 +706,12 @@ function useBotAction(botId, onDone) {
   onDoneRef.current = onDone;
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [boundId, setBoundId] = useState(botId);
+  if (boundId !== botId) {
+    setBoundId(botId);
+    setNote("");
+    setError("");
+  }
   async function act(body) {
     setError("");
     setNote("");
@@ -719,9 +739,12 @@ export function Playback() {
   const [results, setResults] = useState([]);
   const [searchError, setSearchError] = useState("");
   const [loadedId, setLoadedId] = useState(id);
+  const searchBot = useRef(id);
+  searchBot.current = id;
   if (loadedId !== id) {
     setLoadedId(id);
     setQuery("");
+    setFactory("youtube");
     setResults([]);
     setSearchError("");
   }
@@ -732,7 +755,9 @@ export function Playback() {
   const canControl = Boolean(player?.canControl);
   const offline = status?.online === false;
   const unreachable = Boolean(status?.unreachable);
-  const headline = unreachable ? t("Status unreachable") : offline ? t("Offline") : song?.title || t("Nothing is playing.");
+  const headline = !sameBot && player?.botError
+    ? player.botError
+    : unreachable ? t("Status unreachable") : offline ? t("Offline") : song?.title || t("Nothing is playing.");
   let pill = t("Not playing");
   if (offline) pill = t("Offline");
   else if (unreachable) pill = t("Status unreachable");
@@ -756,7 +781,7 @@ export function Playback() {
             {delta > 0 ? `+${delta}` : delta}s
           </button>
         ))}
-        <button className="btn" type="button" disabled={!canControl} onClick={() => window.confirm(t("Stop playback?")) && act({ op: "stop" })}>{t("Stop")}</button>
+        <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "stop" })}>{t("Stop")}</button>
         <button className="btn btn-danger" type="button" disabled={!canControl} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
       </div>
       {queue?.items?.length ? (
@@ -777,6 +802,7 @@ export function Playback() {
       ) : null}
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
+        const botId = id;
         setSearchError("");
         const value = query.trim();
         if (/^https?:\/\//i.test(value)) {
@@ -785,9 +811,11 @@ export function Playback() {
           return;
         }
         try {
-          const data = await api(`/api/bots/${id}/search?q=${encodeURIComponent(value)}&factory=${factory}`);
+          const data = await api(`/api/bots/${botId}/search?q=${encodeURIComponent(value)}&factory=${factory}`);
+          if (searchBot.current !== botId) return;
           setResults(data.results || []);
         } catch (err) {
+          if (searchBot.current !== botId) return;
           setResults([]);
           setSearchError(err.message);
         }
@@ -873,7 +901,7 @@ export function Radio() {
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={save}>
         <h2>{t("New station")}</h2>
-        <label>{t("Name")}<input name="name" required maxLength={80} /></label>
+        <label>{t("Name")}<input name="name" required maxLength={120} /></label>
         <label>{t("Stream address")}<input name="url" required placeholder="https://" /></label>
         <label>{t("Note")}<input name="notes" maxLength={500} /></label>
         {user.role === "admin" ? <label className="check"><input type="checkbox" name="shared" value="on" /> {t("Shared catalog")}</label> : null}
@@ -953,15 +981,14 @@ function StartupStream({ hosting, stations }) {
   const saved = hosting?.startup || "";
   const savedId = hosting?.startupStreamId == null ? "" : String(hosting.startupStreamId);
   const byId = stations.find((station) => String(station.id) === savedId);
-  const byUrl = stations.find((station) => station.url && station.url === saved.trim());
-  const initial = byId || byUrl;
+  const urlMatches = stations.filter((station) => station.url && station.url === saved.trim());
+  const initial = byId || (urlMatches.length === 1 ? urlMatches[0] : null);
   const [choice, setChoice] = useState(initial ? String(initial.id) : saved ? "custom" : "");
   const [custom, setCustom] = useState(initial ? "" : saved);
   const station = stations.find((item) => String(item.id) === choice);
   const typed = custom.trim();
-  const customMatch = choice === "custom"
-    ? stations.find((item) => item.url && item.url === typed)
-    : null;
+  const customMatches = choice === "custom" ? stations.filter((item) => item.url && item.url === typed) : [];
+  const customMatch = customMatches.length === 1 ? customMatches[0] : null;
   return (
     <div>
       <label>{t("Stream on connect")}
@@ -1002,6 +1029,16 @@ export function Connection() {
   const player = usePlayer();
   const { note, error: actionError, act, setError, setNote } = useBotAction(id, player?.refresh);
   const [localNote, setLocalNote] = useState("");
+  const [seenId, setSeenId] = useState(id);
+  const pageId = useRef(id);
+  pageId.current = id;
+  if (seenId !== id) {
+    setSeenId(id);
+    setLocalNote("");
+  }
+  function kept(result) {
+    return pageId.current === id && result;
+  }
   if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
   return (
     <div className="page">
@@ -1031,7 +1068,7 @@ export function Connection() {
         if (labelChanged) {
           try {
             const renamed = await api(`/api/bots/${id}/label`, { method: "POST", body: { name: label } });
-            setLocalNote(renamed.message || "");
+            if (pageId.current === id) setLocalNote(renamed.message || "");
           } catch (err) {
             setError(err.message);
             return;
@@ -1043,6 +1080,7 @@ export function Connection() {
           return;
         }
         const result = await act({ op: "template-hosting", name: form.get("name"), ...patch });
+        if (pageId.current !== id) return;
         if (result) {
           setLocalNote(result.message || "");
           reload();
@@ -1090,7 +1128,7 @@ export function Connection() {
           const formElement = event.currentTarget;
           const channel = new FormData(formElement).get("channel");
           act({ op: "move", channel }).then((result) => {
-            if (result) formElement.reset();
+            if (kept(result)) formElement.reset();
           });
         }}>
           <label className="grow">{t("Channel")}
@@ -1111,7 +1149,7 @@ export function Connection() {
               event.preventDefault();
               const formElement = event.currentTarget;
               act({ op: "template-address", name: data.connection.name, address: new FormData(formElement).get("address") }).then((result) => {
-                if (result) reload();
+                if (kept(result)) reload();
               });
             }}>
               <label className="grow">{t("Server")}
@@ -1121,8 +1159,8 @@ export function Connection() {
             </form>
           )}
           <div className="inline">
-            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (result) reload(); })}>{t("Start")}</button> : null}
-            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (result) reload(); })}>{t("Disconnect")}</button> : null}
+            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (kept(result)) reload(); })}>{t("Start")}</button> : null}
+            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (kept(result)) reload(); })}>{t("Disconnect")}</button> : null}
           </div>
         </section>
       ) : null}
@@ -1132,7 +1170,7 @@ export function Connection() {
         <p>{t("Next connect")}: {data.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</p>
         <p>{t("Right now")}: {data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
         <div className="inline">
-          <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (result) reload(); })}>{t("Turn on")}</button>
+          <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (kept(result)) reload(); })}>{t("Turn on")}</button>
           <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
         </div>
       </section>
@@ -1327,7 +1365,7 @@ export function Users() {
                           </select>
                         </label>
                         <div className="split">
-                          <label className="grow">{t("New password")}<input name="password" type="password" minLength={10} autoComplete="new-password" /></label>
+                          <label className="grow">{t("New password")}<input name="password" type="password" autoComplete="new-password" /></label>
                           <button className="btn" type="button" onClick={async (event) => {
                             const password = new FormData(event.currentTarget.form).get("password");
                             if (!password) return;

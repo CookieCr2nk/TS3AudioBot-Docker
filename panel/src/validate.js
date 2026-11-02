@@ -214,12 +214,6 @@ export function parseHostingSettings(input) {
   };
 }
 
-export function parseResource(value) {
-  const text = String(value ?? "").trim();
-  if (!text || text.length > 2000) throw new ValidationError("Link is missing or too long");
-  return rejectControls(text, "Link");
-}
-
 export function parseSearchQuery(value) {
   const text = rejectControls(clean(value), "Search");
   if (!text || text.length > 200) throw new ValidationError("Search is missing or too long");

@@ -94,6 +94,7 @@ export function PlayerBar() {
             disabled={!canSeek}
             aria-label={t("Position")}
             onChange={(event) => setPosition(Number(event.target.value))}
+            onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
             onPointerUp={(event) => {
               if (canSeek) player.act({ op: "seek", seconds: Math.floor(Number(event.currentTarget.value)) });
             }}
@@ -117,6 +118,7 @@ export function PlayerBar() {
           disabled={!player.canControl}
           aria-label={t("Volume")}
           onChange={(event) => setVolume(Number(event.target.value))}
+          onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
           onPointerUp={(event) => player.act({ op: "volume", volume: Number(event.currentTarget.value) })}
           onKeyUp={(event) => {
             if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {

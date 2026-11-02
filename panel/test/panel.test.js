@@ -10,6 +10,7 @@ import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
+import { rateLimit } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
@@ -86,6 +87,14 @@ describe("action guard", () => {
     assert.throws(() => parseBulk({ op: "start", ids: [] }), /at least one/);
     assert.throws(() => parseBulk({ op: "stop", ids: ["nope"] }), /invalid/);
     assert.throws(() => parseBulk({ op: "start", ids: Array.from({ length: 26 }, (_, index) => index + 1) }), /at most/);
+  });
+
+  it("counts a bulk action in one step and keeps the limit when the batch does not fit", () => {
+    const key = `bulk-test-${Date.now()}`;
+    assert.equal(rateLimit(key, 3, 60_000, 1), true);
+    assert.equal(rateLimit(key, 3, 60_000, 3), false);
+    assert.equal(rateLimit(key, 3, 60_000, 2), true);
+    assert.equal(rateLimit(key, 3, 60_000, 1), false);
   });
 
   it("blocks playback without control and hosting actions for users", () => {
@@ -170,6 +179,10 @@ describe("action guard", () => {
     assert.equal(settingsRecord(resetChannel).channel, null);
     assert.equal("nickname" in settingsRecord(resetChannel), false);
     assert.equal(withPlay("!xecute (!bot commander on) (!play 'old')", null), "!bot commander on");
+    const quotedPlay = "!play 'https://example.com/a)(b'";
+    assert.equal(withCommander(quotedPlay, true), `!xecute (!bot commander on) (${quotedPlay})`);
+    assert.equal(withPlay(`!xecute (!bot commander on) (${quotedPlay})`, null), "!bot commander on");
+    assert.throws(() => withPlay("!xecute (!play 'open)", null), /connect script/);
     assert.equal(withPlay("!bot commander on", stream.args.startupCommand).startsWith("!xecute (!bot commander on) ("), true);
     assert.throws(() => parseHostingSettings({ name: "lobby", startup: "https://example.com/a", clearStartup: "on" }), /Clear the startup/);
     assert.equal(buildApiPath(liveRenameParts("lobby", "A(B)")), "/bot/template/lobby/(/bot/name/A%28B%29)");

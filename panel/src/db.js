@@ -100,6 +100,7 @@ export function publicBot(bot, { admin = false } = {}) {
     baseUrl: admin ? bot.baseUrl : null,
     address: bot.connectAddress || "",
     ownerName: bot.assigneeName || bot.ownerName || "",
+    instanceOwnerName: bot.ownerName || "",
     assigneeUserId: admin ? bot.assigneeUserId : null,
   };
 }
@@ -429,6 +430,9 @@ export async function updateInstanceRecord(id, fields) {
   } else if (fields.apiToken) {
     sql += ", api_user = ?, api_token_enc = ?";
     params.push(fields.apiUser, encrypt(fields.apiToken));
+  } else if (fields.apiToken === null && fields.apiUser) {
+    sql += ", api_user = ?";
+    params.push(fields.apiUser);
   }
   sql += " WHERE id = ?";
   params.push(id);
@@ -505,11 +509,12 @@ export async function findTsBotId(instanceId, template) {
 export async function ensureTsBot(instanceId, template, displayName, assigneeUserId = null) {
   const existing = await findTsBotId(instanceId, template);
   if (existing) return existing;
-  const name = displayName || template;
+  const display = displayName || template;
+  const name = String(display).slice(0, 64);
   try {
     const [result] = await pool.query(
-      "INSERT INTO ts_bots (instance_id, name, template, assignee_user_id) VALUES (?, ?, ?, ?)",
-      [instanceId, name, template, assigneeUserId],
+      "INSERT INTO ts_bots (instance_id, name, label, template, assignee_user_id) VALUES (?, ?, ?, ?, ?)",
+      [instanceId, name, display, template, assigneeUserId],
     );
     return Number(result.insertId);
   } catch (err) {
@@ -708,7 +713,7 @@ export async function trimAuditLog() {
 export async function listAudit(limit = 200) {
   const safeLimit = Math.min(500, Math.max(1, Math.trunc(Number(limit)) || 200));
   const [rows] = await pool.query(
-    `SELECT a.created_at, a.action, a.detail, u.username, i.name AS instance_name, t.name AS bot_name
+    `SELECT a.created_at, a.action, a.detail, u.username, i.name AS instance_name, COALESCE(t.label, t.name) AS bot_name
      FROM audit_log a
      LEFT JOIN users u ON u.id = a.user_id
      LEFT JOIN instances i ON i.id = a.instance_id

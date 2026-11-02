@@ -50,7 +50,7 @@ import {
   touchLogin,
   updateInstanceRecord,
 } from "./db.js";
-import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
+import { failureFor, HttpError, Ts3ApiError, ValidationError } from "./errors.js";
 import {
   clearSessionCookie,
   cookieOptions,
@@ -114,11 +114,13 @@ export function serverErrorLog(err) {
 }
 
 function sendError(err, req, res) {
-  const status = err.status || 500;
+  const exposed = failureFor(err);
+  const status = exposed?.status || 500;
   const logged = serverErrorLog(err);
   if (logged === "line") console.error(`[panel] ${err.message}`);
   else if (logged === "dump") console.error(err);
-  res.status(status).json({ ok: false, error: errorText(err, req.t) });
+  const message = exposed ? errorText(exposed, req.t) : (req.t ? req.t("Internal error") : "Internal error");
+  res.status(status).json({ ok: false, error: message });
 }
 
 function ok(res, body = {}, status = 200) {
@@ -271,10 +273,11 @@ api.get(
       ? (await listInstances()).filter((row) => admin || row.enabled)
       : await listInstancesForUser(req.user.id);
     ok(res, {
-      instances: rows.map((row) => ({
-        ...publicInstance(row, admin),
-        canCreate: admin || row.ownerUserId === req.user.id || Boolean(req.user.canCreateBots),
-      })),
+      instances: rows.map((row) => {
+        const canCreate = admin || row.ownerUserId === req.user.id || Boolean(req.user.canCreateBots);
+        if (admin) return { ...publicInstance(row, true), canCreate };
+        return { id: row.id, name: row.name, enabled: row.enabled, canCreate };
+      }),
     });
   }),
 );
@@ -582,8 +585,8 @@ api.post(
   "/bots/bulk",
   wrap(async (req, res) => {
     const { op, ids } = parseBulk(req.body);
-    for (const id of ids) {
-      if (!id || !rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
+    if (!rateLimit(`action:${req.user.id}`, 60, 60_000, ids.length)) {
+      throw new HttpError("Too many actions. Wait a moment.", 429);
     }
     const results = await mapPool(ids, 4, async (id) => {
       const access = await accessToBot(req.user, id);

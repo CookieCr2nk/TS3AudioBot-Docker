@@ -388,6 +388,8 @@ const de = {
   "Privilege key": "Privilege-Key",
   Apply: "Übernehmen",
   "Connection settings saved": "Verbindung gespeichert",
+  "The connect script could not be read. Clear the stream and save it again.":
+    "Das Verbindungsskript konnte nicht gelesen werden. Entferne den Stream und speichere erneut.",
   "Privilege key applied": "Privilege-Key übernommen",
   "Connection settings for {name}": "Verbindung für {name}",
   "Applied a privilege key": "Privilege-Key gesetzt",

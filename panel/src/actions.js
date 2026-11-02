@@ -5,8 +5,8 @@ import {
   parseChannel,
   parseHostingSettings,
   parseIndex,
-  parseResource,
   parseSearchQuery,
+  parseStreamUrl,
   parseTemplateName,
   parseTsAddress,
   parseVolume,
@@ -82,7 +82,7 @@ export const actions = {
     audit: true,
     success: "Playback started",
     timeoutMs: SLOW,
-    parse: (input) => ({ resource: parseResource(input.resource) }),
+    parse: (input) => ({ resource: parseStreamUrl(input.resource) }),
     build: (args) => ["play", args.resource],
     detail: (args) => args.resource.slice(0, 180),
   },
@@ -91,7 +91,7 @@ export const actions = {
     audit: true,
     success: "Added to the queue",
     timeoutMs: SLOW,
-    parse: (input) => ({ resource: parseResource(input.resource) }),
+    parse: (input) => ({ resource: parseStreamUrl(input.resource) }),
     build: (args) => ["add", args.resource],
     detail: (args) => args.resource.slice(0, 180),
   },
@@ -377,8 +377,26 @@ export function parseOnconnect(value) {
   const commands = [];
   let depth = 0;
   let start = -1;
+  let quote = "";
+  let escaped = false;
   for (let i = 0; i < body.length; i += 1) {
     const char = body[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) quote = "";
+      continue;
+    }
+    if (char === "'" || char === "\"") {
+      quote = char;
+      continue;
+    }
     if (char === "(") {
       if (depth === 0) start = i + 1;
       depth += 1;
@@ -389,10 +407,16 @@ export function parseOnconnect(value) {
         if (command) commands.push(command);
         start = -1;
       }
-      if (depth < 0) return [text];
+      if (depth < 0) return null;
     }
   }
-  if (depth !== 0 || commands.length === 0) return [text];
+  if (quote || escaped || depth !== 0 || commands.length === 0) return null;
+  return commands;
+}
+
+function commandsFrom(current) {
+  const commands = parseOnconnect(current);
+  if (!commands) throw new ValidationError("The connect script could not be read. Clear the stream and save it again.");
   return commands;
 }
 
@@ -408,17 +432,19 @@ export function buildOnconnect(commands) {
 }
 
 export function withCommander(current, enabled) {
-  const rest = parseOnconnect(current).filter((command) => command !== COMMANDER_ON);
+  const rest = commandsFrom(current).filter((command) => command !== COMMANDER_ON);
   return buildOnconnect(enabled ? [COMMANDER_ON, ...rest] : rest);
 }
 
 export function withPlay(current, play) {
-  const rest = parseOnconnect(current).filter((command) => !command.startsWith("!play "));
+  const rest = commandsFrom(current).filter((command) => !command.startsWith("!play "));
   return buildOnconnect(play ? [...rest, play] : rest);
 }
 
 export function commanderSaved(current) {
-  return parseOnconnect(current).includes(COMMANDER_ON);
+  const commands = parseOnconnect(current);
+  if (!commands) return null;
+  return commands.includes(COMMANDER_ON);
 }
 
 export function liveRenameParts(name, nickname) {
