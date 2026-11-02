@@ -104,7 +104,7 @@ export function AddBot({ instanceId = "" }) {
         </select>
       </label>
       <div className="split">
-        <label className="grow">{t("Name")}<input name="name" required maxLength={120} placeholder={t("Evening radio")} /></label>
+        <label className="grow">{t("Name")}<input name="name" required maxLength={120} placeholder="bot" /></label>
         <button className="btn btn-primary" type="submit" disabled={!choices.length}>{t("Create")}</button>
         <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
       </div>
@@ -591,7 +591,7 @@ export function InstancePage() {
           <h2>{t("Create a bot")}</h2>
           <div className="split">
             <label className="grow">{t("Name")}
-              <input name="name" required maxLength={120} placeholder={t("Evening radio")} />
+              <input name="name" required maxLength={120} placeholder="bot" />
             </label>
             <button className="btn btn-primary" type="submit">{t("Create")}</button>
           </div>

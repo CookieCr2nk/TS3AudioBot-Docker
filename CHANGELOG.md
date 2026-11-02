@@ -17,7 +17,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Accounts other than administrators see only bots assigned to them
 - Connection chooses the stream on connect from a saved station or another address. Not set removes it
 - Notices sit at the bottom right, above the playback bar
-- The name field for a new bot shows Evening radio as the example
+- The name field for a new bot shows bot as the example
 - Saving a default channel moves a connected bot into that channel
 - The playback bar stays empty until a bot page is open
 - The bot list is paged like the user list, and each bot stays on one line
@@ -25,6 +25,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The panel image uses the Node.js LTS tag `lts-bookworm-slim`, which is Node.js 26.13.0. CI runs that same version
 
 ### Fixed
+- German wording for play, an empty instance list, the bot-name rule, and a few form hints
 - Switching bots clears the previous bot's connection form, history search, and playback search
 - The account a bot is assigned to can delete that bot
 - Clearing the nickname or the default channel on Connection saves that reset
