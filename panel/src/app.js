@@ -9,7 +9,7 @@ import { config } from "./config.js";
 import { ping } from "./db.js";
 import { failureFor } from "./errors.js";
 import { loadSession, wantsJson, wrap } from "./http.js";
-import { errorText, languageFromHeader, translator } from "./i18n.js";
+import { applyRequestLanguage, errorText } from "./i18n.js";
 
 // dirname("/app/") is "/" on Linux. Resolve from this file, which lives in src/.
 export function panelRoot(moduleFile, pathApi = path) {
@@ -45,10 +45,7 @@ export function createApp({ startupError = null } = {}) {
   app.use(express.json({ limit: "32kb" }));
   app.use(cookieParser());
   app.use((req, res, next) => {
-    const lang = languageFromHeader(req.get("accept-language"));
-    req.lang = lang;
-    req.t = translator(lang);
-    res.set("Vary", "Accept-Language");
+    applyRequestLanguage(req, res);
     next();
   });
 

@@ -6,7 +6,7 @@ Read this file before changing anything under `panel/`. Repository rules are in 
 
 Hosting UI for the TS3AudioBot web API. Node.js 26, ESM, Express, MariaDB through `mysql2`. The browser UI is a Vite and React app in `client/`. The server sends JSON under `/api` and, after `npm run build`, serves `dist/`. Start the API with `node src/index.js`. During development, run `npm run client` as well. Vite proxies `/api` to port 8080.
 
-The repository language rule is in `../AGENTS.md`: everything is English except translation catalogs. The UI source strings are English. When the browser prefers German, those strings are looked up in `src/locales/de.js`. Every new `t("...")` string and every `HttpError`, `ValidationError`, or `Ts3ApiError` with a fixed English sentence needs an entry there. Otherwise `keeps every panel phrase in the German catalog` fails. Do not add a second catalog unless the user asks for another language.
+The repository language rule is in `../AGENTS.md`. The UI source strings are English. `src/i18n.js` lists the languages. English is the source and has no catalog. German is `src/locales/de.js`. Automatic follows `Accept-Language`. A saved choice in the cookie `ts3panel-lang` overrides it. The flag button sits to the right of the panel name and on the sign-in page. To add a language, add `src/locales/<id>.js` and one entry in `languages` and `catalogs`. Every new `t("...")` string and every `HttpError`, `ValidationError`, or `Ts3ApiError` with a fixed English sentence needs an entry in every catalog. Otherwise `keeps every panel phrase in each translation catalog` fails. Do not add a catalog unless the user asks for that language.
 
 ## Layout
 
@@ -18,7 +18,7 @@ src/ts3ab.js          bot API paths
 src/db.js             queries
 src/schema.js         apply migrations
 src/api.js            JSON API used by the client
-src/locales/de.js     German UI strings
+src/locales/<id>.js   translation catalogs. English has none
 client/               React UI, English source strings
 sql/migrations/       NNN_name.sql, in order
 test/panel.test.js    node:test, no database
@@ -45,7 +45,7 @@ Read this section before changing a page. The human guide is `../README.md`. Thi
 | `/bots/:id/streams` | Radio stations | Same, plus delete on stations they may delete |
 | `/bots/:id/history` | History search and play | Same |
 | `/bots/:id/connection` | Nickname, channel, passwords, bitrate, volume, start, stream | Same. Saving does not require `canManage` |
-| `/users`, `/audit` | Accounts and the audit log | Administrator. The page also checks the role |
+| `/users`, `/audit` | Accounts and the audit log. Audit can delete entries older than 24 hours | Administrator. The page also checks the role |
 | `/account` | Own password and bot limit | Signed in |
 
 The playback bar is `client/src/player.jsx`. It is empty until a bot route is open. Notices render inline on the login page and through `#toast-dock`, above that bar, everywhere else. Do not put them back at the top of the page.
@@ -57,7 +57,8 @@ The bot table ellipsizes only the Now playing column. The server address and the
 | File | Role |
 |---|---|
 | `client/src/api.js` | `fetch` wrapper. Sends the CSRF header and the session cookie |
-| `client/src/auth.jsx` | Session user and `t()` |
+| `client/src/auth.jsx` | Session user, `t()`, and the saved language |
+| `client/src/language.jsx` | Language select. Options come from the session |
 | `client/src/pages.jsx` | Every page. `useLoad(path)` is the GET helper |
 | `client/src/hostingForm.js` | Diff for Connection. The server applies that patch |
 | `client/src/player.jsx` | Bottom bar. It reads the shell player context |
@@ -74,7 +75,7 @@ A submit handler must read `event.currentTarget` and `FormData` before the first
 - `/bots`, `/bots/:id`, `/bots/:id/status`, `/bots/:id/label`, `/bots/:id/assignee`, `/bots/bulk`
 - `/bots/:id/action` runs one entry from `actions.js`
 - `/bots/:id/search`, `/history`, `/streams`, `/connection`
-- `/admin/instances`, `/admin/users`, `/admin/audit`
+- `/admin/instances`, `/admin/users`, `/admin/audit`, `/admin/audit/trim`
 
 `/bots?status=0` is the shell roster. It skips the live playback lookup. The bot list page uses `/bots` with playback.
 
@@ -106,7 +107,7 @@ On Connection, anyone who can open the bot can save it. The bot list can start a
 
 ## Security
 
-- CSRF header `X-CSRF-Token` on writes. The session cookie is `ts3panel`. Do not add a cookie without the same protection.
+- CSRF header `X-CSRF-Token` on writes. The session cookie is `ts3panel`. Do not add a session cookie without the same protection. `ts3panel-lang` is only the language choice (`auto` or a language id), SameSite=Lax, and not a login.
 - Content-Security-Policy: scripts only from the panel origin. No inline script, no third-party CDN.
 - API tokens are stored only encrypted with `TOKEN_KEY`. Do not log them, put them in flash messages, or write them to the audit log.
 - Bot API URLs are host and port only. No credentials, no query, no metadata address.
@@ -116,6 +117,6 @@ On Connection, anyone who can open the bot can save it. The bot list can start a
 
 From `panel/`: `node --test`. From the repo: `make panel-test`. `npm run build` writes `dist/`.
 
-The tests do not need MariaDB. They check the command allow-list, the schema, and that every `t("...")` string in `src/` and `client/` is in the German catalog.
+The tests do not need MariaDB. They check the command allow-list, the schema, and that every `t("...")` string in `src/` and `client/` is in each translation catalog.
 
 Node is often missing from `PATH` on this Windows checkout. Run the tests with a Node 26 binary, and do not treat a missing `node` on `PATH` as a pass.

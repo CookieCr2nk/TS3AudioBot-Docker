@@ -5,11 +5,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- A flag button to the right of the panel name, and on the sign-in page, follows the browser or picks English or German. Another translation is a catalog registered in one list
+- The protocol page can delete audit entries older than 24 hours and keep the last day
 - Anyone who can open a bot can change its connection settings. The panel remembers the nickname, channel, bitrate, volume, start-on-launch choice, and stream address. Passwords stay on the bot.
 - Connection can move a connected bot into a channel without saving that channel as the default
 - Connection can use a saved radio station as the stream that plays when the bot connects
 
 ### Changed
+- The sidebar, the sign-in page, and the browser title use the name TS-Bot Panel
 - The bot list shortens only the current title. The server address and the volume heading stay fully visible
 - The bot list and the bot switcher show the saved TeamSpeak address, including while the bot is offline
 - Start, stop, and disconnect no longer ask the browser to confirm

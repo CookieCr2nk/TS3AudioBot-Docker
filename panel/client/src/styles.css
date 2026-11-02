@@ -39,6 +39,12 @@ a:hover { text-decoration: underline; }
   flex-direction: column;
   min-height: 0;
 }
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-right: 0.65rem;
+}
 .brand {
   display: flex;
   align-items: center;
@@ -49,6 +55,56 @@ a:hover { text-decoration: underline; }
   letter-spacing: 0.04em;
   text-decoration: none;
 }
+.brand-row .brand { flex: 1; min-width: 0; padding-right: 0; }
+.lang-pick { position: relative; margin-left: auto; flex: none; }
+.lang-flag {
+  width: 38px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  color: white;
+  cursor: pointer;
+}
+.lang-flag svg, .lang-menu svg { width: 22px; height: 15px; display: block; border-radius: 2px; overflow: hidden; }
+.lang-flag .lang-auto { width: 18px; height: 18px; }
+.lang-code { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; }
+.lang-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 30;
+  min-width: 11rem;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.lang-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lang-menu button svg { flex: none; }
+.lang-menu .lang-auto { width: 18px; height: 18px; }
+.lang-menu button[aria-selected="true"],
+.lang-menu button:hover { background: #e7f1f8; }
 .brand:hover { text-decoration: none; color: white; }
 .brand img { width: 28px; height: 28px; }
 .side-scroll { overflow: auto; padding: 0.4rem 0.75rem 1rem; flex: 1; }
@@ -202,7 +258,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .transport { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .login-page { min-height: 100%; display: grid; place-items: center; background: var(--side); padding: 1.5rem; }
 .login-card { width: min(420px, 100%); background: white; border-radius: 8px; padding: 1.4rem; display: grid; gap: 0.8rem; }
-.login-card h1 { color: var(--side); }
+.login-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.login-card h1 { color: var(--side); margin: 0; }
+.login-card .lang-flag {
+  color: var(--text);
+  background: white;
+  border-color: var(--line);
+}
 
 .page-wide { max-width: 1200px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }

@@ -10,8 +10,7 @@ import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
-import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
-import de from "../src/locales/de.js";
+import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
 import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
@@ -425,6 +424,15 @@ describe("language", () => {
     assert.equal(languageFromHeader("fr-FR,fr;q=0.9"), "en");
     assert.equal(languageFromHeader("*"), "en");
     assert.equal(languageFromHeader(""), "en");
+    assert.equal(resolveLanguage("de-DE,de;q=0.9", "auto"), "de");
+    assert.equal(resolveLanguage("de-DE,de;q=0.9", "en"), "en");
+    assert.equal(resolveLanguage("en-US", "de"), "de");
+    assert.equal(resolveLanguage("fr-FR", "nope"), "en");
+    assert.equal(languageChoice("DE"), "de");
+    assert.equal(languageChoice(""), "auto");
+    assert.equal(languageChoice("fr"), "auto");
+    assert.deepEqual(languages.map((item) => item.id), ["en", "de"]);
+    assert.deepEqual(Object.keys(catalogs), ["de"]);
     assert.equal(translate("de", "Sign in"), "Anmelden");
     assert.equal(translate("en", "Sign in"), "Sign in");
     assert.equal(translate("de", "{label} is invalid", { label: "Password" }), "Passwort ist ungültig");
@@ -436,7 +444,7 @@ describe("language", () => {
     assert.equal(presentBotList([{ Id: 2, Name: "lobby", Status: "Connected" }], german)[0].statusLabel, "Verbunden");
   });
 
-  it("keeps every panel phrase in the German catalog", () => {
+  it("keeps every panel phrase in each translation catalog", () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "..");
     const files = [];
     const walk = (dir) => {
@@ -449,24 +457,32 @@ describe("language", () => {
     };
     walk(join(root, "src"));
     walk(join(root, "client"));
-    const missing = new Set();
+    const keys = [];
     const pattern = /(?:^|[^\w])t\(\s*"((?:\\.|[^"\\])*)"|new (?:Http|Validation|Ts3Api)Error\(\s*"((?:\\.|[^"\\])*)"/g;
     for (const path of files) {
       const source = readFileSync(path, "utf8");
-      for (const match of source.matchAll(pattern)) {
-        const key = (match[1] || match[2]).replace(/\\"/g, '"');
-        if (!Object.prototype.hasOwnProperty.call(de, key)) missing.add(`${key} (${path})`);
-      }
+      for (const match of source.matchAll(pattern)) keys.push((match[1] || match[2]).replace(/\\"/g, '"'));
     }
-    assert.deepEqual([...missing], []);
+    const catalogIds = languages.filter((item) => item.id !== "en").map((item) => item.id);
+    assert.deepEqual(Object.keys(catalogs).sort(), [...catalogIds].sort());
+    for (const id of catalogIds) {
+      const catalog = catalogs[id];
+      const missing = keys.filter((key) => !Object.prototype.hasOwnProperty.call(catalog, key));
+      assert.deepEqual(missing, [], id);
+    }
 
-    const catalog = readFileSync(join(root, "src/locales/de.js"), "utf8");
-    const keys = [...catalog.matchAll(/^\s*(?:"((?:\\.|[^"\\])*)"|([A-Za-z_][A-Za-z0-9_]*))\s*:/gm)].map(
-      (match) => match[1] ?? match[2],
-    );
-    const seen = new Set();
-    const duplicates = keys.filter((key) => (seen.has(key) ? true : (seen.add(key), false)));
-    assert.deepEqual(duplicates, []);
+    const localeDir = join(root, "src/locales");
+    const localeFiles = readdirSync(localeDir).filter((name) => name.endsWith(".js"));
+    assert.deepEqual(localeFiles.map((name) => name.replace(/\.js$/, "")).sort(), [...catalogIds].sort());
+    for (const name of localeFiles) {
+      const catalog = readFileSync(join(localeDir, name), "utf8");
+      const defined = [...catalog.matchAll(/^\s*(?:"((?:\\.|[^"\\])*)"|([A-Za-z_][A-Za-z0-9_]*))\s*:/gm)].map(
+        (match) => match[1] ?? match[2],
+      );
+      const seen = new Set();
+      const duplicates = defined.filter((key) => (seen.has(key) ? true : (seen.add(key), false)));
+      assert.deepEqual(duplicates, [], name);
+    }
   });
 
 });
@@ -526,7 +542,18 @@ describe("panel paths and failures", () => {
       const body = await page.json();
       assert.equal(page.status, 200);
       assert.equal(body.phrases["Sign in"], "Anmelden");
+      assert.equal(body.lang, "de");
+      assert.equal(body.choice, "auto");
       assert.equal(body.user, null);
+      const forced = await fetch(`http://127.0.0.1:${port}/api/session`, {
+        headers: { "accept-language": "de", cookie: "ts3panel-lang=en", accept: "application/json" },
+      });
+      const forcedBody = await forced.json();
+      assert.equal(forced.status, 200);
+      assert.equal(forcedBody.lang, "en");
+      assert.equal(forcedBody.choice, "en");
+      assert.equal(forcedBody.phrases["Sign in"], undefined);
+      assert.equal(forcedBody.languages.map((item) => item.id).join(","), "en,de");
       const health = await fetch(`http://127.0.0.1:${port}/healthz`);
       assert.equal(health.status, 503);
       assert.match(await health.text(), /database is unreachable/i);

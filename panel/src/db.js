@@ -711,6 +711,13 @@ export async function deleteStream(id, user) {
   return result.affectedRows > 0;
 }
 
+export async function trimAuditLog() {
+  const [result] = await pool.query(
+    "DELETE FROM audit_log WHERE created_at < (CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY)",
+  );
+  return Number(result.affectedRows) || 0;
+}
+
 export async function listAudit(limit = 200) {
   const safeLimit = Math.min(500, Math.max(1, Math.trunc(Number(limit)) || 200));
   const [rows] = await pool.query(

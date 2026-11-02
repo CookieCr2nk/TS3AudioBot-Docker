@@ -1,4 +1,4 @@
-import { applyParams } from "./i18n.js";
+import { applyParams, localeFor } from "./i18n.js";
 
 const REPEAT = new Map([
   ["0", "off"],
@@ -66,7 +66,7 @@ export function formatTime(value, lang = "en") {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const formatted = new Intl.DateTimeFormat(lang === "de" ? "de-DE" : "en-GB", {
+  const formatted = new Intl.DateTimeFormat(localeFor(lang), {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",

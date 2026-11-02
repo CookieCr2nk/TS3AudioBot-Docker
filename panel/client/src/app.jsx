@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
+import { LanguageSelect } from "./language.jsx";
 import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Notice, Overview, Playback, Radio, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
 
@@ -59,7 +60,7 @@ function Shell() {
 
   useEffect(() => {
     const label = inBot ? botSection(location.pathname, t) : pageSection(location.pathname, t);
-    document.title = `${label} · TS3 Panel`;
+    document.title = `${label} · TS-Bot Panel`;
   }, [location.pathname, t, inBot]);
 
   useEffect(() => {
@@ -166,10 +167,13 @@ function Shell() {
       <a className="skip" href="#content">{t("Skip to content")}</a>
       <div className="shell">
         <aside id="sidebar" className={open ? "sidebar open" : "sidebar"}>
-          <a className="brand" href="/">
-            <img src="/favicon.svg" alt="" />
-            TS3 Panel
-          </a>
+          <div className="brand-row">
+            <a className="brand" href="/">
+              <img src="/favicon.svg" alt="" />
+              TS-Bot Panel
+            </a>
+            <LanguageSelect />
+          </div>
           <nav className="side-scroll" aria-label={t("Main")}>
             <div className="side-label">{t("Library")}</div>
             <SideLink to="/" end>{t("Overview")}</SideLink>

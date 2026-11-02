@@ -28,6 +28,7 @@ import {
   insertStream,
   instanceClient,
   listAudit,
+  trimAuditLog,
   listGrantIds,
   listGrants,
   listAccessibleBots,
@@ -61,7 +62,7 @@ import {
   requireUser,
   wrap,
 } from "./http.js";
-import { de, errorText, languageFromHeader, translator } from "./i18n.js";
+import { applyRequestLanguage, errorText, languages, phrasesFor } from "./i18n.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
 import {
   displayStreamUrl,
@@ -95,9 +96,7 @@ import { toFormBody } from "./form.js";
 export const api = Router();
 
 api.use((req, res, next) => {
-  const lang = languageFromHeader(req.get("accept-language"));
-  req.lang = lang;
-  req.t = translator(lang);
+  applyRequestLanguage(req, res);
   next();
 });
 
@@ -131,7 +130,9 @@ function sessionPayload(req) {
     user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role, canCreateBots: Boolean(req.user.canCreateBots) } : null,
     csrf: req.csrf || "",
     lang: req.lang,
-    phrases: req.lang === "de" ? de : {},
+    choice: req.langChoice || "auto",
+    languages,
+    phrases: phrasesFor(req.lang),
   };
 }
 
@@ -1156,6 +1157,19 @@ api.get(
   "/admin/audit",
   wrap(async (req, res) => {
     ok(res, { rows: await listAudit(200) });
+  }),
+);
+
+api.post(
+  "/admin/audit/trim",
+  wrap(async (req, res) => {
+    if (req.body.confirm !== true && req.body.confirm !== "on") throw new HttpError("Delete must be confirmed", 400);
+    const removed = await trimAuditLog();
+    await addAudit({ userId: req.user.id, action: "audit-trim", detail: String(removed) });
+    ok(res, {
+      message: req.t("Removed {count} audit entries.", { count: removed }),
+      rows: await listAudit(200),
+    });
   }),
 );
 

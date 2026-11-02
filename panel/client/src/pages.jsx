@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { api } from "./api.js";
 import { hostingChanges } from "./hostingForm.js";
 import { useAuth } from "./auth.jsx";
+import { LanguageSelect } from "./language.jsx";
 import { usePlayer } from "./player.jsx";
 
 function useLoad(path) {
@@ -167,7 +168,10 @@ export function Login() {
   return (
     <main className="login-page">
       <form className="login-card" onSubmit={submit}>
-        <h1>TS3 Panel</h1>
+        <div className="login-head">
+          <h1>TS-Bot Panel</h1>
+          <LanguageSelect />
+        </div>
         <p className="muted">{t("Sign in")}</p>
         <Notice error={error} />
         <label>{t("Username")}
@@ -1358,12 +1362,34 @@ export function Users() {
 
 export function Audit() {
   const { user, t } = useAuth();
-  const { data, error } = useLoad("/api/admin/audit");
+  const { data, error, setData } = useLoad("/api/admin/audit");
+  const [note, setNote] = useState("");
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
   if (user.role !== "admin") return <p className="flash flash-error">{t("Administrators only")}</p>;
   return (
     <div className="page">
-      <h1>{t("Audit")}</h1>
-      <Notice error={error} />
+      <div className="page-head">
+        <h1>{t("Audit")}</h1>
+        <button className="btn btn-danger" type="button" disabled={busy} onClick={async () => {
+          if (!window.confirm(t("Delete entries older than one day?"))) return;
+          setBusy(true);
+          setFormError("");
+          setNote("");
+          try {
+            const result = await api("/api/admin/audit/trim", { method: "POST", body: { confirm: true } });
+            setNote(result.message || "");
+            setData({ rows: result.rows || [] });
+          } catch (err) {
+            setFormError(err.message);
+          } finally {
+            setBusy(false);
+          }
+        }}>{t("Keep the last day")}</button>
+      </div>
+      <p className="muted">{t("The last 200 actions. API tokens are not listed here.")}</p>
+      <p className="muted">{t("This deletes every protocol entry older than 24 hours. The last day stays in the database.")}</p>
+      <Notice error={formError || error} note={note} />
       <div className="table-wrap">
         <table>
           <thead><tr><th>{t("Time")}</th><th>{t("Name")}</th><th>{t("Action")}</th><th>{t("Detail")}</th></tr></thead>
