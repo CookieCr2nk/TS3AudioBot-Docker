@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Anyone who can open a bot can change its connection settings. The panel remembers the nickname, channel, bitrate, volume, start-on-launch choice, and stream address. Passwords stay on the bot.
 - Connection can move a connected bot into a channel without saving that channel as the default
+- Connection can use a saved radio station as the stream that plays when the bot connects
 
 ### Changed
 - The name field for a new bot shows Evening radio as the example

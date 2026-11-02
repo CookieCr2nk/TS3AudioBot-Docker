@@ -23,8 +23,13 @@ export function hostingChanges(input, saved = {}) {
   if (input.clearStartup === true || input.clearStartup === "on" || input.clearStartup === "1") {
     patch.clearStartup = "on";
   } else {
-    const startup = clean(input.startup);
-    if (startup) patch.startup = startup;
+    const streamId = clean(input.streamId);
+    const savedStreamId = saved.startupStreamId == null ? "" : String(saved.startupStreamId);
+    if (streamId && streamId !== savedStreamId) patch.streamId = streamId;
+    else if (!streamId) {
+      const startup = clean(input.startup);
+      if (startup) patch.startup = startup;
+    }
   }
   return patch;
 }

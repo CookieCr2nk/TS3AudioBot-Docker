@@ -902,6 +902,30 @@ export function History() {
   );
 }
 
+function StartupStream({ hosting, stations }) {
+  const { t } = useAuth();
+  const [stationId, setStationId] = useState(hosting?.startupStreamId ? String(hosting.startupStreamId) : "");
+  return (
+    <>
+      {hosting?.startup ? <p className="muted">{t("Current stream")}: <span className="mono">{hosting.startup}</span></p> : null}
+      {stations.length ? (
+        <label>{t("Saved station")}
+          <select name="streamId" value={stationId} onChange={(event) => setStationId(event.target.value)}>
+            <option value="">{t("Type an address")}</option>
+            {stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}
+          </select>
+        </label>
+      ) : null}
+      {stationId ? <p className="muted">{t("This station plays when the bot connects.")}</p> : (
+        <>
+          <label>{t("Stream on connect")}<input name="startup" placeholder="https://" /></label>
+          <p className="muted">{t("An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.")}</p>
+        </>
+      )}
+    </>
+  );
+}
+
 export function Connection() {
   const { id } = useParams();
   const { t } = useAuth();
@@ -924,6 +948,7 @@ export function Connection() {
         data?.hosting?.volume,
         data?.hosting?.run,
         data?.hosting?.startup,
+        data?.hosting?.startupStreamId,
       ].join("|") || "hosting"} onSubmit={async (event) => {
         event.preventDefault();
         const formElement = event.currentTarget;
@@ -985,9 +1010,7 @@ export function Connection() {
             </select>
           </label>
         </div>
-        {data?.hosting?.startup ? <p className="muted">{t("Current stream")}: <span className="mono">{data.hosting.startup}</span></p> : null}
-        <label>{t("Stream on connect")}<input name="startup" placeholder="https://" /></label>
-        <p className="muted">{t("An http or https address. The bot plays it when it connects. Leave empty to keep the current stream.")}</p>
+        <StartupStream hosting={data?.hosting} stations={data?.stations || []} />
         <label className="check"><input type="checkbox" name="clearStartup" value="on" /> {t("Clear the stream on connect")}</label>
         <button className="btn btn-primary" type="submit">{t("Save")}</button>
       </form>

@@ -638,6 +638,7 @@ api.post(
       return ok(res, { message: req.t("This bot is ready."), botId: tsBotId });
     }
     if (op === "template-create") await assertNewBot(access.bot.instanceId, parseTemplateName(req.body.name));
+    if (op === "template-hosting") await useStartupStation(req);
     const { action, args, data } = await runAction(access.bot, op, req.body, authOf(req, access));
     if (op === "template-hosting" || op === "template-address") await saveBotSettings(access.bot.id, settingsRecord(args));
     let botId = access.bot.id;
@@ -802,10 +803,17 @@ api.get(
     } catch (err) {
       teamspeakError = errorText(err, req.t);
     }
+    const streams = await listStreams(req.user);
+    const hosting = hostingFromBot(access.bot);
+    const startupMatches = hosting.startup
+      ? streams.filter((stream) => displayStreamUrl(stream.url) === hosting.startup)
+      : [];
+    hosting.startupStreamId = startupMatches.length === 1 ? startupMatches[0].id : null;
     ok(res, {
       connection: botConnection,
       bot: botView(access, req.user.role === "admin"),
-      hosting: hostingFromBot(access.bot),
+      hosting,
+      stations: streams.map((stream) => ({ id: stream.id, name: stream.name })),
       commander,
       commanderError,
       commanderSaved: commanderSavedValue,
@@ -815,6 +823,18 @@ api.get(
     });
   }),
 );
+
+async function useStartupStation(req) {
+  const raw = String(req.body.streamId ?? "").trim();
+  delete req.body.streamId;
+  if (!raw) return;
+  const clear = req.body.clearStartup === true || req.body.clearStartup === "on" || req.body.clearStartup === "1";
+  if (clear) return;
+  const id = numericId(raw);
+  const stream = id ? await getStream(id, req.user) : null;
+  if (!stream) throw new HttpError("That stream does not exist.", 404);
+  req.body.startup = stream.url;
+}
 
 function hostingFromBot(bot) {
   return {

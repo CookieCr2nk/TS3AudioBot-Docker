@@ -133,6 +133,10 @@ describe("action guard", () => {
     assert.deepEqual(hostingChanges({ nickname: "Night", channel: "/5" }, { nickname: "Music", channel: "/5" }), { nickname: "Night" });
     assert.deepEqual(hostingChanges({ nickname: "", channel: "/8" }, { nickname: "Music", channel: "/5" }), { channel: "/8" });
     assert.deepEqual(hostingChanges({ startup: "https://example.com/a", clearStartup: "on" }, {}), { clearStartup: "on" });
+    assert.deepEqual(hostingChanges({ streamId: "4", startup: "https://example.com/a" }, {}), { streamId: "4" });
+    assert.deepEqual(hostingChanges({ streamId: "4" }, { startupStreamId: 4 }), {});
+    assert.deepEqual(hostingChanges({ streamId: "5" }, { startupStreamId: 4 }), { streamId: "5" });
+    assert.deepEqual(hostingChanges({ streamId: "4", clearStartup: "on" }, { startupStreamId: 4 }), { clearStartup: "on" });
     assert.deepEqual(hostingChanges({ run: "off" }, { run: true }), { run: "off" });
     assert.equal(ownLiveId([{ Id: 7, Name: "lobby", Status: 2 }], "lobby"), "7");
     assert.equal(ownLiveId([{ Id: 7, Name: "other", Status: 2 }], "lobby"), "");
