@@ -65,7 +65,7 @@ When MariaDB runs on the same machine as Docker, set `PANEL_DB_HOST=host.docker.
 
 The database and user must already exist and must accept connections from the Docker bridge. The panel creates its tables on startup.
 
-Schema changes are numbered files in `panel/sql/migrations/`. Each new file runs once and is stored in `schema_migrations` with a checksum. A file that has already been applied must not change. The next change is a new file with the next number, for example `007_name.sql`. The SQL statements must be safe to run again if the process stops between two statements.
+Schema changes are numbered files in `panel/sql/migrations/`. Each new file runs once and is stored in `schema_migrations` with a checksum. A file that has already been applied must not change. The next change is a new file with the next number, for example `002_name.sql`. The SQL statements must be safe to run again if the process stops between two statements. A database from release 1.0, or one that already applied the older migration files, is upgraded to this schema when the panel starts.
 
 ```bash
 make compose-panel-external-up

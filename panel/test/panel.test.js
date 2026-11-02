@@ -12,7 +12,7 @@ import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
-import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
+import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
@@ -340,80 +340,188 @@ describe("secrets and schema", () => {
     assert.equal(tokensEqual("", ""), false);
   });
 
-  it("loads ordered migrations and refuses a changed or unknown version", async () => {
+  it("loads one schema and keeps the old migration checksums", () => {
     const migrations = loadMigrations();
-    assert.deepEqual(migrations.map((migration) => migration.version), [
-      "001_baseline",
-      "002_radio_streams",
-      "003_hosting",
-      "004_drop_legacy_bots",
-      "005_bot_limit",
-      "006_bot_access",
-      "007_bot_label",
-      "008_bot_template",
-      "009_bot_admins",
-      "010_drop_bot_admins",
-      "011_bot_settings",
-      "012_bot_address",
-    ]);
+    assert.deepEqual(migrations.map((migration) => migration.version), ["001_schema"]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
-    assert.equal(creates.length, 5);
-    assert.equal(migrations[0].statements.some((statement) => /MODIFY api_token_enc/i.test(statement)), true);
-    assert.equal(migrations[1].statements.some((statement) => /CREATE TABLE IF NOT EXISTS radio_streams/i.test(statement)), true);
-    assert.equal(migrations[2].statements.some((statement) => /CREATE TABLE IF NOT EXISTS instances/i.test(statement)), true);
-    assert.equal(migrations[2].statements.some((statement) => /ADD COLUMN IF NOT EXISTS suspended/i.test(statement)), true);
-    assert.equal(migrations[2].statements.some((statement) => /FOREIGN KEY IF NOT EXISTS \(instance_id\)/i.test(statement)), true);
-    assert.equal(migrations[3].statements.some((statement) => /DROP TABLE IF EXISTS bots/i.test(statement)), true);
-    assert.equal(migrations[4].statements.some((statement) => /ADD COLUMN IF NOT EXISTS bot_limit/i.test(statement)), true);
-    assert.equal(migrations[5].statements.some((statement) => /ADD COLUMN IF NOT EXISTS can_create_bots/i.test(statement)), true);
-    assert.equal(migrations[5].statements.some((statement) => /assignee_user_id/i.test(statement)), true);
-    assert.equal(migrations[10].statements.some((statement) => /connect_nickname/i.test(statement)), true);
-    assert.equal(migrations[10].statements.some((statement) => /connect_server_password/i.test(statement)), true);
-    assert.equal(migrations[11].statements.some((statement) => /connect_address/i.test(statement)), true);
+    assert.deepEqual(
+      creates.map((statement) => statement.match(/^CREATE TABLE IF NOT EXISTS (\w+)/i)[1]),
+      ["users", "sessions", "instances", "ts_bots", "instance_grants", "radio_streams", "audit_log"],
+    );
+    const schema = migrations[0].statements.join("\n");
+    assert.match(schema, /password_hash VARCHAR\(255\) NULL/);
+    assert.match(schema, /bot_limit INT UNSIGNED NULL/);
+    assert.match(schema, /can_create_bots TINYINT\(1\) NOT NULL DEFAULT 0/);
+    assert.match(schema, /assignee_user_id BIGINT UNSIGNED NULL/);
+    assert.match(schema, /uq_ts_bots_instance_template/);
+    assert.match(schema, /connect_nickname VARCHAR\(30\) NULL/);
+    assert.match(schema, /connect_server_password TINYINT NOT NULL DEFAULT 0/);
+    assert.match(schema, /connect_address VARCHAR\(200\) NULL/);
+    assert.match(schema, /fk_audit_ts_bot/);
+    assert.equal(/CREATE TABLE IF NOT EXISTS bots\b/i.test(schema), false);
+    assert.equal(/bot_admins/i.test(schema), false);
+    assert.deepEqual(
+      legacyMigrations().map((migration) => [migration.version, migration.checksum]),
+      [
+        ["001_baseline", "5f20be8d7a40ffbbb0da753cc316b6835fe74f3f31680438fa3f57b584001cdf"],
+        ["002_radio_streams", "2bcf7698fe793d3712063595415ff907d7570b8521a0c5a9dc21f9df66eaba32"],
+        ["003_hosting", "43812584c1a32fc2452fa692b0dc2270040c1b6ee7e740b1abf35055a3ad3e24"],
+        ["004_drop_legacy_bots", "0bfb87741a93580131781db6ef74602f65777ac2f268d85c78658542955b1b50"],
+        ["005_bot_limit", "5cb04c3a1cedaa1e88c8f6c15033f98050d9f4046f9c61dd14003df4defc5696"],
+        ["006_bot_access", "53411ea16d90980f6f17876de5303e92803d308a99b04b120781b60f3877a72a"],
+        ["007_bot_label", "28291370ba2c4f2daf8b1262bdc429a150bf88ff825793d47a098cda1f949216"],
+        ["008_bot_template", "4b8e55f16789cfb9860ca402bbaa1989c8363700c41b92dc14eddbbae104916e"],
+        ["009_bot_admins", "702e14886530ddedaaf4561cbb46a15bf4d3c6acf93d908bfb9f9856b3b690db"],
+        ["010_drop_bot_admins", "5d334e0a7ac000fc08d1c3390a4ad93945bb070107459002badce5e2dcfa14d2"],
+        ["011_bot_settings", "f205d3e0ef8d6765506cd310b816c99a7a2d29ca95eb6cadbba0dfa05b2610d0"],
+        ["012_bot_address", "b9f0c2adf881566b906efc68c2cf8ce1c6f73722eb9b09135ac84b75c2b1c470"],
+      ],
+    );
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);
+  });
 
-    const applied = [];
-    const calls = [];
-    const pool = {
-      async query(sql, params) {
-        calls.push(String(sql));
-        if (/FROM schema_migrations/i.test(sql)) return [applied.map((row) => ({ ...row }))];
-        if (/INSERT INTO schema_migrations/i.test(sql)) {
-          applied.push({ version: params[0], checksum: params[1] });
-        }
-        return [{ affectedRows: 1 }];
-      },
-    };
-    const lines = [];
-    const originalLog = console.log;
-    console.log = (...args) => lines.push(args.join(" "));
-    try {
+  it("applies the schema once and refuses a changed or unknown version", async () => {
+    const migrations = loadMigrations();
+    const { pool, applied, calls } = memoryPool();
+    const lines = await captureLogs(async () => {
       await applyMigrations(pool, migrations);
       await applyMigrations(pool, migrations);
-    } finally {
-      console.log = originalLog;
-    }
+    });
     assert.deepEqual(
       lines.filter((line) => line.startsWith("[panel] Applied database migration")),
-      migrations.map((migration) => `[panel] Applied database migration ${migration.version}`),
+      ["[panel] Applied database migration 001_schema"],
     );
     assert.equal(lines.filter((line) => line === "[panel] Database schema is current").length, 1);
-    const inserts = calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql));
-    assert.equal(inserts.length, migrations.length);
-    assert.equal(applied.length, migrations.length);
+    assert.equal(calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql)).length, 1);
+    assert.equal(applied.length, 1);
+    assert.equal(applied[0].version, "001_schema");
 
     const changed = migrations.map((migration, index) =>
       index === 0 ? { ...migration, checksum: "0".repeat(64) } : migration,
     );
     await assert.rejects(() => applyMigrations(pool, changed), /changed after it was applied/);
     await assert.rejects(
-      () => applyMigrations(pool, migrations.slice(1)),
+      () => applyMigrations(memoryPool([{ version: "009_custom", checksum: "abc" }]).pool, migrations),
       /does not include/,
     );
   });
+
+  it("replaces a finished migration history without running the schema again", async () => {
+    const migrations = loadMigrations();
+    const { pool, applied, calls } = memoryPool(legacyRows(12), { transactional: true });
+    const lines = await captureLogs(() => applyMigrations(pool, migrations));
+    assert.equal(lines.includes("[panel] Replaced applied migration history with 001_schema"), true);
+    assert.equal(lines.some((line) => line.startsWith("[panel] Applying database migration 011_")), false);
+    assert.equal(calls.some((sql) => /CREATE TABLE IF NOT EXISTS ts_bots/i.test(sql)), false);
+    assert.equal(calls.includes("BEGIN"), true);
+    assert.equal(calls.includes("COMMIT"), true);
+    assert.deepEqual(applied.map((row) => row.version), ["001_schema"]);
+    assert.equal(applied[0].checksum, migrations[0].checksum);
+  });
+
+  it("adds the connection columns for a release 1.0 database and then replaces that history", async () => {
+    const migrations = loadMigrations();
+    const through010 = memoryPool(legacyRows(10), { transactional: true });
+    const lines010 = await captureLogs(() => applyMigrations(through010.pool, migrations));
+    assert.equal(lines010.includes("[panel] Applied database migration 011_bot_settings"), true);
+    assert.equal(lines010.includes("[panel] Applied database migration 012_bot_address"), true);
+    assert.equal(through010.calls.filter((sql) => /ADD COLUMN IF NOT EXISTS connect_/i.test(sql)).length, 9);
+    assert.deepEqual(through010.applied.map((row) => row.version), ["001_schema"]);
+
+    const through011 = memoryPool(legacyRows(11), { transactional: true });
+    const lines011 = await captureLogs(() => applyMigrations(through011.pool, migrations));
+    assert.equal(lines011.some((line) => line.startsWith("[panel] Applying database migration 011_")), false);
+    assert.equal(lines011.includes("[panel] Applied database migration 012_bot_address"), true);
+    assert.deepEqual(
+      through011.calls.filter((sql) => /ALTER TABLE/i.test(sql)),
+      ["ALTER TABLE ts_bots ADD COLUMN IF NOT EXISTS connect_address VARCHAR(200) NULL"],
+    );
+    assert.deepEqual(through011.applied.map((row) => row.version), ["001_schema"]);
+  });
+
+  it("refuses a migration history this panel cannot finish", async () => {
+    const migrations = loadMigrations();
+    const stopped = memoryPool(legacyRows(8));
+    await assert.rejects(
+      () => applyMigrations(stopped.pool, migrations),
+      /history through 008_bot_template and this panel cannot finish it/,
+    );
+    assert.equal(stopped.calls.some((sql) => /ALTER TABLE|DELETE FROM schema_migrations/i.test(sql)), false);
+
+    const gap = legacyRows(10).concat(legacyRows(12).slice(11));
+    await assert.rejects(
+      () => applyMigrations(memoryPool(gap).pool, migrations),
+      /012_bot_address without the earlier panel migrations/,
+    );
+
+    const changed = legacyRows(12);
+    changed[0] = { ...changed[0], checksum: "0".repeat(64) };
+    await assert.rejects(
+      () => applyMigrations(memoryPool(changed).pool, migrations),
+      /001_baseline changed after it was applied/,
+    );
+  });
 });
+
+function legacyRows(count) {
+  return legacyMigrations()
+    .slice(0, count)
+    .map((migration) => ({ version: migration.version, checksum: migration.checksum }));
+}
+
+function memoryPool(applied = [], { transactional = false } = {}) {
+  const calls = [];
+  const pool = {
+    async query(sql, params) {
+      calls.push(String(sql));
+      if (/^SELECT version, checksum FROM schema_migrations/i.test(sql)) {
+        return [applied.map((row) => ({ ...row }))];
+      }
+      if (/INSERT( IGNORE)? INTO schema_migrations/i.test(sql)) {
+        if (!applied.some((row) => row.version === params[0])) {
+          applied.push({ version: params[0], checksum: params[1] });
+        }
+      }
+      if (/DELETE FROM schema_migrations/i.test(sql)) {
+        const drop = new Set(params);
+        for (let index = applied.length - 1; index >= 0; index -= 1) {
+          if (drop.has(applied[index].version)) applied.splice(index, 1);
+        }
+      }
+      return [{ affectedRows: 1 }];
+    },
+  };
+  if (transactional) {
+    pool.getConnection = async () => ({
+      async beginTransaction() {
+        calls.push("BEGIN");
+      },
+      async commit() {
+        calls.push("COMMIT");
+      },
+      async rollback() {
+        calls.push("ROLLBACK");
+      },
+      release() {},
+      query: (sql, params) => pool.query(sql, params),
+    });
+  }
+  return { pool, applied, calls };
+}
+
+async function captureLogs(run) {
+  const lines = [];
+  const originalLog = console.log;
+  console.log = (...args) => lines.push(args.join(" "));
+  try {
+    await run();
+    return lines;
+  } finally {
+    console.log = originalLog;
+  }
+}
 
 describe("language", () => {
   it("follows the browser language and keeps English as the fallback", () => {
@@ -522,6 +630,12 @@ describe("panel paths and failures", () => {
     assert.deepEqual(failureFor(missing).params, { name: "login" });
     assert.equal(
       failureFor(new Error("Migration 2 changed after it was applied."), { startup: true }).message,
+      "The database schema does not match this panel.",
+    );
+    assert.equal(
+      failureFor(new Error("Database has migration history through 008_bot_template and this panel cannot finish it."), {
+        startup: true,
+      }).message,
       "The database schema does not match this panel.",
     );
     assert.equal(failureFor(new HttpError("Bot not found", 404)).message, "Bot not found");

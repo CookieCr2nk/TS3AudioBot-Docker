@@ -12,6 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Connection can use a saved radio station as the stream that plays when the bot connects
 
 ### Changed
+- The panel database schema is one migration file. A database from release 1.0, or one that already applied the older migration files, is upgraded when the panel starts
 - The sidebar, the sign-in page, and the browser title use the name TS-Bot Panel
 - The bot list shortens only the current title. The server address and the volume heading stay fully visible
 - The bot list and the bot switcher show the saved TeamSpeak address, including while the bot is offline
