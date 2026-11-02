@@ -276,6 +276,8 @@ tr.picked td, tr.picked:hover td { background: #e7f1f8; }
 }
 .bot-table .owner-select { width: 9rem; }
 .bot-table td.bot-actions { white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.nowrap .pill { margin-left: 0.45rem; }
 .bot-switch select { max-width: 240px; }
 
 .player {

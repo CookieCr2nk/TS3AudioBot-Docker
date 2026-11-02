@@ -534,8 +534,9 @@ api.post(
       if (!access) {
         return { id, name: "", ok: false, message: req.t("That bot does not exist or is not granted to you.") };
       }
-      if (req.user.role !== "admin") {
-        return { id, name: access.bot.name, ok: false, message: req.t("Administrators only") };
+      const name = access.bot.label || access.bot.name;
+      if (!access.canControl) {
+        return { id, name, ok: false, message: req.t("No control rights for this bot") };
       }
       try {
         let runOp = op;
@@ -544,13 +545,11 @@ api.post(
           runOp = "connect";
           body = { name: access.bot.instanceRef };
         } else if (op === "stop") {
-          const listed = await runAction(access.bot, "bot-list", {}, authOf(req, access));
-          const live = presentBotList(listed.data).find((item) => item.name === access.bot.instanceRef);
-          if (live?.id == null) {
-            return { id, name: access.bot.name, ok: false, message: req.t("Offline") };
-          }
+          const listed = await callBot(access.bot, ["bot", "list"], { timeoutMs: 15000 });
+          const liveId = ownLiveId(listed, access.bot.instanceRef);
+          if (!liveId) return { id, name, ok: false, message: req.t("Offline") };
           runOp = "disconnect";
-          body = { instanceId: String(live.id) };
+          body = { instanceId: liveId };
         }
         const { action, args } = await runAction(access.bot, runOp, body, authOf(req, access));
         if (action.audit) {
@@ -562,10 +561,10 @@ api.post(
             detail: detailText(req.t, action, args),
           });
         }
-        return { id, name: access.bot.name, ok: true, message: req.t(action.success || "Done") };
+        return { id, name, ok: true, message: req.t(action.success || "Done") };
       } catch (err) {
         const message = err instanceof HttpError ? errorText(err, req.t) : req.t("Action failed");
-        return { id, name: access.bot.name, ok: false, message };
+        return { id, name, ok: false, message };
       }
     });
     const succeeded = results.filter((item) => item.ok).length;
@@ -640,7 +639,7 @@ api.post(
     }
     if (op === "template-create") await assertNewBot(access.bot.instanceId, parseTemplateName(req.body.name));
     const { action, args, data } = await runAction(access.bot, op, req.body, authOf(req, access));
-    if (op === "template-hosting") await saveBotSettings(access.bot.id, settingsRecord(args));
+    if (op === "template-hosting" || op === "template-address") await saveBotSettings(access.bot.id, settingsRecord(args));
     let botId = access.bot.id;
     if (op === "template-create") botId = await ensureTsBot(access.bot.instanceId, args.name, args.name, access.bot.ownerUserId ?? null);
     else if (op === "template-delete") await deleteTsBotByName(access.bot.instanceId, args.name);
@@ -749,23 +748,32 @@ api.get(
   wrap(async (req, res) => {
     const access = await openBot(req);
     const template = access.bot.instanceMode === "template" ? access.bot.instanceRef : "";
-    const data = await callBot(access.bot, ["bot", "list"], { timeoutMs: 15000 });
-    const live = presentBotList(data, req.t).find((item) => item.name === template) || null;
-    let storedAddress = "";
+    let live = null;
+    let listError = null;
+    try {
+      const data = await callBot(access.bot, ["bot", "list"], { timeoutMs: 15000 });
+      live = presentBotList(data, req.t).find((item) => item.name === template) || null;
+    } catch (err) {
+      listError = errorText(err, req.t);
+    }
+    let storedAddress = access.bot.connectAddress || "";
     if (template && !live?.server) {
       try {
-        storedAddress = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "connect.address"], { timeoutMs: 4000 }));
+        const fromBot = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "connect.address"], { timeoutMs: 4000 }));
+        if (fromBot) storedAddress = fromBot;
       } catch {
-        storedAddress = "";
+        /* The panel copy still shows what was saved here. */
       }
     }
+    const status = live?.status || (listError ? "unknown" : "offline");
     const botConnection = template
       ? {
           id: live?.id ?? null,
           name: template,
           server: live?.server || storedAddress,
-          status: live?.status || "offline",
-          statusLabel: live?.statusLabel || req.t("Offline"),
+          status,
+          statusLabel: live?.statusLabel || (listError ? req.t("Unknown") : req.t("Offline")),
+          error: listError,
         }
       : null;
     let commanderSavedValue = null;
@@ -817,6 +825,7 @@ function hostingFromBot(bot) {
     volume: bot.connectVolume,
     run: bot.connectRun,
     startup: bot.connectStartup || "",
+    address: bot.connectAddress || "",
     hasServerPassword: Boolean(bot.hasServerPassword),
     hasChannelPassword: Boolean(bot.hasChannelPassword),
   };

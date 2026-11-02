@@ -76,8 +76,9 @@ export function mapBot(row, { token = false } = {}) {
     connectChannel: row.connect_channel || "",
     connectBitrate: row.connect_bitrate == null ? null : Number(row.connect_bitrate),
     connectVolume: row.connect_volume == null ? null : Number(row.connect_volume),
-    connectRun: row.connect_run == null ? null : Boolean(row.connect_run),
+    connectRun: row.connect_run == null ? null : Number(row.connect_run) === 1,
     connectStartup: row.connect_startup || "",
+    connectAddress: row.connect_address || "",
     hasServerPassword: Boolean(row.connect_server_password),
     hasChannelPassword: Boolean(row.connect_channel_password),
   };
@@ -314,7 +315,7 @@ const INSTANCE_COLUMNS = `i.id, i.name, i.base_url, i.owner_user_id, i.api_user,
 
 const TS_BOT_JOIN = `t.id, t.name, t.label, t.template, i.base_url, 'template' AS instance_mode, IFNULL(t.template, t.name) AS instance_ref,
             i.api_user, i.api_token_enc, i.enabled, i.notes, t.created_at,
-            t.connect_nickname, t.connect_channel, t.connect_bitrate, t.connect_volume, t.connect_run, t.connect_startup,
+            t.connect_nickname, t.connect_channel, t.connect_bitrate, t.connect_volume, t.connect_run, t.connect_startup, t.connect_address,
             t.connect_server_password, t.connect_channel_password,
             i.id AS instance_id, i.name AS instance_name, i.owner_user_id, t.assignee_user_id,
             (SELECT au.username FROM users au WHERE au.id = t.assignee_user_id) AS assignee_name,
@@ -539,6 +540,7 @@ export async function saveBotSettings(botId, patch) {
     volume: "connect_volume",
     run: "connect_run",
     startup: "connect_startup",
+    address: "connect_address",
     serverPassword: "connect_server_password",
     channelPassword: "connect_channel_password",
   };

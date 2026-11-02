@@ -165,7 +165,7 @@ export const actions = {
     control: true,
     audit: true,
     scoped: false,
-    success: "Instance is starting",
+    success: "Bot is connecting",
     timeoutMs: 30000,
     parse: (input) => ({ name: parseTemplateName(input.name) }),
     build: (args) => ["bot", "connect", "template", args.name],
@@ -175,7 +175,7 @@ export const actions = {
     control: true,
     audit: true,
     scoped: false,
-    success: "Instance is disconnecting",
+    success: "Bot is disconnecting",
     timeoutMs: 20000,
     parse: (input) => ({ instanceId: String(parseIndex(input.instanceId, "Instance ID", 1_000_000)) }),
     build: (args) => ["bot", "use", args.instanceId, ["bot", "disconnect"]],
@@ -337,6 +337,7 @@ export function settingsRecord(args) {
   else if (args.startup) patch.startup = displayStreamUrl(args.startup);
   if (args.serverPassword) patch.serverPassword = 1;
   if (args.channelPassword) patch.channelPassword = 1;
+  if (args.address) patch.address = args.address;
   return patch;
 }
 

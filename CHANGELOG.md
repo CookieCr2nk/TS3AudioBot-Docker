@@ -13,6 +13,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Saving a default channel moves a connected bot into that channel
 - The playback bar stays empty until a bot page is open
 - The bot list is paged like the user list, and each bot stays on one line
+- Connection, disconnect, and the form for an existing bot use clearer wording
+
+### Fixed
+- Saving connection settings sends only the fields that changed, so a connected bot is not moved again
+- Start and stop on the bot list work for anyone who can control that bot
+- The connection page still shows the saved settings when the bot API cannot be reached. The panel also remembers the TeamSpeak address
 
 ### Removed
 - Playlists. The panel no longer lists or plays them

@@ -7,6 +7,7 @@ import { createApp, panelRoot } from "../src/app.js";
 import { pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
+import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { clientJson, languageFromHeader, translate, translator } from "../src/i18n.js";
 import de from "../src/locales/de.js";
@@ -120,6 +121,19 @@ describe("action guard", () => {
     assert.equal(JSON.stringify(remembered).includes("user:pass"), false);
     assert.equal(remembered.serverPassword, 1);
     assert.equal(remembered.startup, "https://example.com/a");
+    assert.equal(settingsRecord({ address: "voice.example:9987" }).address, "voice.example:9987");
+    assert.equal("address" in remembered, false);
+    assert.deepEqual(hostingChanges({
+      nickname: "Music",
+      channel: "/5",
+      bitrate: "48",
+      volume: "40",
+      run: "on",
+    }, { nickname: "Music", channel: "/5", bitrate: 48, volume: 40, run: true }), {});
+    assert.deepEqual(hostingChanges({ nickname: "Night", channel: "/5" }, { nickname: "Music", channel: "/5" }), { nickname: "Night" });
+    assert.deepEqual(hostingChanges({ nickname: "", channel: "/8" }, { nickname: "Music", channel: "/5" }), { channel: "/8" });
+    assert.deepEqual(hostingChanges({ startup: "https://example.com/a", clearStartup: "on" }, {}), { clearStartup: "on" });
+    assert.deepEqual(hostingChanges({ run: "off" }, { run: true }), { run: "off" });
     assert.equal(ownLiveId([{ Id: 7, Name: "lobby", Status: 2 }], "lobby"), "7");
     assert.equal(ownLiveId([{ Id: 7, Name: "other", Status: 2 }], "lobby"), "");
     const stream = buildActionRequest(
@@ -285,6 +299,7 @@ describe("secrets and schema", () => {
       "009_bot_admins",
       "010_drop_bot_admins",
       "011_bot_settings",
+      "012_bot_address",
     ]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.equal(creates.length, 5);
@@ -299,6 +314,7 @@ describe("secrets and schema", () => {
     assert.equal(migrations[5].statements.some((statement) => /assignee_user_id/i.test(statement)), true);
     assert.equal(migrations[10].statements.some((statement) => /connect_nickname/i.test(statement)), true);
     assert.equal(migrations[10].statements.some((statement) => /connect_server_password/i.test(statement)), true);
+    assert.equal(migrations[11].statements.some((statement) => /connect_address/i.test(statement)), true);
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);

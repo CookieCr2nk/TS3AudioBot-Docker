@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "./api.js";
+import { hostingChanges } from "./hostingForm.js";
 import { useAuth } from "./auth.jsx";
 import { usePlayer } from "./player.jsx";
 
@@ -417,7 +418,7 @@ export function BotsPage() {
               {visible.map((bot) => {
                 const playback = bot.playback;
                 const picked = selected.includes(bot.id);
-                let status = t("Empty");
+                let status = t("Not playing");
                 let pill = "pill";
                 if (playback && !playback.online) {
                   status = t("Offline");
@@ -464,7 +465,7 @@ export function BotsPage() {
                             }
                           }}
                         >
-                          <option value="">{bot.ownerName && !bot.assigneeUserId ? bot.ownerName : t("Instance owner")}</option>
+                          <option value="">{bot.ownerName ? t("Instance owner ({name})", { name: bot.ownerName }) : t("Instance owner")}</option>
                           {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
                         </select>
                       ) : (bot.ownerName || t("No owner"))}
@@ -587,7 +588,8 @@ export function InstancePage() {
           const name = new FormData(event.currentTarget).get("name");
           run(`/api/instances/${id}/bots/attach`, { name }, (result) => navigate(`/bots/${result.botId}`));
         }}>
-          <h2>{t("Add existing template")}</h2>
+          <h2>{t("Add an existing bot")}</h2>
+          <p className="muted">{t("Use the name TS3AudioBot already has, such as default. This does not create a bot.")}</p>
           <div className="split">
             <label className="grow">{t("Name")}
               <input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" placeholder="default" />
@@ -661,7 +663,7 @@ function DeleteBot({ name, onSubmit }) {
       event.preventDefault();
       onSubmit(new FormData(event.currentTarget).get("confirm"));
     }}>
-      <input name="confirm" required maxLength={64} placeholder={t("Type the bot name to confirm")} aria-label={t("Type the bot name to confirm")} />
+      <input name="confirm" required maxLength={120} placeholder={t("Type the bot name to confirm")} aria-label={t("Type the bot name to confirm")} />
       <button className="btn btn-danger" type="submit">{t("Delete")}</button>
       <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
     </form>
@@ -716,7 +718,7 @@ export function Playback() {
           <h1>{t("Playback")}</h1>
           <p className="muted">{song?.title || t("Nothing is playing.")}</p>
         </div>
-        <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Empty")}</span>
+        <span className="pill">{song ? (song.paused ? t("Paused") : t("Playing")) : t("Not playing")}</span>
       </div>
       <Notice error={player?.error || ""} note={player?.note || ""} />
       {(status?.problems || []).map((problem) => <p key={problem} className="flash flash-error">{problem}</p>)}
@@ -905,15 +907,16 @@ export function Connection() {
   const { t } = useAuth();
   const { data, error, reload } = useLoad(`/api/bots/${id}/connection`);
   const player = usePlayer();
-  const { note, error: actionError, act, setError } = useBotAction(id, player?.refresh);
+  const { note, error: actionError, act, setError, setNote } = useBotAction(id, player?.refresh);
   const [localNote, setLocalNote] = useState("");
   if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
   return (
     <div className="page">
       <h1>{t("Connection")}</h1>
-      <p className="muted">{t("Saved on the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel.")}</p>
+      <p className="muted">{t("The panel remembers these settings. An empty field stays as it is. Passwords go to the bot and are not stored here.")}</p>
       <Notice error={error || actionError} note={note || localNote} />
       <form className="card" key={[
+        data?.bot?.name,
         data?.hosting?.name,
         data?.hosting?.nickname,
         data?.hosting?.channel,
@@ -926,7 +929,12 @@ export function Connection() {
         const formElement = event.currentTarget;
         const form = new FormData(formElement);
         const label = String(form.get("label") || "").trim();
-        if (label && label !== (data?.bot?.name || "")) {
+        const labelChanged = Boolean(label && label !== (data?.bot?.name || ""));
+        const patch = hostingChanges(Object.fromEntries(form.entries()), data?.hosting);
+        setError("");
+        setNote("");
+        setLocalNote("");
+        if (labelChanged) {
           try {
             const renamed = await api(`/api/bots/${id}/label`, { method: "POST", body: { name: label } });
             setLocalNote(renamed.message || "");
@@ -935,29 +943,16 @@ export function Connection() {
             return;
           }
         }
-        const touched = ["nickname", "channel", "serverPassword", "channelPassword", "bitrate", "volume", "run", "startup", "clearStartup"]
-          .some((key) => String(form.get(key) || "").trim());
-        if (!touched) {
-          reload();
+        if (!Object.keys(patch).length) {
+          if (labelChanged) reload();
+          else setLocalNote(t("Nothing changed."));
           return;
         }
-        const result = await act({
-          op: "template-hosting",
-          name: form.get("name"),
-          nickname: form.get("nickname"),
-          channel: form.get("channel"),
-          serverPassword: form.get("serverPassword"),
-          channelPassword: form.get("channelPassword"),
-          bitrate: form.get("bitrate"),
-          volume: form.get("volume"),
-          run: form.get("run"),
-          startup: form.get("startup"),
-          clearStartup: form.get("clearStartup"),
-        });
+        const result = await act({ op: "template-hosting", name: form.get("name"), ...patch });
         if (result) {
           setLocalNote(result.message || "");
           reload();
-        }
+        } else if (labelChanged) reload();
       }}>
         <h2>{t("Connection settings")}</h2>
         <label>{t("Display name")}
@@ -980,11 +975,11 @@ export function Connection() {
           </label>
         </div>
         <div className="split">
-          <label>{t("Bitrate")}<input name="bitrate" inputMode="numeric" placeholder="96" defaultValue={data?.hosting?.bitrate ?? ""} /></label>
+          <label>{t("Bitrate (kbps)")}<input name="bitrate" inputMode="numeric" placeholder="96" defaultValue={data?.hosting?.bitrate ?? ""} /></label>
           <label>{t("Default volume")}<input name="volume" inputMode="numeric" min="0" max="100" placeholder="50" defaultValue={data?.hosting?.volume ?? ""} /></label>
           <label>{t("Start when the process launches")}
             <select name="run" defaultValue={data?.hosting?.run == null ? "" : data.hosting.run ? "on" : "off"}>
-              <option value="">{t("Leave unchanged")}</option>
+              {data?.hosting?.run == null ? <option value="">{t("Not set")}</option> : null}
               <option value="on">{t("Yes")}</option>
               <option value="off">{t("No")}</option>
             </select>
@@ -1017,30 +1012,34 @@ export function Connection() {
         <section className="card">
           <h2>{t("Server")}</h2>
           <p>
-            <span className={`pill pill-${data.connection.status === "connected" ? "ok" : data.connection.status === "connecting" ? "warn" : "bad"}`}>{data.connection.statusLabel}</span>
+            <span className={`pill pill-${data.connection.status === "connected" ? "ok" : data.connection.status === "offline" ? "bad" : "warn"}`}>{data.connection.statusLabel}</span>
           </p>
-          {data.connection.status === "offline" ? (
+          {data.connection.error ? <p className="muted">{data.connection.error}</p> : null}
+          {data.connection.status === "connected" || data.connection.status === "connecting" ? <p className="mono">{data.connection.server || "—"}</p> : (
             <form className="split" key={data.connection.server || "address"} onSubmit={(event) => {
               event.preventDefault();
-              act({ op: "template-address", name: data.connection.name, address: new FormData(event.currentTarget).get("address") }).then(() => reload());
+              const formElement = event.currentTarget;
+              act({ op: "template-address", name: data.connection.name, address: new FormData(formElement).get("address") }).then((result) => {
+                if (result) reload();
+              });
             }}>
               <label className="grow">{t("Server")}
-                <input name="address" defaultValue={data.connection.server || ""} required maxLength={200} />
+                <input name="address" defaultValue={data.connection.server || data?.hosting?.address || ""} required maxLength={200} />
               </label>
               <button className="btn btn-primary" type="submit">{t("Save")}</button>
             </form>
-          ) : <p className="mono">{data.connection.server || "—"}</p>}
+          )}
           <div className="inline">
-            {data.connection.status === "offline" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then(() => reload())}>{t("Start")}</button> : null}
-            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => window.confirm(t("Disconnect this instance?")) && act({ op: "disconnect", instanceId: data.connection.id }).then(() => reload())}>{t("Disconnect")}</button> : null}
+            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (result) reload(); })}>{t("Start")}</button> : null}
+            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => window.confirm(t("Disconnect this bot?")) && act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (result) reload(); })}>{t("Disconnect")}</button> : null}
           </div>
         </section>
       ) : null}
       <section className="card">
         <h2>{t("Channel commander")}</h2>
         <p className="muted">{t("The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.")}</p>
-        <p>{t("Saved")}: {data.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</p>
-        <p>{t("Connected")}: {data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
+        <p>{t("Next connect")}: {data.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</p>
+        <p>{t("Right now")}: {data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
         <div className="inline">
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (result) reload(); })}>{t("Turn on")}</button>
           <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
@@ -1160,15 +1159,15 @@ export function Users() {
             {visible.map((account) => (
               <Fragment key={account.id}>
                 <tr>
-                  <td>
+                  <td className="nowrap">
                     {account.username}
-                    {account.hasPassword ? null : <div className="muted">{t("Cannot sign in until a password is set")}</div>}
+                    {account.hasPassword ? null : <span className="pill pill-warn" title={t("Cannot sign in until a password is set")}>{t("No password")}</span>}
                   </td>
-                  <td>{account.role === "admin" ? t("Administrator") : t("User")}</td>
-                  <td><span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span></td>
-                  <td>{account.canCreateBots ? t("Yes") : t("No")}</td>
-                  <td>{account.botLimit ?? t("Unlimited")}</td>
-                  <td>{instanceNames(account.instanceIds)}</td>
+                  <td className="nowrap">{account.role === "admin" ? t("Administrator") : t("User")}</td>
+                  <td className="nowrap"><span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span></td>
+                  <td className="nowrap">{account.canCreateBots ? t("Yes") : t("No")}</td>
+                  <td className="nowrap">{account.botLimit ?? t("Unlimited")}</td>
+                  <td className="nowrap">{instanceNames(account.instanceIds)}</td>
                   <td>
                     <button className="btn" type="button" onClick={() => setOpenId(openId === account.id ? null : account.id)}>{openId === account.id ? t("Close") : t("Edit")}</button>
                   </td>

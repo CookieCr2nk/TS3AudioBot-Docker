@@ -134,6 +134,7 @@ const de = {
   Active: "Aktiv",
   Start: "Starten",
   "Disconnect this instance?": "Instanz trennen?",
+  "Disconnect this bot?": "Diesen Bot trennen?",
   Disconnect: "Trennen",
   "Use for playback": "Steuern",
   Channel: "Channel",
@@ -231,6 +232,8 @@ const de = {
   "Search result added to the queue": "Treffer zur Warteschlange hinzugefügt",
   "Instance is starting": "Instanz wird gestartet",
   "Instance is disconnecting": "Instanz wird getrennt",
+  "Bot is connecting": "Der Bot verbindet sich",
+  "Bot is disconnecting": "Der Bot wird getrennt",
   "Template created": "Instanzvorlage angelegt",
   "Template deleted": "Instanzvorlage gelöscht",
   "Server address saved": "Serveradresse gespeichert",
@@ -340,9 +343,16 @@ const de = {
   "Stream address is not a valid URL": "Die Stream-Adresse ist keine gültige URL",
   "Stream address must be http or https": "Die Stream-Adresse muss http oder https sein",
   "This stream address is not allowed": "Diese Stream-Adresse ist nicht erlaubt",
-  "Connection settings": "Verbindung",
-  "Saved on the bot template. Empty fields stay unchanged. Passwords are sent to the bot and are not stored in the panel.":
-    "Wird im Bot-Template gespeichert. Leere Felder bleiben unverändert. Passwörter gehen an den Bot und stehen nicht in der Panel-Datenbank.",
+  "Connection settings": "Verbindungseinstellungen",
+  "The panel remembers these settings. An empty field stays as it is. Passwords go to the bot and are not stored here.":
+    "Das Panel merkt sich diese Einstellungen. Ein leeres Feld bleibt, wie es ist. Passwörter gehen an den Bot und werden hier nicht gespeichert.",
+  "Nothing changed.": "Nichts geändert.",
+  "Not set": "Nicht gesetzt",
+  "Not playing": "Spielt nicht",
+  "No password": "Kein Passwort",
+  "Next connect": "Nächste Verbindung",
+  "Right now": "Gerade jetzt",
+  "Instance owner ({name})": "Instanz-Besitzer ({name})",
   Nickname: "Nickname",
   "Default channel": "Standard-Channel",
   "Saved as the channel this bot joins. A connected bot moves there when you save.":
@@ -408,7 +418,10 @@ const de = {
   "The panel asks the process to create the template, then lists it here.":
     "Das Panel lässt den Prozess die Vorlage anlegen und führt sie dann hier auf.",
   "Add existing template": "Vorhandene Vorlage hinzufügen",
-  Attach: "Übernehmen",
+  "Add an existing bot": "Vorhandenen Bot hinzufügen",
+  "Use the name TS3AudioBot already has, such as default. This does not create a bot.":
+    "Den Namen verwenden, den TS3AudioBot schon hat, zum Beispiel default. Dabei wird kein Bot angelegt.",
+  Attach: "Verknüpfen",
   "Use this when the template already exists, for example default. Nothing is created on the bot.":
     "Nutzen, wenn die Vorlage schon existiert, zum Beispiel default. Auf dem Bot wird nichts angelegt.",
   "Deletes the template on the bot. The panel row stays if the process rejects the delete.":
