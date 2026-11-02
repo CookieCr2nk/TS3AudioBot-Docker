@@ -2,7 +2,7 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
-// null clears a saved nickname or channel. A blank password, bitrate, volume, or stream stays unchanged.
+// null clears a saved nickname or channel. A blank password, bitrate, or volume stays unchanged.
 function textChange(raw, savedRaw) {
   const next = clean(raw);
   const previous = clean(savedRaw);
@@ -32,10 +32,10 @@ export function hostingChanges(input, saved = {}) {
     const savedStartup = clean(saved.startup);
     const streamId = clean(input.streamId);
     const savedStreamId = saved.startupStreamId == null ? "" : String(saved.startupStreamId);
-    if (!startup) {
+    if (streamId && streamId !== savedStreamId) patch.streamId = streamId;
+    else if (!streamId && !startup) {
       if (savedStartup) patch.clearStartup = "on";
-    } else if (streamId && streamId !== savedStreamId) patch.streamId = streamId;
-    else if (!streamId && startup !== savedStartup) patch.startup = startup;
+    } else if (!streamId && startup !== savedStartup) patch.startup = startup;
   }
   return patch;
 }

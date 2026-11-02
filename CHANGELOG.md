@@ -12,7 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - A user account must be assigned to at least one instance. Administrators do not
 - Accounts other than administrators see only bots assigned to them
-- Connection keeps the stream address and a saved station in one field. Leaving it empty removes the stream on connect
+- Connection chooses the stream on connect from a saved station or another address. Not set removes it
 - Notices sit at the bottom right, above the playback bar
 - The name field for a new bot shows Evening radio as the example
 - Saving a default channel moves a connected bot into that channel

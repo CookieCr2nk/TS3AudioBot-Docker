@@ -913,25 +913,48 @@ export function History() {
 
 function StartupStream({ hosting, stations }) {
   const { t } = useAuth();
-  const [value, setValue] = useState(hosting?.startup || "");
-  const match = stations.find((station) => station.url && station.url === value.trim());
+  const saved = hosting?.startup || "";
+  const savedId = hosting?.startupStreamId == null ? "" : String(hosting.startupStreamId);
+  const byId = stations.find((station) => String(station.id) === savedId);
+  const byUrl = stations.find((station) => station.url && station.url === saved.trim());
+  const initial = byId || byUrl;
+  const [choice, setChoice] = useState(initial ? String(initial.id) : saved ? "custom" : "");
+  const [custom, setCustom] = useState(initial ? "" : saved);
+  const station = stations.find((item) => String(item.id) === choice);
+  const typed = custom.trim();
+  const customMatch = choice === "custom"
+    ? stations.find((item) => item.url && item.url === typed)
+    : null;
   return (
-    <label>{t("Stream on connect")}
-      <input
-        name="startup"
-        list="startup-stations"
-        value={value}
-        placeholder="https://"
-        onChange={(event) => setValue(event.target.value)}
-      />
-      {stations.length ? (
-        <datalist id="startup-stations">
-          {stations.map((station) => <option key={station.id} value={station.url}>{station.name}</option>)}
-        </datalist>
-      ) : null}
-      {match ? <input type="hidden" name="streamId" value={match.id} /> : null}
-      <span className="muted">{t("Leave this empty to remove the stream. Pick a saved station or type an http or https address.")}</span>
-    </label>
+    <div>
+      <label>{t("Stream on connect")}
+        <select value={choice} onChange={(event) => {
+          const next = event.target.value;
+          if (next === "custom" && !custom.trim()) setCustom(station?.url || saved);
+          setChoice(next);
+        }}>
+          <option value="">{t("Not set")}</option>
+          {stations.map((item) => <option key={item.id} value={String(item.id)}>{item.name}</option>)}
+          <option value="custom">{t("Other address")}</option>
+        </select>
+      </label>
+      {station ? <input type="hidden" name="streamId" value={station.id} /> : null}
+      {choice === "custom" ? (
+        <label>{t("Address")}
+          <input
+            name="startup"
+            value={custom}
+            placeholder="https://"
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => setCustom(event.target.value)}
+          />
+          {customMatch ? <input type="hidden" name="streamId" value={customMatch.id} /> : null}
+        </label>
+      ) : station ? null : <input type="hidden" name="startup" value="" />}
+      {station?.url ? <p className="muted mono startup-url">{station.url}</p> : null}
+      <p className="muted">{t("Choose a saved station or another address. Not set removes the stream.")}</p>
+    </div>
   );
 }
 

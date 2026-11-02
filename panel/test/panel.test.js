@@ -139,7 +139,9 @@ describe("action guard", () => {
     assert.deepEqual(hostingChanges({ startup: "" }, { startup: "https://example.com/a" }), { clearStartup: "on" });
     assert.deepEqual(hostingChanges({ startup: "https://example.com/a" }, { startup: "https://example.com/a" }), {});
     assert.deepEqual(hostingChanges({ startup: "https://example.com/b" }, { startup: "https://example.com/a" }), { startup: "https://example.com/b" });
+    assert.deepEqual(hostingChanges({ streamId: "4" }, {}), { streamId: "4" });
     assert.deepEqual(hostingChanges({ streamId: "4", startup: "https://example.com/a" }, {}), { streamId: "4" });
+    assert.deepEqual(hostingChanges({ streamId: "4", startup: "" }, { startupStreamId: 4, startup: "https://example.com/a" }), {});
     assert.deepEqual(hostingChanges({ streamId: "4", startup: "https://example.com/a" }, { startupStreamId: 4, startup: "https://example.com/a" }), {});
     assert.deepEqual(hostingChanges({ streamId: "5", startup: "https://example.com/b" }, { startupStreamId: 4, startup: "https://example.com/a" }), { streamId: "5" });
     assert.deepEqual(hostingChanges({ startup: "" }, { startupStreamId: 4, startup: "https://example.com/a" }), { clearStartup: "on" });

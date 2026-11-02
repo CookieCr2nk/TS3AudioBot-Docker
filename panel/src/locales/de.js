@@ -493,8 +493,10 @@ const de = {
   "The connected name changes immediately. An offline bot uses it the next time it connects.":
     "Der verbundene Name ändert sich sofort. Ein offline Bot übernimmt ihn beim nächsten Verbinden.",
   "Stream on connect": "Stream beim Verbinden",
-  "Leave this empty to remove the stream. Pick a saved station or type an http or https address.":
-    "Leer lassen entfernt den Stream. Wähle einen gespeicherten Sender oder gib eine http- oder https-Adresse ein.",
+  "Other address": "Andere Adresse",
+  Address: "Adresse",
+  "Choose a saved station or another address. Not set removes the stream.":
+    "Wähle einen gespeicherten Sender oder eine andere Adresse. Nicht gesetzt entfernt den Stream.",
   "Assign at least one instance": "Mindestens eine Instanz zuweisen",
   "A user needs at least one instance. More than one is allowed. An administrator does not. Can create bots also lets that account pick any enabled instance.":
     "Ein Benutzer braucht mindestens eine Instanz. Mehrere sind erlaubt. Ein Administrator nicht. Bots erstellen erlaubt zusätzlich jede aktive Instanz.",
