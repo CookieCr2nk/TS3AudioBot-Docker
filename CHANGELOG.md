@@ -11,6 +11,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A password longer than 72 bytes is rejected. bcrypt would otherwise treat it as its first 72 bytes
 - The overview meter can set its width. Style attributes are allowed, and scripts stay limited to the panel
 
+### Changed
+- Help text on the panel pages states what a field does and what leaving it empty does
+
 ### Added
 - The overview shows how many instances answer, how many bots are running, and, for an administrator, how many accounts can sign in
 - List tables keep their current columns until the browser changes them. Columns can hide or reorder the other fields, and that choice stays in the browser

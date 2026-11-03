@@ -36,7 +36,7 @@ const de = {
   Instance: "Instanz",
   Off: "Aus",
   Edit: "Bearbeiten",
-  "Panel accounts. These are not TeamSpeak identities.": "Konten für das Panel. Das sind nicht die TeamSpeak-Identitäten.",
+  "Sign-in for this panel, not a TeamSpeak login.": "Anmeldung für dieses Panel, kein TeamSpeak-Login.",
   Create: "Anlegen",
   Role: "Rolle",
   User: "Benutzer",
@@ -48,11 +48,11 @@ const de = {
   "Delete this account?": "Dieses Konto löschen?",
   Remove: "Entfernen",
   Save: "Speichern",
-  "The last 200 actions. API tokens are not listed here.": "Die letzten 200 Aktionen. API-Tokens stehen hier nicht.",
+  "Last 200 actions. Tokens are not shown.": "Die letzten 200 Aktionen. Tokens werden nicht angezeigt.",
   "Keep the last day": "Nur den letzten Tag behalten",
   "Delete entries older than one day?": "Einträge löschen, die älter als ein Tag sind?",
-  "This deletes every protocol entry older than 24 hours. The last day stays in the database.":
-    "Löscht jeden Protokolleintrag, der älter als 24 Stunden ist. Der letzte Tag bleibt in der Datenbank.",
+  "Keep the last day deletes entries older than 24 hours.":
+    "Nur den letzten Tag behalten löscht Einträge, die älter als 24 Stunden sind.",
   "Removed {count} audit entries.": "{count} Protokolleinträge entfernt.",
   Time: "Zeit",
   Action: "Aktion",
@@ -83,18 +83,18 @@ const de = {
     "rights.toml erlaubt deshalb jeden API-Aufruf (isapi = true). Port 58913 nicht nach außen veröffentlichen.",
   Playback: "Wiedergabe",
   Instances: "Instanzen",
-  "On the Compose network the API address is enough. A token is stored encrypted only if you enter one.":
-    "Im Compose-Netz reicht die API-Adresse. Ein Token wird nur verschlüsselt gespeichert, wenn du einen einträgst.",
+  "Host and port, for example http://ts3audiobot:58913. Add a token only if the bot requires one.":
+    "Host und Port, zum Beispiel http://ts3audiobot:58913. Einen Token nur eintragen, wenn der Bot einen verlangt.",
   "Open playback": "Zur Wiedergabe",
   "Display name": "Anzeigename",
-  "This is the name in the panel. The TeamSpeak nickname is separate.":
-    "Das ist der Name im Panel. Der TeamSpeak-Nickname ist davon getrennt.",
+  "Name in this list. The TeamSpeak nickname is the next field.":
+    "Name in dieser Liste. Der TeamSpeak-Nickname ist das nächste Feld.",
   "Bot name saved.": "Bot-Name gespeichert.",
   "Instances saved.": "Instanzen gespeichert.",
   "Check the instances an account may open. Can create bots also lets that account pick any enabled instance.":
     "Wähle die Instanzen, die ein Konto öffnen darf. Mit Kann Bots anlegen darf das Konto jede aktive Instanz selbst wählen.",
-  "Selected accounts can open this instance. They only see bots assigned to them.":
-    "Gewählte Konten können diese Instanz öffnen. Sie sehen nur Bots, die ihnen zugewiesen sind.",
+  "These accounts can open this container. They see only bots assigned to them.":
+    "Diese Konten können den Container öffnen. Sie sehen nur Bots, die ihnen zugewiesen sind.",
   "API address": "API-Adresse",
   "Instance context": "Instanzkontext",
   "Template name": "Template-Name",
@@ -344,8 +344,8 @@ const de = {
   "Stream address must be http or https": "Die Stream-Adresse muss http oder https sein",
   "This stream address is not allowed": "Diese Stream-Adresse ist nicht erlaubt",
   "Connection settings": "Verbindungseinstellungen",
-  "The panel remembers these settings. Clear the nickname or the default channel and save to reset it. An empty password, bitrate, or volume stays as it is. Passwords go to the bot and are not stored here.":
-    "Das Panel merkt sich diese Einstellungen. Nickname oder Standard-Channel leer lassen und speichern setzt sie zurück. Ein leeres Passwort, eine leere Bitrate oder eine leere Lautstärke bleibt, wie sie ist. Passwörter gehen an den Bot und werden hier nicht gespeichert.",
+  "Clear nickname or channel to remove it. Leave password, bitrate, or volume empty to keep the current value. Passwords are sent to the bot and not stored here.":
+    "Nickname oder Channel leeren entfernt ihn. Passwort, Bitrate oder Lautstärke leer lassen behält den Wert. Passwörter gehen an den Bot und werden hier nicht gespeichert.",
   "Nothing changed.": "Nichts geändert.",
   "Not set": "Nicht gesetzt",
   "Not playing": "Spielt nicht",
@@ -355,11 +355,11 @@ const de = {
   "Instance owner ({name})": "Instanz-Besitzer ({name})",
   Nickname: "Nickname",
   "Default channel": "Standard-Channel",
-  "Saved as the channel this bot joins. Leave it empty and save to reset it. A connected bot moves only when you set a channel.":
-    "Wird als Channel gespeichert, den dieser Bot betritt. Leer lassen und speichern setzt ihn zurück. Ein verbundener Bot wird nur verschoben, wenn ein Channel gesetzt ist.",
+  "Joined on connect. Clear and save to remove it. Setting a channel also moves a connected bot.":
+    "Channel beim Verbinden. Leeren und speichern entfernt ihn. Ein gesetzter Channel verschiebt auch einen verbundenen Bot.",
   "Move now": "Jetzt verschieben",
-  "Moves this bot into a channel. The default channel stays unchanged.":
-    "Verschiebt diesen Bot in einen Channel. Der Standard-Channel bleibt unverändert.",
+  "Moves the connected bot now. The saved default channel stays.":
+    "Verschiebt den verbundenen Bot jetzt. Der gespeicherte Standard-Channel bleibt.",
   "Server password": "Serverpasswort",
   "A server password is saved on the bot.": "Ein Serverpasswort ist auf dem Bot gespeichert.",
   "Channel password": "Channelpasswort",
@@ -401,8 +401,8 @@ const de = {
   "No instance assigned": "Keine Instanz zugewiesen",
   "An administrator has to assign you an instance.": "Ein Administrator muss dir eine Instanz zuweisen.",
   "{count} bots": "{count} Bots",
-  "Each entry is one Docker container. Several TeamSpeak bots can run inside it.":
-    "Jeder Eintrag ist ein Docker-Container. Darin können mehrere TeamSpeak-Bots laufen.",
+  "One row is one container. Open it to add TeamSpeak bots.":
+    "Eine Zeile ist ein Container. Öffnen, um TeamSpeak-Bots anzulegen.",
   "No instance has been added yet.": "Noch keine Instanz angelegt.",
   Owner: "Besitzer",
   "No owner": "Kein Besitzer",
@@ -417,15 +417,15 @@ const de = {
   "Removes this instance from the panel. The container and the bot files stay.":
     "Entfernt diese Instanz aus dem Panel. Der Container und die Bot-Dateien bleiben.",
   "Type the instance name to confirm": "Instanznamen zur Bestätigung eingeben",
-  "TeamSpeak bots on this instance. The panel does not start the container.":
-    "TeamSpeak-Bots auf dieser Instanz. Das Panel startet den Container nicht.",
+  "Bots in this container. Start the container outside the panel.":
+    "Bots in diesem Container. Den Container startest du außerhalb des Panels.",
   "Create a bot": "Bot anlegen",
   "The panel asks the process to create the template, then lists it here.":
     "Das Panel lässt den Prozess die Vorlage anlegen und führt sie dann hier auf.",
   "Add existing template": "Vorhandene Vorlage hinzufügen",
   "Add an existing bot": "Vorhandenen Bot hinzufügen",
-  "Use the name TS3AudioBot already has, such as default. This does not create a bot.":
-    "Den Namen verwenden, den TS3AudioBot schon hat, zum Beispiel default. Dabei wird kein Bot angelegt.",
+  "Template name already on the bot, for example default.":
+    "Template-Name, den der Bot schon hat, zum Beispiel default.",
   Attach: "Verknüpfen",
   "Use this when the template already exists, for example default. Nothing is created on the bot.":
     "Nutzen, wenn die Vorlage schon existiert, zum Beispiel default. Auf dem Bot wird nichts angelegt.",
@@ -465,8 +465,8 @@ const de = {
   "Close menu": "Menü schließen",
   "Switch bot": "Bot wechseln",
   "Open in Bots": "In Bots öffnen",
-  "Every TeamSpeak bot you can open. Select several to start or stop them together.":
-    "Jeder TeamSpeak-Bot, den du öffnen kannst. Wähle mehrere, um sie gemeinsam zu starten oder zu stoppen.",
+  "Tick rows, then start or stop them together.":
+    "Zeilen anklicken, dann gemeinsam starten oder stoppen.",
   "Start {count} bots?": "{count} Bots starten?",
   "Stop {count} bots?": "{count} Bots stoppen?",
   "Every TeamSpeak bot you can open. Select several to apply one playback action to all of them.":
@@ -492,16 +492,16 @@ const de = {
   "Select at least one bot": "Mindestens einen Bot auswählen",
   "Select at most {count} bots": "Höchstens {count} Bots auswählen",
   "A selected bot is invalid": "Ein ausgewählter Bot ist ungültig",
-  "The connected name changes immediately. An offline bot uses it the next time it connects.":
-    "Der verbundene Name ändert sich sofort. Ein Offline-Bot übernimmt ihn beim nächsten Verbinden.",
+  "Applied now if the bot is online, otherwise on the next connect.":
+    "Greift sofort, wenn der Bot online ist. Sonst beim nächsten Verbinden.",
   "Stream on connect": "Stream beim Verbinden",
   "Other address": "Andere Adresse",
   Address: "Adresse",
-  "Choose a saved station or another address. Not set removes the stream.":
-    "Wähle einen gespeicherten Sender oder eine andere Adresse. Nicht gesetzt entfernt den Stream.",
+  "Played when the bot connects. Not set turns it off.":
+    "Läuft beim Verbinden. Nicht gesetzt schaltet es aus.",
   "Assign at least one instance": "Mindestens eine Instanz zuweisen",
-  "A user needs at least one instance. More than one is allowed. An administrator does not. Can create bots also lets that account pick any enabled instance.":
-    "Ein Benutzer braucht mindestens eine Instanz. Mehrere sind erlaubt. Ein Administrator nicht. Kann Bots anlegen erlaubt diesem Konto zusätzlich jede aktive Instanz.",
+  "A user needs one instance. An administrator does not. Can create bots allows a new bot on any enabled instance.":
+    "Ein Benutzer braucht eine Instanz. Ein Administrator nicht. Kann Bots anlegen erlaubt einen neuen Bot auf jeder aktiven Instanz.",
   "Clear the stream on connect": "Stream beim Verbinden entfernen",
   "Clear the startup stream or set an address": "Den Start-Stream entfernen oder eine Adresse eintragen",
   "Connection settings saved. The nickname is updated.": "Verbindung gespeichert. Der Nickname ist aktualisiert.",
@@ -530,22 +530,22 @@ const de = {
   "Bot limit is invalid": "Das Bot-Limit ist ungültig",
   "Bot limit reached ({count}).": "Bot-Limit erreicht ({count}).",
   "Bot limit saved.": "Bot-Limit gespeichert.",
-  "A bot limit counts bots assigned to this account. A bot with nobody assigned counts for the instance owner. Leave it empty for unlimited.":
-    "Das Bot-Limit zählt Bots, die diesem Konto zugewiesen sind. Ein Bot ohne Zuweisung zählt für den Instanz-Besitzer. Leer lassen heißt unbegrenzt.",
+  "Empty bot limit means unlimited. Bots with no assignee count for the instance owner.":
+    "Leeres Bot-Limit heißt unbegrenzt. Bots ohne Zuweisung zählen für den Instanz-Besitzer.",
   "No bot limit. {count} bots are in use.": "Kein Bot-Limit. {count} Bots sind in Verwendung.",
   "{used} of {limit} bots are in use.": "{used} von {limit} Bots sind in Verwendung.",
   GitHub: "GitHub",
   "Channel commander": "Channel-Commander",
-  "The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.":
-    "Das Commander-Symbol erlaubt dem Bot Kanalbefehle. Es wird gespeichert und bei jedem Verbinden wieder eingeschaltet.",
+  "Channel commander. Saved, and applied again on each connect.":
+    "Channel-Commander. Wird gespeichert und bei jedem Verbinden wieder gesetzt.",
   Saved: "Gespeichert",
   "Channel commander is saved. It turns on when this bot connects.":
     "Channel-Commander ist gespeichert. Er wird eingeschaltet, sobald dieser Bot verbunden ist.",
   "Channel commander is saved as off. The connected bot could not be changed.":
     "Channel-Commander ist als aus gespeichert. Der verbundene Bot konnte nicht geändert werden.",
   "TeamSpeak ID": "TeamSpeak-ID",
-  "The unique ID of this bot. It is shown while the bot is connected.":
-    "Die eindeutige ID dieses Bots. Sie wird angezeigt, solange der Bot verbunden ist.",
+  "Shown while the bot is connected.":
+    "Sichtbar, solange der Bot verbunden ist.",
   Copy: "Kopieren",
   Dashboard: "Dashboard",
   Online: "Online",
@@ -561,10 +561,10 @@ const de = {
   "Next song": "Nächster Titel",
   "Group whisper": "Gruppenflüstern",
   "Not sending": "Sendet nicht",
-  "Whisper sends audio only to subscribed clients, including the bot's current channel. Voice sends it to everyone in that channel. The choice is saved and applies again when the next song starts.":
-    "Flüstern sendet den Ton nur an abonnierte Clients, inklusive des aktuellen Channels vom Bot. Voice sendet ihn an alle in diesem Channel. Die Wahl wird gespeichert und gilt wieder ab dem nächsten Titel.",
-  "A custom send command is saved. Whisper or Voice replaces it.":
-    "Ein eigener Sendebefehl ist gespeichert. Flüstern oder Voice ersetzt ihn.",
+  "Whisper: subscribed clients. Voice: the whole channel. Applies from the next song.":
+    "Flüstern: abonnierte Clients. Voice: der ganze Channel. Gilt ab dem nächsten Titel.",
+  "A custom command is saved. Whisper or Voice replaces it.":
+    "Ein eigener Befehl ist gespeichert. Flüstern oder Voice ersetzt ihn.",
   "Whisper mode updated": "Flüstermodus geändert",
   "Whisper is on": "Flüstern ist an",
   "Voice is on": "Voice ist an",
@@ -592,14 +592,14 @@ const de = {
   Administrators: "Administratoren",
   "{running} running": "{running} laufend",
   "{running} of {count} bots are running": "{running} von {count} Bots laufen",
-  "{count} connected on the process": "{count} am Prozess verbunden",
+  "{count} connected in the container but not listed here": "{count} im Container verbunden, hier aber nicht eingetragen",
   "{active} of {count} accounts can sign in": "{active} von {count} Konten können sich anmelden",
   "You cannot attach an existing bot.": "Du kannst keinen bestehenden Bot übernehmen.",
   "That bot is already registered.": "Dieser Bot ist bereits eingetragen.",
   "Password must be at most 72 bytes": "Das Passwort darf höchstens 72 Byte lang sein.",
   "#": "#",
   Columns: "Spalten",
-  "Saved in this browser.": "In diesem Browser gespeichert.",
+  "Kept in this browser only, not on the account.": "Nur in diesem Browser, nicht am Konto.",
   Up: "Nach oben",
   Down: "Nach unten",
   "Move {name} up": "{name} nach oben",
