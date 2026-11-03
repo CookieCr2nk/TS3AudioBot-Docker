@@ -84,7 +84,7 @@ export const actions = {
     timeoutMs: SLOW,
     parse: (input) => ({ resource: parseStreamUrl(input.resource) }),
     build: (args) => ["play", args.resource],
-    detail: (args) => args.resource.slice(0, 180),
+    detail: (args) => displayStreamUrl(args.resource).slice(0, 180),
   },
   add: {
     control: true,
@@ -93,7 +93,7 @@ export const actions = {
     timeoutMs: SLOW,
     parse: (input) => ({ resource: parseStreamUrl(input.resource) }),
     build: (args) => ["add", args.resource],
-    detail: (args) => args.resource.slice(0, 180),
+    detail: (args) => displayStreamUrl(args.resource).slice(0, 180),
   },
   jump: {
     control: true,

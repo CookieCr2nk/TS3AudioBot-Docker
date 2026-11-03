@@ -22,9 +22,9 @@ export function parseUsername(value) {
 
 export function parsePassword(value) {
   const password = String(value ?? "");
-  if (password.length < 10 || password.length > 200) {
-    throw new ValidationError("Password must be at least 10 characters");
-  }
+  if (password.length < 10) throw new ValidationError("Password must be at least 10 characters");
+  // bcrypt keeps only the first 72 bytes. A longer password would match that prefix.
+  if (Buffer.byteLength(password) > 72) throw new ValidationError("Password must be at most 72 bytes");
   return rejectControls(password, "Password");
 }
 
@@ -53,17 +53,60 @@ export function quotePlay(resource) {
   return `!play '${String(resource).replaceAll("'", "\\'")}'`;
 }
 
+function blockedIpv4(parts) {
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
+  const [first, second] = parts;
+  if (first === 169 && second === 254) return true;
+  if (first === 0 || first === 255) return true;
+  return false;
+}
+
+function expandIpv6(host) {
+  const halves = host.split("::");
+  if (halves.length > 2) return null;
+  const side = (value) => (value ? value.split(":") : []);
+  let head = side(halves[0]);
+  let tail = halves.length === 2 ? side(halves[1]) : [];
+  const last = (tail.length ? tail : head).at(-1);
+  if (last && last.includes(".")) {
+    const octets = last.split(".").map((part) => (/^\d{1,3}$/.test(part) ? Number(part) : NaN));
+    if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part > 255)) return null;
+    const pair = [((octets[0] << 8) | octets[1]).toString(16), ((octets[2] << 8) | octets[3]).toString(16)];
+    if (tail.length) tail = [...tail.slice(0, -1), ...pair];
+    else head = [...head.slice(0, -1), ...pair];
+  }
+  const missing = 8 - (head.length + tail.length);
+  if (missing < 0) return null;
+  const groups = [...head, ...Array(missing).fill("0"), ...tail];
+  if (groups.length !== 8) return null;
+  const parts = [];
+  for (const group of groups) {
+    if (!/^[0-9a-f]{1,4}$/.test(group)) return null;
+    parts.push(Number.parseInt(group, 16));
+  }
+  return parts;
+}
+
+function blockedIpv6(host) {
+  const parts = expandIpv6(host);
+  if (!parts) return true;
+  if (parts.every((part) => part === 0)) return true;
+  if (parts[0] === 0 && parts[1] === 0 && parts[2] === 0 && parts[3] === 0 && parts[4] === 0 && parts[5] === 0 && parts[6] === 0 && parts[7] === 1) {
+    return false;
+  }
+  const linkLocal = (parts[0] & 0xffc0) === 0xfe80;
+  if (linkLocal) return true;
+  const mapped = parts[0] === 0 && parts[1] === 0 && parts[2] === 0 && parts[3] === 0 && parts[4] === 0 && (parts[5] === 0xffff || parts[5] === 0);
+  if (!mapped || (parts[5] === 0 && parts[6] === 0 && parts[7] <= 1)) return false;
+  return blockedIpv4([(parts[6] >> 8) & 255, parts[6] & 255, (parts[7] >> 8) & 255, parts[7] & 255]);
+}
+
 function isBlockedHost(hostname) {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "metadata.google.internal" || host.endsWith(".metadata.google.internal")) return true;
-  if (host.includes("metadata")) return true;
-  if (host === "::" || host === "0.0.0.0") return true;
+  const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "").split("%")[0];
+  if (!host || host === "metadata.google.internal" || host.endsWith(".metadata.google.internal") || host.includes("metadata")) return true;
   const match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!match) return false;
-  const parts = match.slice(1).map(Number);
-  if (parts.some((part) => part > 255)) return true;
-  if (parts[0] === 169 && parts[1] === 254) return true;
-  if (parts[0] === 0 || parts[0] === 255) return true;
+  if (match) return blockedIpv4(match.slice(1).map(Number));
+  if (host.includes(":")) return blockedIpv6(host);
   return false;
 }
 
