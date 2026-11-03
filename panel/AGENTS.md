@@ -49,7 +49,7 @@ Read this section before changing a page. The human guide is `../README.md`. Thi
 
 The playback bar is `client/src/player.jsx`. It is empty until a bot route is open. Notices render inline on the login page and through `#toast-dock`, above that bar, everywhere else. Do not put them back at the top of the page.
 
-The bot table ellipsizes only the Now playing column. The server address and the Volume heading stay fully visible. A bot row shows the connected server name while that bot is online, and `ts_bots.connect_address` while it is offline. The bot switcher uses that same saved address. Start, stop, and disconnect do not ask the browser to confirm.
+The bot table ellipsizes only the Now playing column. The server address and the Volume heading stay fully visible. List tables open with that column order. A Columns control on the table can hide or reorder the other columns. The choice is stored in this browser under `ts3panel-columns` and is not written to the database. The select column and the row actions stay put. At least one other column stays visible. Reset columns restores the default. A bot row shows the connected server name while that bot is online, and `ts_bots.connect_address` while it is offline. The bot switcher uses that same saved address. Start, stop, and disconnect do not ask the browser to confirm.
 
 ### Client files
 
@@ -59,6 +59,8 @@ The bot table ellipsizes only the Now playing column. The server address and the
 | `client/src/auth.jsx` | Session user, `t()`, and the saved language |
 | `client/src/language.jsx` | Language select. Options come from the session |
 | `client/src/pages.jsx` | Every page. `useLoad(path)` is the GET helper |
+| `client/src/columns.js` | Saved column order and visibility. Browser storage only |
+| `client/src/columns.jsx` | Columns menu and the shared table renderer |
 | `client/src/hostingForm.js` | Diff for Connection. The server applies that patch |
 | `client/src/player.jsx` | Bottom bar. It reads the shell player context |
 
