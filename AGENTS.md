@@ -58,6 +58,14 @@ An API token in the panel is required only when the bot sits outside this networ
 - `make panel-test` is the panel tests only.
 - This Windows checkout often has no `node` and no `docker`. A missing binary is not a passing test. Panel tests are described in `panel/AGENTS.md`.
 
+## Cursor Cloud
+
+Cloud agents get Node 26.13.0 on `/usr/local/bin` and MariaDB 10.11. `systemd` is not running, and `policy-rc.d` blocks `service`, so MariaDB is started with `mysqld` and the socket `/run/mysqld/mysqld.sock`. It listens on `127.0.0.1:3307`. Port 3306 stays closed so `make test` still reports a refused database connection. Do not export `DB_PORT` into the shell that runs `make test`.
+
+The database is `ts3panel`. The user and password are both `ts3panel`. The panel process uses `DB_HOST=127.0.0.1`, `DB_PORT=3307`, `TOKEN_KEY=dev-only-token-key`, `ADMIN_USER=admin`, and `ADMIN_PASSWORD=dev-admin-password`. `npm start` in `panel/` serves the API on port 8080. `npm run client -- --host 127.0.0.1 --port 5173` serves the UI, and that dev server proxies `/api` to 8080. Sign in at `http://127.0.0.1:5173` as `admin` / `dev-admin-password`.
+
+Dependencies are `npm ci --ignore-scripts` from `panel/`. `make test` is the local check. This environment does not build the bot image. An instance can be saved without a bot process; Overview then shows that API address as unreachable.
+
 ## Commits
 
 Do not commit and do not push unless the user asks.
