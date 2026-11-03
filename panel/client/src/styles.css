@@ -263,6 +263,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .sidebar .btn-ghost { color: var(--side-text); }
 .sidebar .btn-ghost:hover { background: rgba(0, 0, 0, 0.18); }
 .inline { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.whisper-targets { align-items: start; }
+.whisper-targets form { flex: 1 1 16rem; display: grid; gap: 0.55rem; align-content: start; }
+.whisper-targets select[multiple] { width: 100%; }
 
 .pill {
   display: inline-flex;

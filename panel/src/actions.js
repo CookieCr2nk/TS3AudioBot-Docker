@@ -347,7 +347,69 @@ export const actions = {
     },
     detail: (args) => ({ key: args.mode === "whisper" ? "Whisper is on" : "Voice is on" }),
   },
+  "whisper-target": {
+    control: true,
+    audit: true,
+    scoped: false,
+    success: "Whisper targets updated",
+    parse: parseWhisperTarget,
+    async run(bot, args, call) {
+      if (bot.instanceMode !== "template" || !bot.instanceRef) throw new ValidationError("This bot has no instance set");
+      const name = bot.instanceRef;
+      let connected = false;
+      try {
+        connected = templateIsConnected(await call(["bot", "list"], 15000), name);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        connected = true;
+      }
+      if (!connected) throw new ValidationError("The bot is not connected");
+      if (args.on) {
+        await call(["settings", "bot", "set", name, "audio.send_mode", "whisper"], 15000);
+        await call(scope(bot, ["whisper", "subscription"]), 15000);
+      }
+      for (const parts of whisperTargetCalls(bot, args)) await call(parts, 15000);
+      return { messageKey: args.on ? "Whisper targets added" : "Whisper targets removed" };
+    },
+    detail: (args) => `${args.on ? "subscribe" : "unsubscribe"} ${args.kind} ${args.ids.join(",")}`,
+  },
 };
+
+function parseWhisperTarget(input) {
+  const kind = String(input?.kind ?? "").trim().toLowerCase();
+  if (kind !== "client" && kind !== "channel") throw new ValidationError("Target is invalid");
+  const on = flag(input?.on);
+  if (on == null) throw new ValidationError("Target is invalid");
+  const raw = input?.ids;
+  if (!Array.isArray(raw) || raw.length === 0) throw new ValidationError("Enter at least one id");
+  if (raw.length > 20) throw new ValidationError("Enter at most {count} ids", { count: 20 });
+  const max = kind === "client" ? 65535 : 4294967295;
+  const ids = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const text = String(item ?? "").trim();
+    if (!/^[1-9]\d*$/.test(text)) throw new ValidationError("Target is invalid");
+    const id = Number(text);
+    if (!Number.isSafeInteger(id) || id > max) throw new ValidationError("Target is invalid");
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  if (!ids.length) throw new ValidationError("Enter at least one id");
+  return { kind, ids, on };
+}
+
+function flag(value) {
+  if (value === true || value === "true" || value === "on" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "off" || value === "0" || value === 0) return false;
+  return null;
+}
+
+export function whisperTargetCalls(bot, args) {
+  const verb = args.on ? "subscribe" : "unsubscribe";
+  const noun = args.kind === "client" ? "client" : "channel";
+  return args.ids.map((id) => scope(bot, [verb, noun, String(id)]));
+}
 
 export function settingsRecord(args) {
   const patch = {};

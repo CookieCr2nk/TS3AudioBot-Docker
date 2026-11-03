@@ -1071,6 +1071,116 @@ function whisperLabel(mode, t) {
   return t("Unknown");
 }
 
+function namedIds(ids, rows, channels) {
+  if (!ids?.length) return "";
+  return ids.map((id) => {
+    const row = rows.find((item) => item.id === id);
+    if (!row) return String(id);
+    if (row.path) return `${row.path} (${id})`;
+    const channel = channels.find((item) => item.id === row.channelId);
+    return channel ? `${row.name} · ${channel.name} (${id})` : `${row.name} (${id})`;
+  }).join(", ");
+}
+
+function ChannelChoice({ label, channels, saved = "", allowClear = false }) {
+  const { t } = useAuth();
+  const listKey = channels.map((item) => item.id).join(",");
+  const known = channels.some((item) => `/${item.id}` === saved);
+  const [seenList, setSeenList] = useState(listKey);
+  const [manual, setManual] = useState(channels.length > 0 && saved !== "" && !known);
+  const [picked, setPicked] = useState(known ? saved : "");
+  const [typedValue, setTypedValue] = useState(saved);
+  if (seenList !== listKey) {
+    setSeenList(listKey);
+    setManual(channels.length > 0 && saved !== "" && !known);
+    setPicked(known ? saved : "");
+    setTypedValue(saved);
+  }
+  const typed = channels.length === 0 || manual;
+  return (
+    <div>
+      {channels.length > 0 ? (
+        <label>{label}
+          <select
+            name={typed ? undefined : "channel"}
+            value={typed ? "manual" : picked}
+            required={!allowClear && !typed}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (next === "manual") setManual(true);
+              else {
+                setManual(false);
+                setPicked(next);
+              }
+            }}
+          >
+            <option value="">{allowClear ? t("Not set") : t("Choose a channel")}</option>
+            {channels.map((item) => <option key={item.id} value={`/${item.id}`}>{`${item.path} (${item.id})`}</option>)}
+            <option value="manual">{t("Channel id or path")}</option>
+          </select>
+        </label>
+      ) : null}
+      {typed ? (
+        <label>{channels.length ? t("Channel id or path") : label}
+          <input
+            name="channel"
+            required={!allowClear}
+            maxLength={200}
+            placeholder={t("/5 or Home/Lobby")}
+            value={typedValue}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => setTypedValue(event.target.value)}
+          />
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
+function TargetForm({ kind, rows, channels, title, idLabel, act, kept, reload }) {
+  const { t } = useAuth();
+  const mode = useRef("add");
+  return (
+    <form onSubmit={(event) => {
+      event.preventDefault();
+      const formElement = event.currentTarget;
+      const data = new FormData(formElement);
+      const on = mode.current !== "remove";
+      const ids = [...data.getAll("picked"), ...String(data.get("ids") || "").split(/[\s,;]+/)]
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+      act({ op: "whisper-target", kind, ids, on }).then((result) => {
+        if (kept(result)) reload();
+      });
+    }}>
+      <label>{title}
+        {rows.length ? (
+          <select name="picked" multiple size={Math.min(8, Math.max(rows.length, 3))}>
+            {rows.map((item) => {
+              const channel = channels.find((entry) => entry.id === item.channelId);
+              const text = item.path
+                ? `${item.path} (${item.id})`
+                : channel
+                  ? `${item.name} · ${channel.name} (${item.id})`
+                  : `${item.name} (${item.id})`;
+              return <option key={item.id} value={item.id}>{text}</option>;
+            })}
+          </select>
+        ) : <span className="muted">{t("None")}</span>}
+      </label>
+      <label>{idLabel}
+        <input name="ids" inputMode="numeric" autoComplete="off" spellCheck={false} placeholder={kind === "client" ? "12, 34" : "5, 8"} />
+      </label>
+      <p className="muted">{t("Pick from the list, type ids, or both.")}</p>
+      <div className="inline">
+        <button className="btn btn-primary" type="submit" onClick={() => { mode.current = "add"; }}>{t("Subscribe")}</button>
+        <button className="btn" type="submit" onClick={() => { mode.current = "remove"; }}>{t("Remove")}</button>
+      </div>
+    </form>
+  );
+}
+
 function StartupStream({ hosting, stations }) {
   const { t } = useAuth();
   const saved = hosting?.startup || "";
@@ -1124,6 +1234,7 @@ export function Connection() {
   const player = usePlayer();
   const { note, error: actionError, act, setError, setNote } = useBotAction(id, player?.refresh);
   const [localNote, setLocalNote] = useState("");
+  const [moveTick, setMoveTick] = useState(0);
   const [seenId, setSeenId] = useState(id);
   const pageId = useRef(id);
   pageId.current = id;
@@ -1167,7 +1278,7 @@ export function Connection() {
       ) : null}
       <section className="card">
         <h2>{t("Whisper")}</h2>
-        <p className="muted">{t("Whisper sends audio only to subscribed clients, including the bot's current channel. Voice sends it to everyone in that channel. The choice is saved and applies again when the next song starts.")}</p>
+        <p className="muted">{t("Whisper plays only for the clients and channels you subscribe. Voice plays for everyone in the bot's channel. The mode is saved and used again when the next song starts.")}</p>
         <p>{t("Next song")}: {sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</p>
         {data?.sendMode === "custom" ? <p className="muted">{t("A custom send command is saved. Whisper or Voice replaces it.")}</p> : null}
         <p>{t("Right now")}: {whisperLabel(data?.whisper, t)}{data?.whisperError ? <span className="muted"> {data.whisperError}</span> : null}</p>
@@ -1175,6 +1286,36 @@ export function Connection() {
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "whisper", mode: "whisper" }).then((result) => { if (kept(result)) reload(); })}>{t("Whisper")}</button>
           <button className="btn" type="button" onClick={() => act({ op: "whisper", mode: "voice" }).then((result) => { if (kept(result)) reload(); })}>{t("Voice")}</button>
         </div>
+        {data?.connection?.status === "connected" || data?.connection?.status === "connecting" ? (
+          <>
+            <p className="muted">{t("Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.")}</p>
+            {data.treeError ? <p className="muted">{data.treeError}</p> : null}
+            <p>{t("Subscribed clients")}: {data.whisperError ? "—" : namedIds(data.whisperClients, data.clients || [], data.channels || []) || t("None")}</p>
+            <p>{t("Subscribed channels")}: {data.whisperError ? "—" : namedIds(data.whisperChannels, data.channels || [], data.channels || []) || t("None")}</p>
+            <div className="split whisper-targets">
+              <TargetForm
+                kind="client"
+                rows={data.clients || []}
+                channels={data.channels || []}
+                title={t("Clients")}
+                idLabel={t("Client ids")}
+                act={act}
+                kept={kept}
+                reload={reload}
+              />
+              <TargetForm
+                kind="channel"
+                rows={data.channels || []}
+                channels={data.channels || []}
+                title={t("Channels")}
+                idLabel={t("Channel ids")}
+                act={act}
+                kept={kept}
+                reload={reload}
+              />
+            </div>
+          </>
+        ) : <p className="muted">{t("Connect the bot to subscribe clients and channels.")}</p>}
       </section>
       <p className="muted">{t("The panel remembers these settings. Clear the nickname or the default channel and save to reset it. An empty password, bitrate, or volume stays as it is. Passwords go to the bot and are not stored here.")}</p>
       <Notice error={error || actionError} note={note || localNote} />
@@ -1227,8 +1368,8 @@ export function Connection() {
         <input type="hidden" name="name" value={data?.hosting?.name || ""} />
         <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" defaultValue={data?.hosting?.nickname || ""} /></label>
         <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
-        <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} defaultValue={data?.hosting?.channel || ""} /></label>
-        <p className="muted">{t("Saved as the channel this bot joins. Leave it empty and save to reset it. A connected bot moves only when you set a channel.")}</p>
+        <ChannelChoice label={t("Default channel")} channels={data?.channels || []} saved={data?.hosting?.channel || ""} allowClear />
+        <p className="muted">{t("Pick a channel, or type /5 or a path such as Home/Lobby. Leave it empty and save to reset it. A connected bot moves only when you set a channel.")}</p>
         <div className="split">
           <label className="grow">{t("Server password")}
             <input name="serverPassword" type="password" autoComplete="off" />
@@ -1255,18 +1396,18 @@ export function Connection() {
       </form>
       <section className="card">
         <h2>{t("Move now")}</h2>
-        <p className="muted">{t("Moves this bot into a channel. The default channel stays unchanged.")}</p>
-        <form className="split" onSubmit={(event) => {
+        <p className="muted">{t("Moves this bot into a channel and leaves the default channel unchanged. Pick one from the server, or type /5 or a path such as Home/Lobby.")}</p>
+        <form className="split" key={moveTick} onSubmit={(event) => {
           event.preventDefault();
           const formElement = event.currentTarget;
           const channel = new FormData(formElement).get("channel");
           act({ op: "move", channel }).then((result) => {
-            if (kept(result)) formElement.reset();
+            if (kept(result)) setMoveTick((value) => value + 1);
           });
         }}>
-          <label className="grow">{t("Channel")}
-            <input name="channel" required maxLength={200} placeholder={t("/5 or Home/Lobby")} />
-          </label>
+          <div className="grow">
+            <ChannelChoice label={t("Channel")} channels={data?.channels || []} />
+          </div>
           <button className="btn" type="submit">{t("Move")}</button>
         </form>
       </section>

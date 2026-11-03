@@ -355,11 +355,11 @@ const de = {
   "Instance owner ({name})": "Instanz-Besitzer ({name})",
   Nickname: "Nickname",
   "Default channel": "Standard-Channel",
-  "Saved as the channel this bot joins. Leave it empty and save to reset it. A connected bot moves only when you set a channel.":
-    "Wird als Channel gespeichert, den dieser Bot betritt. Leer lassen und speichern setzt ihn zurück. Ein verbundener Bot wird nur verschoben, wenn ein Channel gesetzt ist.",
+  "Pick a channel, or type /5 or a path such as Home/Lobby. Leave it empty and save to reset it. A connected bot moves only when you set a channel.":
+    "Wähle einen Channel oder tippe /5 oder einen Pfad wie Home/Lobby. Leer lassen und speichern setzt ihn zurück. Ein verbundener Bot wechselt den Channel nur, wenn du einen einträgst.",
   "Move now": "Jetzt verschieben",
-  "Moves this bot into a channel. The default channel stays unchanged.":
-    "Verschiebt diesen Bot in einen Channel. Der Standard-Channel bleibt unverändert.",
+  "Moves this bot into a channel and leaves the default channel unchanged. Pick one from the server, or type /5 or a path such as Home/Lobby.":
+    "Verschiebt diesen Bot in einen Channel. Der Standard-Channel bleibt unverändert. Wähle einen vom Server oder tippe /5 oder einen Pfad wie Home/Lobby.",
   "Server password": "Serverpasswort",
   "A server password is saved on the bot.": "Ein Serverpasswort ist auf dem Bot gespeichert.",
   "Channel password": "Channelpasswort",
@@ -561,8 +561,29 @@ const de = {
   "Next song": "Nächster Titel",
   "Group whisper": "Gruppenflüstern",
   "Not sending": "Sendet nicht",
-  "Whisper sends audio only to subscribed clients, including the bot's current channel. Voice sends it to everyone in that channel. The choice is saved and applies again when the next song starts.":
-    "Flüstern sendet den Ton nur an abonnierte Clients, inklusive des aktuellen Channels vom Bot. Voice sendet ihn an alle in diesem Channel. Die Wahl wird gespeichert und gilt wieder ab dem nächsten Titel.",
+  "Whisper plays only for the clients and channels you subscribe. Voice plays for everyone in the bot's channel. The mode is saved and used again when the next song starts.":
+    "Flüstern spielt nur für die Clients und Channels, die du abonnierst. Voice spielt für alle im Channel des Bots. Der Modus wird gespeichert und gilt wieder ab dem nächsten Titel.",
+  "Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.":
+    "Abonnieren schaltet Flüstern ein und fügt diese Clients oder Channels hinzu. Entfernen nimmt sie wieder raus. Der Bot muss verbunden sein.",
+  "Connect the bot to subscribe clients and channels.":
+    "Verbinde den Bot, um Clients und Channels zu abonnieren.",
+  "Subscribed clients": "Abonnierte Clients",
+  "Subscribed channels": "Abonnierte Channels",
+  Clients: "Clients",
+  Channels: "Channels",
+  "Client ids": "Client-IDs",
+  "Channel ids": "Channel-IDs",
+  "Pick from the list, type ids, or both.": "Wähle aus der Liste, tippe IDs, oder beides.",
+  Subscribe: "Abonnieren",
+  "Choose a channel": "Channel wählen",
+  "Channel id or path": "Channel-ID oder Pfad",
+  "Whisper targets updated": "Flüsterziele geändert",
+  "Whisper targets added": "Flüsterziele hinzugefügt",
+  "Whisper targets removed": "Flüsterziele entfernt",
+  "The bot is not connected": "Der Bot ist nicht verbunden",
+  "Enter at least one id": "Mindestens eine ID eintragen",
+  "Enter at most {count} ids": "Höchstens {count} IDs eintragen",
+  "Target is invalid": "Das Ziel ist ungültig",
   "A custom send command is saved. Whisper or Voice replaces it.":
     "Ein eigener Sendebefehl ist gespeichert. Flüstern oder Voice ersetzt ihn.",
   "Whisper mode updated": "Flüstermodus geändert",

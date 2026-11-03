@@ -7,13 +7,13 @@ import { loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../
 import { createApp, panelRoot } from "../src/app.js";
 import { canDeleteBot, pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, withCommander, withPlay } from "../src/actions.js";
+import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { rateLimit } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
-import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentSetting, presentStatus, presentTsIdentity, presentWhisper } from "../src/present.js";
+import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentServerTree, presentSetting, presentStatus, presentTsIdentity, presentWhisper, presentWhisperTargets } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -237,6 +237,45 @@ describe("action guard", () => {
     assert.equal(buildActionRequest(templateBot, "whisper", { mode: "voice" }, user).args.mode, "voice");
     assert.throws(() => buildActionRequest(templateBot, "whisper", { mode: "all" }, admin), /invalid/);
     assert.throws(() => buildActionRequest(templateBot, "whisper", { mode: "whisper" }, reader), /control rights/);
+    const targets = presentWhisperTargets({
+      SendMode: "Whisper",
+      WhisperClients: [4, { Value: 4 }, "9", 0, "no"],
+      WhisperChannel: { 5: 5, 8: { Id: 8 } },
+    });
+    assert.deepEqual(targets, { clients: [4, 9], channels: [5, 8] });
+    assert.deepEqual(presentWhisperTargets({ Value: { WhisperClients: "12, 3" } }).clients, [12, 3]);
+    const tree = presentServerTree({
+      Channels: {
+        1: { Id: 1, Name: "Home", Parent: 0 },
+        5: { Id: 5, Name: "Lobby", Parent: 1 },
+        9: { Name: "Loop", Parent: 9 },
+      },
+      Clients: [
+        { Id: 3, Name: "Ann", Channel: 5, ClientType: 0 },
+        { Id: 7, Name: "query", Channel: 1, ClientType: "Query" },
+        { Key: 11, Value: { Id: 11, Name: "Bob", Channel: { Value: 1 }, ClientType: 0 } },
+      ],
+    });
+    assert.deepEqual(tree.channels.map((item) => item.path), ["Home", "Home / Lobby", "Loop"]);
+    assert.deepEqual(tree.clients.map((item) => item.id), [3, 11]);
+    assert.equal(tree.clients[0].channelId, 5);
+    assert.deepEqual(presentServerTree(null), { channels: [], clients: [] });
+    const subscribed = buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [12, "12", 4], on: true }, admin);
+    assert.deepEqual(subscribed.args, { kind: "client", ids: [12, 4], on: true });
+    assert.equal(subscribed.parts, null);
+    assert.equal(buildApiPath(whisperTargetCalls(templateBot, subscribed.args)[0]), "/bot/template/default/(/subscribe/client/12)");
+    assert.equal(buildApiPath(whisperTargetCalls(templateBot, subscribed.args)[1]), "/bot/template/default/(/subscribe/client/4)");
+    const dropped = buildActionRequest(templateBot, "whisper-target", { kind: "channel", ids: ["8"], on: false }, user);
+    assert.equal(dropped.args.on, false);
+    assert.equal(buildApiPath(whisperTargetCalls(templateBot, dropped.args)[0]), "/bot/template/default/(/unsubscribe/channel/8)");
+    assert.equal(dropped.action.detail(dropped.args), "unsubscribe channel 8");
+    assert.throws(() => buildActionRequest(templateBot, "whisper-target", { kind: "group", ids: [1], on: true }, admin), /invalid/);
+    assert.throws(() => buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [], on: true }, admin), /at least one/);
+    assert.throws(() => buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [0], on: true }, admin), /invalid/);
+    assert.throws(() => buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [65536], on: true }, admin), /invalid/);
+    assert.equal(buildActionRequest(templateBot, "whisper-target", { kind: "channel", ids: [4294967295], on: "off" }, admin).args.on, false);
+    assert.throws(() => buildActionRequest(templateBot, "whisper-target", { kind: "channel", ids: [4294967296], on: false }, admin), /invalid/);
+    assert.throws(() => buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [1], on: true }, reader), /control rights/);
     assert.equal(presentSetting({ Value: "!bot commander on" }), "!bot commander on");
     assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).uid, "uidvalue=");
     assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).clientId, "12");
