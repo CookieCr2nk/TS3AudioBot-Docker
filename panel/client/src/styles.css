@@ -174,6 +174,26 @@ h2 { margin: 0; font-size: 1.05rem; font-weight: 650; }
   box-shadow: var(--shadow);
 }
 .card { padding: 1rem 1.1rem; display: grid; gap: 0.75rem; }
+.board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.board-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.board-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  padding: 1rem 1.05rem 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+}
+.board-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.board-head h2 { font-size: 0.95rem; }
+.board-figure { display: flex; align-items: baseline; gap: 0.35rem; margin: 0; }
+.board-figure strong { font-size: 2.4rem; font-weight: 650; line-height: 0.9; }
+.board-figure span { color: var(--muted); font-size: 1.15rem; }
+.board-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.board-rows li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.board-rows b { font-weight: 650; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
 .stat {
   background: white;
@@ -274,6 +294,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .flash-ok { background: #e5f6ec; color: #146338; }
 .meter { height: 8px; background: #e6ebf0; border-radius: 99px; overflow: hidden; }
 .meter span { display: block; height: 100%; background: var(--accent); }
+.meter-ok span { background: var(--ok); }
+@media (max-width: 900px) {
+  .board, .board-two { grid-template-columns: 1fr; }
+}
 .transport { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .login-page { min-height: 100%; display: grid; place-items: center; background: var(--side); padding: 1.5rem; }
 .login-card { width: min(420px, 100%); background: white; border-radius: 8px; padding: 1.4rem; display: grid; gap: 0.8rem; }

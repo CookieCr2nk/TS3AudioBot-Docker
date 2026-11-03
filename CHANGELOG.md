@@ -12,6 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - The overview meter can set its width. Style attributes are allowed, and scripts stay limited to the panel
 
 ### Added
+- The overview shows how many instances answer, how many bots are running, and, for an administrator, how many accounts can sign in
 - List tables keep their current columns until the browser changes them. Columns can hide or reorder the other fields, and that choice stays in the browser
 - A flag button to the right of the panel name, and on the sign-in page, follows the browser or picks English or German. Another translation is a catalog registered in one list
 - The protocol page can delete audit entries older than 24 hours and keep the last day
