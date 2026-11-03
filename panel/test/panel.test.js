@@ -112,6 +112,9 @@ describe("action guard", () => {
     );
     assert.equal(hosting.parts, null);
     assert.equal(JSON.stringify(hosting.action.detail(hosting.args)).includes("s3cret-pass"), false);
+    const played = buildActionRequest(templateBot, "play", { resource: "https://user:s3cret-pass@example.com/live" }, user);
+    assert.equal(played.action.detail(played.args).includes("s3cret-pass"), false);
+    assert.equal(played.action.detail(played.args).startsWith("https://example.com/"), true);
     assert.equal(hosting.args.serverPassword, "s3cret-pass");
     assert.deepEqual(hostingCalls(parseHostingSettings({ name: "lobby", volume: "40" })), [
       ["settings", "bot", "set", "lobby", "audio.volume.default", "40"],
@@ -313,6 +316,11 @@ describe("input", () => {
   it("accepts the compose hostname and rejects metadata and credentials", () => {
     assert.equal(assertBaseUrl("http://ts3audiobot:58913/"), "http://ts3audiobot:58913");
     assert.throws(() => assertBaseUrl("http://169.254.169.254/"), /not allowed/);
+    assert.throws(() => assertBaseUrl("http://[::ffff:169.254.169.254]/"), /not allowed/);
+    assert.throws(() => assertBaseUrl("http://[fe80::1]/"), /not allowed/);
+    assert.throws(() => assertBaseUrl("http://[::]/"), /not allowed/);
+    assert.equal(assertBaseUrl("http://10.1.2.3:58913/"), "http://10.1.2.3:58913");
+    assert.equal(assertBaseUrl("http://[::1]:58913/"), "http://[::1]:58913");
     assert.throws(() => assertBaseUrl("http://user:pass@bot:58913"), /credentials/);
     assert.throws(() => assertBaseUrl("http://bot:58913/api"), /host and a port/);
     assert.throws(() => assertBaseUrl("file:///etc/passwd"), /http/);
@@ -333,6 +341,7 @@ describe("input", () => {
     assert.equal(displayStreamUrl(stored).includes("user"), false);
     assert.equal(displayStreamUrl(stored).includes("pass"), false);
     assert.throws(() => parseStreamUrl("http://169.254.169.254/latest"), /not allowed/);
+    assert.throws(() => parseStreamUrl("http://[::ffff:169.254.169.254]/latest"), /not allowed/);
     assert.throws(() => parseStreamUrl("file:///etc/passwd"), /http/);
     const hosting = parseHostingSettings({ name: "lobby", channel: "/5", bitrate: "8", run: "off" });
     assert.equal(hosting.channel, "/5");
@@ -352,6 +361,8 @@ describe("input", () => {
     assert.throws(() => parseVolume("101"));
     assert.throws(() => parseVolume("-1"));
     assert.throws(() => parsePassword("short"));
+    assert.throws(() => parsePassword("a".repeat(73)), /72 bytes/);
+    assert.equal(parsePassword("a".repeat(72)), "a".repeat(72));
     assert.equal(parseOptionalPassword(""), null);
     assert.equal(parseOptionalPassword("longenough1"), "longenough1");
     assert.throws(() => parseOptionalPassword("short"));
@@ -369,6 +380,8 @@ describe("secrets and schema", () => {
     const hash = await hashPassword("correct-horse");
     assert.equal(await verifyPassword("correct-horse", hash), true);
     assert.equal(await verifyPassword(`${"x".repeat(200)}correct-horse`, hash), false);
+    const long = "b".repeat(80);
+    assert.equal(await verifyPassword(long, await hashPassword(long)), false);
     assert.equal(await verifyPassword("correct-horse", null), false);
   });
 

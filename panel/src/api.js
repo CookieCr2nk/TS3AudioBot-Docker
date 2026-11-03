@@ -368,13 +368,22 @@ api.post(
 api.post(
   "/instances/:id/bots/attach",
   wrap(async (req, res) => {
-    const access = await openInstanceForCreate(req);
-    assertCanCreate(req, access);
+    const access = await openInstance(req);
+    if (!access.canManage) throw new HttpError("You cannot attach an existing bot.", 403);
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTemplateName(req.body.name);
+    const existing = await findTsBotId(access.instance.id, name);
+    if (existing) {
+      const visible = await accessToBot(req.user, existing);
+      if (!visible) throw new HttpError("That bot is already registered.", 409);
+      ok(res, { message: req.t("Bot added."), botId: existing });
+      return;
+    }
     const charged = chargedUserId(req, access.instance);
-    if (!(await findTsBotId(access.instance.id, name))) await assertUserQuota(charged);
+    await assertUserQuota(charged);
     const botId = await ensureTsBot(access.instance.id, name, name, charged);
+    const visible = await accessToBot(req.user, botId);
+    if (!visible) throw new HttpError("That bot is already registered.", 409);
     await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-attach", detail: name });
     ok(res, { message: req.t("Bot added."), botId });
   }),
