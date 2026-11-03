@@ -239,7 +239,7 @@ function StatusBoard({ summary, admin }) {
           <li><span className="pill">{t("Registered")}</span><b>{bots.registered}</b></li>
         </ul>
         {admin && bots.process > bots.running ? (
-          <p className="muted">{t("{count} connected on the process", { count: bots.process })}</p>
+          <p className="muted">{t("{count} connected in the container but not listed here", { count: bots.process })}</p>
         ) : null}
       </article>
       {admin && accounts ? (
@@ -316,7 +316,7 @@ export function Overview() {
       <div className="page-head">
         <div>
           <h1>{t("Overview")}</h1>
-          <p className="muted">{t("Each entry is one Docker container. Several TeamSpeak bots can run inside it.")}</p>
+          <p className="muted">{t("One row is one container. Open it to add TeamSpeak bots.")}</p>
         </div>
         <span className="inline">
           {user.role === "admin" ? <AddInstance /> : null}
@@ -573,7 +573,7 @@ export function BotsPage() {
       <div className="page-head">
         <div>
           <h1>{t("Bots")}</h1>
-          <p className="muted">{t("Every TeamSpeak bot you can open. Select several to start or stop them together.")}</p>
+          <p className="muted">{t("Tick rows, then start or stop them together.")}</p>
         </div>
         <span className="inline">
           {data?.canCreate ? <AddBot /> : null}
@@ -698,7 +698,7 @@ export function InstancePage() {
       <div className="page-head">
         <div>
           <h1>{instance.name}</h1>
-          <p className="muted">{t("TeamSpeak bots on this instance. The panel does not start the container.")}</p>
+          <p className="muted">{t("Bots in this container. Start the container outside the panel.")}</p>
           {instance.baseUrl ? <p className="mono">{instance.baseUrl}</p> : null}
         </div>
         <Link className="btn" to={`/bots?instance=${id}`}>{t("Open in Bots")}</Link>
@@ -728,7 +728,7 @@ export function InstancePage() {
           run(`/api/instances/${id}/bots/attach`, { name }, (result) => navigate(`/bots/${result.botId}`));
         }}>
           <h2>{t("Add an existing bot")}</h2>
-          <p className="muted">{t("Use the name TS3AudioBot already has, such as default. This does not create a bot.")}</p>
+          <p className="muted">{t("Template name already on the bot, for example default.")}</p>
           <div className="split">
             <label className="grow">{t("Name")}
               <input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" placeholder="default" />
@@ -741,7 +741,7 @@ export function InstancePage() {
       {user.role === "admin" ? (
         <form className="card" onSubmit={saveInstance}>
           <h2>{t("Settings")}</h2>
-          <p className="muted">{t("On the Compose network the API address is enough. A token is stored encrypted only if you enter one.")}</p>
+          <p className="muted">{t("Host and port, for example http://ts3audiobot:58913. Add a token only if the bot requires one.")}</p>
           <label>{t("Display name")}<input name="name" required maxLength={120} defaultValue={instance.name} /></label>
           <label>{t("API address")}<input name="baseUrl" required maxLength={255} defaultValue={instance.baseUrl} /></label>
           <label>{t("Owner")}
@@ -764,7 +764,7 @@ export function InstancePage() {
               ))}
             </select>
           </label>
-          <p className="muted">{t("Selected accounts can open this instance. They only see bots assigned to them.")}</p>
+          <p className="muted">{t("These accounts can open this container. They see only bots assigned to them.")}</p>
           <div className="transport">
             <button className="btn btn-primary" type="submit">{t("Save")}</button>
             <button className="btn" type="button" onClick={() => run(`/api/admin/instances/${id}/test`, {})}>{t("Check connection")}</button>
@@ -1112,7 +1112,7 @@ function StartupStream({ hosting, stations }) {
         </label>
       ) : station ? null : <input type="hidden" name="startup" value="" />}
       {station?.url ? <p className="muted mono startup-url">{station.url}</p> : null}
-      <p className="muted">{t("Choose a saved station or another address. Not set removes the stream.")}</p>
+      <p className="muted">{t("Played when the bot connects. Not set turns it off.")}</p>
     </div>
   );
 }
@@ -1167,16 +1167,16 @@ export function Connection() {
       ) : null}
       <section className="card">
         <h2>{t("Whisper")}</h2>
-        <p className="muted">{t("Whisper sends audio only to subscribed clients, including the bot's current channel. Voice sends it to everyone in that channel. The choice is saved and applies again when the next song starts.")}</p>
+        <p className="muted">{t("Whisper: subscribed clients. Voice: the whole channel. Applies from the next song.")}</p>
         <p>{t("Next song")}: {sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</p>
-        {data?.sendMode === "custom" ? <p className="muted">{t("A custom send command is saved. Whisper or Voice replaces it.")}</p> : null}
+        {data?.sendMode === "custom" ? <p className="muted">{t("A custom command is saved. Whisper or Voice replaces it.")}</p> : null}
         <p>{t("Right now")}: {whisperLabel(data?.whisper, t)}{data?.whisperError ? <span className="muted"> {data.whisperError}</span> : null}</p>
         <div className="inline">
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "whisper", mode: "whisper" }).then((result) => { if (kept(result)) reload(); })}>{t("Whisper")}</button>
           <button className="btn" type="button" onClick={() => act({ op: "whisper", mode: "voice" }).then((result) => { if (kept(result)) reload(); })}>{t("Voice")}</button>
         </div>
       </section>
-      <p className="muted">{t("The panel remembers these settings. Clear the nickname or the default channel and save to reset it. An empty password, bitrate, or volume stays as it is. Passwords go to the bot and are not stored here.")}</p>
+      <p className="muted">{t("Clear nickname or channel to remove it. Leave password, bitrate, or volume empty to keep the current value. Passwords are sent to the bot and not stored here.")}</p>
       <Notice error={error || actionError} note={note || localNote} />
       <form className="card" key={[
         data?.bot?.name,
@@ -1223,12 +1223,12 @@ export function Connection() {
         <label>{t("Display name")}
           <input name="label" maxLength={120} defaultValue={data?.bot?.name || ""} />
         </label>
-        <p className="muted">{t("This is the name in the panel. The TeamSpeak nickname is separate.")}</p>
+        <p className="muted">{t("Name in this list. The TeamSpeak nickname is the next field.")}</p>
         <input type="hidden" name="name" value={data?.hosting?.name || ""} />
         <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" defaultValue={data?.hosting?.nickname || ""} /></label>
-        <p className="muted">{t("The connected name changes immediately. An offline bot uses it the next time it connects.")}</p>
+        <p className="muted">{t("Applied now if the bot is online, otherwise on the next connect.")}</p>
         <label>{t("Default channel")}<input name="channel" maxLength={200} placeholder={t("/5 or Home/Lobby")} defaultValue={data?.hosting?.channel || ""} /></label>
-        <p className="muted">{t("Saved as the channel this bot joins. Leave it empty and save to reset it. A connected bot moves only when you set a channel.")}</p>
+        <p className="muted">{t("Joined on connect. Clear and save to remove it. Setting a channel also moves a connected bot.")}</p>
         <div className="split">
           <label className="grow">{t("Server password")}
             <input name="serverPassword" type="password" autoComplete="off" />
@@ -1255,7 +1255,7 @@ export function Connection() {
       </form>
       <section className="card">
         <h2>{t("Move now")}</h2>
-        <p className="muted">{t("Moves this bot into a channel. The default channel stays unchanged.")}</p>
+        <p className="muted">{t("Moves the connected bot now. The saved default channel stays.")}</p>
         <form className="split" onSubmit={(event) => {
           event.preventDefault();
           const formElement = event.currentTarget;
@@ -1272,7 +1272,7 @@ export function Connection() {
       </section>
       <section className="card">
         <h2>{t("Channel commander")}</h2>
-        <p className="muted">{t("The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.")}</p>
+        <p className="muted">{t("Channel commander. Saved, and applied again on each connect.")}</p>
         <p>{t("Next connect")}: {data.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</p>
         <p>{t("Right now")}: {data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
         <div className="inline">
@@ -1282,7 +1282,7 @@ export function Connection() {
       </section>
       <section className="card">
         <h2>{t("TeamSpeak ID")}</h2>
-        <p className="muted">{t("The unique ID of this bot. It is shown while the bot is connected.")}</p>
+        <p className="muted">{t("Shown while the bot is connected.")}</p>
         {data.teamspeakId ? (
           <div className="split">
             <p className="mono grow">{data.teamspeakId}</p>
@@ -1373,9 +1373,9 @@ export function Users() {
   return (
     <div className="page">
       <h1>{t("Users")}</h1>
-      <p className="muted">{t("Panel accounts. These are not TeamSpeak identities.")}</p>
-      <p className="muted">{t("A bot limit counts bots assigned to this account. A bot with nobody assigned counts for the instance owner. Leave it empty for unlimited.")}</p>
-      <p className="muted">{t("A user needs at least one instance. More than one is allowed. An administrator does not. Can create bots also lets that account pick any enabled instance.")}</p>
+      <p className="muted">{t("Sign-in for this panel, not a TeamSpeak login.")}</p>
+      <p className="muted">{t("Empty bot limit means unlimited. Bots with no assignee count for the instance owner.")}</p>
+      <p className="muted">{t("A user needs one instance. An administrator does not. Can create bots allows a new bot on any enabled instance.")}</p>
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
@@ -1573,8 +1573,8 @@ export function Audit() {
           }
         }}>{t("Keep the last day")}</button>
       </div>
-      <p className="muted">{t("The last 200 actions. API tokens are not listed here.")}</p>
-      <p className="muted">{t("This deletes every protocol entry older than 24 hours. The last day stays in the database.")}</p>
+      <p className="muted">{t("Last 200 actions. Tokens are not shown.")}</p>
+      <p className="muted">{t("Keep the last day deletes entries older than 24 hours.")}</p>
       <Notice error={formError || error} note={note} />
       <ColumnFrame picker={auditTable.picker}>
         <ColumnTable
