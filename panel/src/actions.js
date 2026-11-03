@@ -1,5 +1,5 @@
 import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
-import { displayStreamUrl, presentBotList, presentSetting } from "./present.js";
+import { displayStreamUrl, presentBotList, presentClientChannel, presentSetting } from "./present.js";
 import { callBot, scope } from "./ts3ab.js";
 import {
   parseChannel,
@@ -111,23 +111,6 @@ export const actions = {
     parse: (input) => ({ channel: parseChannel(input.channel) }),
     build: (args) => ["bot", "move", args.channel],
     detail: (args) => args.channel,
-  },
-  "history-last": {
-    parse: () => ({}),
-    build: () => ["history", "last", "40"],
-  },
-  "history-search": {
-    parse: (input) => ({ query: parseSearchQuery(input.query) }),
-    build: (args) => ["history", "title", args.query],
-  },
-  "history-play": {
-    control: true,
-    audit: true,
-    success: "Started from history",
-    timeoutMs: SLOW,
-    parse: (input) => ({ id: parseIndex(input.historyId, "History ID", 1_000_000_000) }),
-    build: (args) => ["history", "play", String(args.id)],
-    detail: (args) => ({ key: "History {id}", params: { id: args.id } }),
   },
   search: {
     control: true,
@@ -324,6 +307,46 @@ export const actions = {
     },
     detail: (args) => ({ key: args.mode === "on" ? "Channel commander is on" : "Channel commander is off" }),
   },
+  whisper: {
+    control: true,
+    audit: true,
+    scoped: false,
+    success: "Whisper mode updated",
+    parse: (input) => ({ mode: choice(input.mode, ["whisper", "voice"], "Whisper") }),
+    async run(bot, args, call) {
+      if (bot.instanceMode !== "template" || !bot.instanceRef) throw new ValidationError("This bot has no instance set");
+      const name = bot.instanceRef;
+      await call(["settings", "bot", "set", name, "audio.send_mode", args.mode], 15000);
+      let connected = false;
+      try {
+        connected = templateIsConnected(await call(["bot", "list"], 15000), name);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        connected = true;
+      }
+      if (!connected) {
+        return {
+          messageKey: args.mode === "whisper"
+            ? "Whisper is saved. It applies when the next song starts."
+            : "Voice is saved. It applies when the next song starts.",
+        };
+      }
+      try {
+        const live = args.mode === "whisper" ? ["whisper", "subscription"] : ["whisper", "off"];
+        await call(scope(bot, live), 15000);
+        if (args.mode === "whisper") await subscribeBotChannel(bot, call);
+      } catch (err) {
+        if (!(err instanceof Ts3ApiError)) throw err;
+        return {
+          messageKey: args.mode === "whisper"
+            ? "Whisper is saved. The connected bot could not be changed."
+            : "Voice is saved. The connected bot could not be changed.",
+        };
+      }
+      return { messageKey: args.mode === "whisper" ? "Whisper is on" : "Voice is on" };
+    },
+    detail: (args) => ({ key: args.mode === "whisper" ? "Whisper is on" : "Voice is on" }),
+  },
 };
 
 export function settingsRecord(args) {
@@ -439,6 +462,22 @@ export function withCommander(current, enabled) {
 export function withPlay(current, play) {
   const rest = commandsFrom(current).filter((command) => !command.startsWith("!play "));
   return buildOnconnect(play ? [...rest, play] : rest);
+}
+
+async function subscribeBotChannel(bot, call) {
+  let channel = "";
+  try {
+    channel = presentClientChannel(await call(scope(bot, ["bot", "info", "client"]), 15000));
+  } catch (err) {
+    if (!(err instanceof Ts3ApiError)) throw err;
+    return;
+  }
+  if (!channel) return;
+  try {
+    await call(scope(bot, ["subscribe", "channel", channel]), 15000);
+  } catch (err) {
+    if (!(err instanceof Ts3ApiError)) throw err;
+  }
 }
 
 export function commanderSaved(current) {

@@ -183,24 +183,6 @@ export function presentVersion(data) {
   return data.Version || data.version || null;
 }
 
-export function presentHistory(data, t = applyParams) {
-  if (typeof data === "string") {
-    return presentSearch(data, t).map((item) => ({ id: item.index, title: item.title, meta: "" }));
-  }
-  const list = asList(data) || [];
-  return list.map((item, index) => {
-    if (typeof item === "string") return { id: null, title: item, meta: "" };
-    const meta = [item.AudioType, item.UserUid, item.PlayCount != null ? `${item.PlayCount}×` : null]
-      .filter(Boolean)
-      .join(" · ");
-    return {
-      id: item.Id ?? item.id ?? null,
-      title: item.Title || item.ResourceTitle || item.Name || t("Entry {n}", { n: index + 1 }),
-      meta,
-    };
-  });
-}
-
 export function presentSearch(data, t = applyParams) {
   if (typeof data === "string") {
     return data
@@ -258,6 +240,50 @@ export function presentCommander(data) {
   if (value === true || value === "true" || value === "True" || value === "on") return true;
   if (value === false || value === "false" || value === "False" || value === "off") return false;
   return null;
+}
+
+const WHISPER_MODE = {
+  0: "none",
+  1: "voice",
+  2: "whisper",
+  3: "group",
+  none: "none",
+  voice: "voice",
+  whisper: "whisper",
+  whispergroup: "group",
+};
+
+export function presentWhisper(data) {
+  const value = unwrap(data);
+  const raw = value && typeof value === "object" ? value.SendMode ?? value.sendMode : value;
+  return whisperToken(raw);
+}
+
+function whisperToken(value) {
+  const inner = unwrap(value);
+  if (inner && typeof inner === "object") return null;
+  if (typeof inner === "number" && Number.isInteger(inner)) return WHISPER_MODE[inner] || null;
+  const text = String(inner ?? "").trim().toLowerCase();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return WHISPER_MODE[Number(text)] || null;
+  return WHISPER_MODE[text] || null;
+}
+
+export function presentSendMode(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const mode = text.toLowerCase();
+  if (mode === "whisper" || mode === "voice") return mode;
+  if (text.startsWith("!")) return "custom";
+  return null;
+}
+
+export function presentClientChannel(data) {
+  const value = unwrap(data);
+  if (!value || typeof value !== "object") return "";
+  const text = settingText(value.ChannelId ?? value.channelId).trim();
+  if (!/^[1-9]\d*$/.test(text)) return "";
+  return text;
 }
 
 export function presentBotList(data, t = applyParams) {

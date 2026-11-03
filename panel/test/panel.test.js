@@ -13,7 +13,7 @@ import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { rateLimit } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
-import { displayStreamUrl, presentBotList, presentCommander, presentHistory, presentSearch, presentSetting, presentStatus, presentTsIdentity } from "../src/present.js";
+import { displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentSetting, presentStatus, presentTsIdentity, presentWhisper } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -216,6 +216,24 @@ describe("action guard", () => {
     assert.equal(presentCommander({ Value: true }), true);
     assert.equal(presentCommander(false), false);
     assert.equal(presentCommander("later"), null);
+    assert.equal(presentWhisper({ SendMode: "Whisper" }), "whisper");
+    assert.equal(presentWhisper({ Value: { SendMode: 1 } }), "voice");
+    assert.equal(presentWhisper({ SendMode: "WhisperGroup" }), "group");
+    assert.equal(presentWhisper("none"), "none");
+    assert.equal(presentWhisper({ SendMode: "later" }), null);
+    assert.equal(presentSendMode(" whisper "), "whisper");
+    assert.equal(presentSendMode("VOICE"), "voice");
+    assert.equal(presentSendMode("!whisper off"), "custom");
+    assert.equal(presentSendMode(""), null);
+    assert.equal(presentClientChannel({ ChannelId: { Value: 12 } }), "12");
+    assert.equal(presentClientChannel({ ChannelId: 0 }), "");
+    const whispered = buildActionRequest(templateBot, "whisper", { mode: "whisper" }, admin);
+    assert.equal(whispered.parts, null);
+    assert.equal(whispered.args.mode, "whisper");
+    assert.equal(whispered.action.detail(whispered.args).key, "Whisper is on");
+    assert.equal(buildActionRequest(templateBot, "whisper", { mode: "voice" }, user).args.mode, "voice");
+    assert.throws(() => buildActionRequest(templateBot, "whisper", { mode: "all" }, admin), /invalid/);
+    assert.throws(() => buildActionRequest(templateBot, "whisper", { mode: "whisper" }, reader), /control rights/);
     assert.equal(presentSetting({ Value: "!bot commander on" }), "!bot commander on");
     assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).uid, "uidvalue=");
     assert.equal(presentTsIdentity({ Uid: { Value: "uidvalue=" }, Id: 12 }).clientId, "12");
@@ -279,8 +297,7 @@ describe("status and lists", () => {
     assert.equal(status.problems.length, 0);
   });
 
-  it("normalizes history and bot rows", () => {
-    assert.equal(presentHistory([{ Id: 4, Title: "Alt", AudioType: "youtube" }])[0].id, 4);
+  it("normalizes search and bot rows", () => {
     assert.equal(presentSearch("0: Sonne\n1: Ich will")[1].title, "Ich will");
     assert.deepEqual(presentBotList([
       { Id: null, Name: "default", Server: "ts.example.com", Status: 0 },

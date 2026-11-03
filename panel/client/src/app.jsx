@@ -3,7 +3,7 @@ import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigat
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
 import { LanguageSelect } from "./language.jsx";
-import { Account, AddBot, Audit, BotsPage, Connection, History, InstancePage, Login, Notice, Overview, Playback, Radio, Users } from "./pages.jsx";
+import { Account, AddBot, Audit, BotsPage, Connection, InstancePage, Login, Notice, Overview, Playback, Radio, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
 
 export function App() {
@@ -18,7 +18,7 @@ export function App() {
         <Route path="instances/:id" element={<InstancePage />} />
         <Route path="bots/:id" element={<Playback />} />
         <Route path="bots/:id/streams" element={<Radio />} />
-        <Route path="bots/:id/history" element={<History />} />
+        <Route path="bots/:id/history" element={<Navigate to=".." replace />} />
         <Route path="bots/:id/connection" element={<Connection />} />
         <Route path="users" element={<Users />} />
         <Route path="audit" element={<Audit />} />
@@ -260,7 +260,6 @@ function BotTabs({ id, bot, roster, pathname, admin }) {
       <nav className="bot-tabs" aria-label={bot.name}>
         <Tab to={`/bots/${id}`} end>{t("Playback")}</Tab>
         <Tab to={`/bots/${id}/streams`}>{t("Radio")}</Tab>
-        <Tab to={`/bots/${id}/history`}>{t("History")}</Tab>
         <Tab to={`/bots/${id}/connection`}>{t("Connection")}</Tab>
       </nav>
       {admin || user.canCreateBots || bot.canManage ? <AddBot instanceId={bot.instanceId || ""} /> : null}
@@ -304,7 +303,6 @@ function botMenuLabel(item) {
 
 function sectionPath(pathname) {
   if (pathname.endsWith("/streams")) return "/streams";
-  if (pathname.endsWith("/history")) return "/history";
   if (pathname.endsWith("/connection")) return "/connection";
   return "";
 }
@@ -320,7 +318,6 @@ function pageSection(pathname, t) {
 
 function botSection(pathname, t) {
   if (pathname.endsWith("/streams")) return t("Radio");
-  if (pathname.endsWith("/history")) return t("History");
   if (pathname.endsWith("/connection")) return t("Connection");
   return t("Playback");
 }

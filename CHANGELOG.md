@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Anyone who can open a bot can change its connection settings. The panel remembers the nickname, channel, bitrate, volume, start-on-launch choice, and stream address. Passwords stay on the bot.
 - Connection can move a connected bot into a channel without saving that channel as the default
 - Connection can use a saved radio station as the stream that plays when the bot connects
+- Connection can switch a bot between whisper and voice. The choice is saved, applied to a connected bot, and used again when the next song starts
 
 ### Changed
 - The panel database schema is one migration file. A database from release 1.0, or one that already applied the older migration files, is upgraded when the panel starts
@@ -38,7 +39,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - After sign-in, Add bot follows users.can_create_bots without a reload
 - The playback queue lists the playlist from the start, up to 20 songs
 - German wording for play, an empty instance list, the bot-name rule, and a few form hints
-- Switching bots clears the previous bot's connection form, history search, and playback search
+- Switching bots clears the previous bot's connection form and playback search
+- Connection shows the TeamSpeak server, the address, and connect or disconnect at the top of the page
 - The account a bot is assigned to can delete that bot
 - Clearing the nickname or the default channel on Connection saves that reset
 - Saving connection settings sends only the fields that changed, so a connected bot is not moved again
@@ -47,6 +49,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 - Playlists. The panel no longer lists or plays them
+- History. The panel no longer lists or plays the bot play log. An old history link opens playback
 
 ## [1.0] - 2026-11-01
 

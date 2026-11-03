@@ -926,54 +926,19 @@ export function Radio() {
   );
 }
 
-export function History() {
-  const { id } = useParams();
-  const { t } = useAuth();
-  const [query, setQuery] = useState("");
-  const [submitted, setSubmitted] = useState("");
-  const [loadedId, setLoadedId] = useState(id);
-  if (loadedId !== id) {
-    setLoadedId(id);
-    setQuery("");
-    setSubmitted("");
-  }
-  const path = loadedId === id && submitted
-    ? `/api/bots/${id}/history?q=${encodeURIComponent(submitted)}`
-    : `/api/bots/${id}/history`;
-  const { data, error } = useLoad(path);
-  const player = usePlayer();
-  const { note, error: actionError, act } = useBotAction(id, player?.refresh);
-  return (
-    <div className="page">
-      <h1>{t("History")}</h1>
-      <Notice error={error || actionError} note={note} />
-      <form className="card" onSubmit={(event) => {
-        event.preventDefault();
-        setSubmitted(query.trim());
-      }}>
-        <div className="split">
-          <label className="grow">{t("Title contains")}<input value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-          <button className="btn" type="submit">{t("Search")}</button>
-        </div>
-      </form>
-      <div className="table-wrap">
-        <table className="fit-table">
-          <thead><tr><th>{t("Name")}</th><th className="fit-action"></th></tr></thead>
-          <tbody>
-            {(data?.rows || []).map((row, index) => (
-              <tr key={`${row.id}-${index}`}>
-                <td>
-                  <span className="clip-line" title={row.title}>{row.title}</span>
-                  {row.meta ? <span className="muted clip-line" title={row.meta}>{row.meta}</span> : null}
-                </td>
-                <td>{row.id != null ? <button className="btn" type="button" onClick={() => act({ op: "history-play", historyId: row.id })}>{t("Play")}</button> : null}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+function sendModeLabel(mode, t) {
+  if (mode === "whisper") return t("Whisper");
+  if (mode === "voice") return t("Voice");
+  if (mode === "custom") return t("Custom");
+  return t("Unknown");
+}
+
+function whisperLabel(mode, t) {
+  if (mode === "whisper") return t("Whisper");
+  if (mode === "voice") return t("Voice");
+  if (mode === "group") return t("Group whisper");
+  if (mode === "none") return t("Not sending");
+  return t("Unknown");
 }
 
 function StartupStream({ hosting, stations }) {
@@ -1043,6 +1008,44 @@ export function Connection() {
   return (
     <div className="page">
       <h1>{t("Connection")}</h1>
+      {data?.connection ? (
+        <section className="card">
+          <h2>{t("Server")}</h2>
+          <p>
+            <span className={`pill pill-${data.connection.status === "connected" ? "ok" : data.connection.status === "offline" ? "bad" : "warn"}`}>{data.connection.statusLabel}</span>
+          </p>
+          {data.connection.error ? <p className="muted">{data.connection.error}</p> : null}
+          {data.connection.status === "connected" || data.connection.status === "connecting" ? <p className="mono">{data.connection.server || "—"}</p> : (
+            <form className="split" key={data.connection.server || "address"} onSubmit={(event) => {
+              event.preventDefault();
+              const formElement = event.currentTarget;
+              act({ op: "template-address", name: data.connection.name, address: new FormData(formElement).get("address") }).then((result) => {
+                if (kept(result)) reload();
+              });
+            }}>
+              <label className="grow">{t("Server")}
+                <input name="address" defaultValue={data.connection.server || data?.hosting?.address || ""} required maxLength={200} />
+              </label>
+              <button className="btn btn-primary" type="submit">{t("Save")}</button>
+            </form>
+          )}
+          <div className="inline">
+            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (kept(result)) reload(); })}>{t("Start")}</button> : null}
+            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (kept(result)) reload(); })}>{t("Disconnect")}</button> : null}
+          </div>
+        </section>
+      ) : null}
+      <section className="card">
+        <h2>{t("Whisper")}</h2>
+        <p className="muted">{t("Whisper sends audio only to subscribed clients, including the bot's current channel. Voice sends it to everyone in that channel. The choice is saved and applies again when the next song starts.")}</p>
+        <p>{t("Next song")}: {sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</p>
+        {data?.sendMode === "custom" ? <p className="muted">{t("A custom send command is saved. Whisper or Voice replaces it.")}</p> : null}
+        <p>{t("Right now")}: {whisperLabel(data?.whisper, t)}{data?.whisperError ? <span className="muted"> {data.whisperError}</span> : null}</p>
+        <div className="inline">
+          <button className="btn btn-primary" type="button" onClick={() => act({ op: "whisper", mode: "whisper" }).then((result) => { if (kept(result)) reload(); })}>{t("Whisper")}</button>
+          <button className="btn" type="button" onClick={() => act({ op: "whisper", mode: "voice" }).then((result) => { if (kept(result)) reload(); })}>{t("Voice")}</button>
+        </div>
+      </section>
       <p className="muted">{t("The panel remembers these settings. Clear the nickname or the default channel and save to reset it. An empty password, bitrate, or volume stays as it is. Passwords go to the bot and are not stored here.")}</p>
       <Notice error={error || actionError} note={note || localNote} />
       <form className="card" key={[
@@ -1137,33 +1140,6 @@ export function Connection() {
           <button className="btn" type="submit">{t("Move")}</button>
         </form>
       </section>
-      {data?.connection ? (
-        <section className="card">
-          <h2>{t("Server")}</h2>
-          <p>
-            <span className={`pill pill-${data.connection.status === "connected" ? "ok" : data.connection.status === "offline" ? "bad" : "warn"}`}>{data.connection.statusLabel}</span>
-          </p>
-          {data.connection.error ? <p className="muted">{data.connection.error}</p> : null}
-          {data.connection.status === "connected" || data.connection.status === "connecting" ? <p className="mono">{data.connection.server || "—"}</p> : (
-            <form className="split" key={data.connection.server || "address"} onSubmit={(event) => {
-              event.preventDefault();
-              const formElement = event.currentTarget;
-              act({ op: "template-address", name: data.connection.name, address: new FormData(formElement).get("address") }).then((result) => {
-                if (kept(result)) reload();
-              });
-            }}>
-              <label className="grow">{t("Server")}
-                <input name="address" defaultValue={data.connection.server || data?.hosting?.address || ""} required maxLength={200} />
-              </label>
-              <button className="btn btn-primary" type="submit">{t("Save")}</button>
-            </form>
-          )}
-          <div className="inline">
-            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (kept(result)) reload(); })}>{t("Start")}</button> : null}
-            {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (kept(result)) reload(); })}>{t("Disconnect")}</button> : null}
-          </div>
-        </section>
-      ) : null}
       <section className="card">
         <h2>{t("Channel commander")}</h2>
         <p className="muted">{t("The commander icon lets the bot use channel commands. It is saved and turns on again whenever the bot connects.")}</p>

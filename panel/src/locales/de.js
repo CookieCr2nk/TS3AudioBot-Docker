@@ -82,7 +82,6 @@ const de = {
   "rights.toml therefore allows every API call (isapi = true). Do not publish port 58913.":
     "rights.toml erlaubt deshalb jeden API-Aufruf (isapi = true). Port 58913 nicht nach außen veröffentlichen.",
   Playback: "Wiedergabe",
-  History: "Verlauf",
   Instances: "Instanzen",
   "On the Compose network the API address is enough. A token is stored encrypted only if you enter one.":
     "Im Compose-Netz reicht die API-Adresse. Ein Token wird nur verschlüsselt gespeichert, wenn du einen einträgst.",
@@ -121,7 +120,6 @@ const de = {
   "Delete bot": "Bot löschen",
   "Removes the panel entry, not the TS3AudioBot files.": "Entfernt den Eintrag aus dem Panel, nicht die Dateien des TS3AudioBot.",
   "Type the bot name to confirm": "Bot-Namen zur Bestätigung eingeben",
-  "Title contains": "Titel enthält",
   Search: "Suchen",
   Reset: "Zurücksetzen",
   "No entries.": "Keine Einträge.",
@@ -207,7 +205,6 @@ const de = {
   "Unknown title": "Unbekannter Titel",
   Queue: "Warteschlange",
   Untitled: "Ohne Titel",
-  "Entry {n}": "Eintrag {n}",
   "Result {index}": "Treffer {index}",
   "The bot API did not return a status.": "Die Bot-API hat keinen Status geliefert.",
   "{label}: {error}": "{label}: {error}",
@@ -234,7 +231,6 @@ const de = {
   "Added to the queue": "Zur Warteschlange hinzugefügt",
   "Jumped in the queue": "In der Warteschlange gesprungen",
   "Bot moved": "Bot verschoben",
-  "Started from history": "Aus dem Verlauf gestartet",
   "Playing search result": "Treffer wird abgespielt",
   "Search result added to the queue": "Treffer zur Warteschlange hinzugefügt",
   "Instance is starting": "Instanz wird gestartet",
@@ -248,7 +244,6 @@ const de = {
   "Seek {delta}s": "Sprung {delta}s",
   "Repeat {mode}": "Wiederholung {mode}",
   "Shuffle {mode}": "Zufall {mode}",
-  "History {id}": "Verlauf {id}",
   "Empty API segment": "Leeres API-Segment",
   "This bot has no instance set": "Für diesen Bot ist keine Instanz gesetzt",
   "Bot response is too large": "Antwort des Bots ist zu groß",
@@ -301,7 +296,6 @@ const de = {
   "Too many actions. Wait a moment.": "Zu viele Aktionen. Bitte kurz warten.",
   "This instance now controls playback.": "Diese Instanz steuert jetzt die Wiedergabe.",
   Done: "Erledigt",
-  "History · {name}": "Verlauf · {name}",
   "Instances · {name}": "Instanzen · {name}",
   "Bot saved.": "Bot gespeichert.",
   "Bot not found.": "Bot nicht gefunden.",
@@ -320,7 +314,6 @@ const de = {
   "The last administrator cannot be deleted.": "Der letzte Administrator kann nicht gelöscht werden.",
   "User deleted.": "Benutzer gelöscht.",
   Position: "Position",
-  "History ID": "Verlaufs-ID",
   Result: "Treffer",
   Offset: "Offset",
   Count: "Anzahl",
@@ -562,6 +555,27 @@ const de = {
   "Channel commander updated": "Channel-Commander geändert",
   "Channel commander is on": "Channel-Commander ist an",
   "Channel commander is off": "Channel-Commander ist aus",
+  Whisper: "Flüstern",
+  Voice: "Voice",
+  Custom: "Eigener Befehl",
+  "Next song": "Nächster Titel",
+  "Group whisper": "Gruppenflüstern",
+  "Not sending": "Sendet nicht",
+  "Whisper sends audio only to subscribed clients, including the bot's current channel. Voice sends it to everyone in that channel. The choice is saved and applies again when the next song starts.":
+    "Flüstern sendet den Ton nur an abonnierte Clients, inklusive des aktuellen Channels vom Bot. Voice sendet ihn an alle in diesem Channel. Die Wahl wird gespeichert und gilt wieder ab dem nächsten Titel.",
+  "A custom send command is saved. Whisper or Voice replaces it.":
+    "Ein eigener Sendebefehl ist gespeichert. Flüstern oder Voice ersetzt ihn.",
+  "Whisper mode updated": "Flüstermodus geändert",
+  "Whisper is on": "Flüstern ist an",
+  "Voice is on": "Voice ist an",
+  "Whisper is saved. It applies when the next song starts.":
+    "Flüstern ist gespeichert. Es gilt ab dem nächsten Titel.",
+  "Voice is saved. It applies when the next song starts.":
+    "Voice ist gespeichert. Es gilt ab dem nächsten Titel.",
+  "Whisper is saved. The connected bot could not be changed.":
+    "Flüstern ist gespeichert. Der verbundene Bot konnte nicht geändert werden.",
+  "Voice is saved. The connected bot could not be changed.":
+    "Voice ist gespeichert. Der verbundene Bot konnte nicht geändert werden.",
   "You cannot create bots. Ask an administrator to assign one.":
     "Du kannst keine Bots anlegen. Ein Administrator muss dir einen zuweisen.",
   "Bot assigned.": "Bot zugewiesen.",

@@ -68,9 +68,10 @@ import {
   displayStreamUrl,
   presentBotList,
   presentCommander,
+  presentSendMode,
   presentSetting,
   presentTsIdentity,
-  presentHistory,
+  presentWhisper,
   presentSearch,
   presentStatus,
   presentVersion,
@@ -728,17 +729,6 @@ api.post(
   }),
 );
 
-api.get(
-  "/bots/:id/history",
-  wrap(async (req, res) => {
-    const access = await openBot(req);
-    const query = String(req.query.q || "").trim();
-    const op = query ? "history-search" : "history-last";
-    const { data } = await runAction(access.bot, op, { query }, authOf(req, access));
-    ok(res, { rows: presentHistory(data, req.t), bot: botView(access, req.user.role === "admin") });
-  }),
-);
-
 function viewStream(stream, user) {
   return {
     id: stream.id,
@@ -863,6 +853,25 @@ api.get(
     } catch (err) {
       commanderError = errorText(err, req.t);
     }
+    let sendMode = null;
+    let sendModeError = null;
+    if (template) {
+      try {
+        const stored = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "audio.send_mode"], { timeoutMs: 4000 }));
+        sendMode = presentSendMode(stored);
+      } catch (err) {
+        sendModeError = errorText(err, req.t);
+      }
+    }
+    let whisper = null;
+    let whisperError = null;
+    if (status === "connected" || status === "connecting") {
+      try {
+        whisper = presentWhisper(await callBot(access.bot, scope(access.bot, ["whisper", "list"]), { timeoutMs: 4000 }));
+      } catch (err) {
+        whisperError = errorText(err, req.t);
+      }
+    }
     let teamspeakId = "";
     let teamspeakError = null;
     try {
@@ -887,6 +896,10 @@ api.get(
       commanderError,
       commanderSaved: commanderSavedValue,
       commanderSavedError,
+      sendMode,
+      sendModeError,
+      whisper,
+      whisperError,
       teamspeakId,
       teamspeakError,
     });
