@@ -584,6 +584,15 @@ const de = {
   "Can create bots": "Kann Bots anlegen",
   "Cannot sign in until a password is set": "Anmeldung erst möglich, wenn ein Passwort gesetzt ist",
   "Instance owner": "Instanz-Besitzer",
+  "#": "#",
+  Columns: "Spalten",
+  "Saved in this browser.": "In diesem Browser gespeichert.",
+  Up: "Nach oben",
+  Down: "Nach unten",
+  "Move {name} up": "{name} nach oben",
+  "Move {name} down": "{name} nach unten",
+  "Reset columns": "Spalten zurücksetzen",
+  "At least one column stays visible.": "Mindestens eine Spalte bleibt sichtbar.",
 };
 
 export default de;

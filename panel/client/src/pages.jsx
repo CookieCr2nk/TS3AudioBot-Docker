@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "./api.js";
+import { ColumnFrame, ColumnTable, useColumns } from "./columns.jsx";
 import { hostingChanges } from "./hostingForm.js";
 import { useAuth } from "./auth.jsx";
 import { LanguageSelect } from "./language.jsx";
@@ -197,6 +198,39 @@ export function Overview() {
   const cards = data?.cards || [];
   const online = cards.filter((card) => card.online).length;
   const bots = cards.reduce((total, card) => total + (card.botCount || 0), 0);
+  const overviewTable = useColumns("overview", [
+    {
+      id: "name",
+      label: "Name",
+      cell: (card) => (
+        <>
+          {card.name}
+          {card.ownerName ? <div className="muted">{card.ownerName}</div> : null}
+        </>
+      ),
+    },
+    {
+      id: "status",
+      label: "Status",
+      cell: (card) => (
+        <>
+          <span className={card.online ? "pill pill-ok" : "pill pill-bad"}>{card.online ? t("Connected") : t("Offline")}</span>
+          {card.version ? <div className="muted mono">{card.version}</div> : null}
+          {card.error ? <div className="muted">{card.error}</div> : null}
+        </>
+      ),
+    },
+    {
+      id: "bots",
+      label: "Bots",
+      cell: (card) => <Link to={`/bots?instance=${card.id}`} aria-label={t("Open in Bots")}>{t("{count} bots", { count: card.botCount })}</Link>,
+    },
+    {
+      id: "open",
+      locked: "end",
+      cell: (card) => <Link className="btn" to={`/instances/${card.id}`}>{t("Open")}</Link>,
+    },
+  ]);
   return (
     <div className="page">
       <div className="page-head">
@@ -226,35 +260,9 @@ export function Overview() {
       ) : null}
       {data && cards.length === 0 ? <p className="muted">{t("No instance has been added yet.")}</p> : null}
       {cards.length ? (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("Name")}</th>
-                <th>{t("Status")}</th>
-                <th>{t("Bots")}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {cards.map((card) => (
-                <tr key={card.id}>
-                  <td>
-                    {card.name}
-                    {card.ownerName ? <div className="muted">{card.ownerName}</div> : null}
-                  </td>
-                  <td>
-                    <span className={card.online ? "pill pill-ok" : "pill pill-bad"}>{card.online ? t("Connected") : t("Offline")}</span>
-                    {card.version ? <div className="muted mono">{card.version}</div> : null}
-                    {card.error ? <div className="muted">{card.error}</div> : null}
-                  </td>
-                  <td><Link to={`/bots?instance=${card.id}`} aria-label={t("Open in Bots")}>{t("{count} bots", { count: card.botCount })}</Link></td>
-                  <td><Link className="btn" to={`/instances/${card.id}`}>{t("Open")}</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ColumnFrame picker={overviewTable.picker}>
+          <ColumnTable columns={overviewTable.shown} rows={cards} rowKey={(card) => card.id} />
+        </ColumnFrame>
       ) : null}
     </div>
   );
@@ -360,6 +368,139 @@ export function BotsPage() {
     setParams(next);
   }
 
+  const botTable = useColumns("bots", [
+    {
+      id: "select",
+      locked: "start",
+      cellClass: "bot-check",
+      header: () => (
+        <input ref={allRef} type="checkbox" checked={allPicked} disabled={!selectable.length} aria-label={t("Select all")} onChange={toggleVisible} />
+      ),
+      cell: (bot) => (
+        <input
+          type="checkbox"
+          checked={selected.includes(bot.id)}
+          disabled={!bot.canControl}
+          aria-label={t("Select {name}", { name: bot.name })}
+          title={bot.canControl ? "" : t("Read only")}
+          onChange={() => toggle(bot.id)}
+        />
+      ),
+    },
+    {
+      id: "name",
+      label: "Name",
+      cellClass: "bot-name",
+      cell: (bot) => <Link className="bot-clip" to={`/bots/${bot.id}`} title={bot.name}>{bot.name}</Link>,
+    },
+    {
+      id: "owner",
+      label: "Owner",
+      cellClass: "owner",
+      cell: (bot) => (user.role === "admin" ? (
+        <select
+          className="owner-select"
+          aria-label={t("Owner")}
+          key={`${bot.id}-${bot.assigneeUserId || "none"}`}
+          defaultValue={bot.assigneeUserId || ""}
+          onChange={async (event) => {
+            const select = event.currentTarget;
+            const next = select.value;
+            const previous = String(bot.assigneeUserId || "");
+            setFormError("");
+            try {
+              const result = await api(`/api/bots/${bot.id}/assignee`, {
+                method: "POST",
+                body: { userId: next },
+              });
+              setNote(result.message || "");
+              reload();
+            } catch (err) {
+              select.value = previous;
+              setFormError(err.message);
+              reload();
+            }
+          }}
+        >
+          <option value="">{bot.instanceOwnerName ? t("Instance owner ({name})", { name: bot.instanceOwnerName }) : t("Instance owner")}</option>
+          {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+        </select>
+      ) : (bot.ownerName || t("No owner"))),
+    },
+    {
+      id: "instance",
+      label: "Instance",
+      cell: (bot) => (bot.instanceId
+        ? <Link className="bot-clip" to={`/instances/${bot.instanceId}`} title={bot.instanceName}>{bot.instanceName}</Link>
+        : <span className="bot-clip" title={bot.instanceName}>{bot.instanceName}</span>),
+    },
+    {
+      id: "status",
+      label: "Status",
+      cell: (bot) => {
+        const playback = bot.playback;
+        let status = t("Not playing");
+        let pill = "pill";
+        if (playback && !playback.online) {
+          status = t("Offline");
+          pill = "pill pill-bad";
+        } else if (playback?.title && playback.paused === false) {
+          status = t("Playing");
+          pill = "pill pill-ok";
+        } else if (playback?.title && playback.paused) {
+          status = t("Paused");
+          pill = "pill pill-warn";
+        }
+        const server = playback?.online && playback.server ? playback.server : bot.address;
+        return (
+          <>
+            <span className={pill} title={playback?.error || ""}>{status}</span>
+            {server ? <span className="mono muted bot-server" title={server}>{server}</span> : null}
+          </>
+        );
+      },
+    },
+    {
+      id: "playing",
+      label: "Now playing",
+      headerClass: "bot-playing",
+      cellClass: "bot-playing",
+      cell: (bot) => <span className="bot-clip" title={bot.playback?.title || ""}>{bot.playback?.title || "—"}</span>,
+    },
+    {
+      id: "volume",
+      label: "Volume",
+      headerClass: "bot-volume",
+      cellClass: "mono bot-volume",
+      cell: (bot) => (bot.playback?.volume != null ? bot.playback.volume : "—"),
+    },
+    {
+      id: "open",
+      locked: "end",
+      cellClass: "inline bot-actions",
+      cell: (bot) => (
+        <>
+          <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
+          {bot.canDelete ? (
+            <DeleteBot name={bot.name} onSubmit={async (confirm) => {
+              setFormError("");
+              try {
+                const result = await api(`/api/instances/${bot.instanceId}/bots/delete`, {
+                  method: "POST",
+                  body: { name: bot.template || bot.name, confirm },
+                });
+                setNote(result.message || "");
+                reload();
+              } catch (err) {
+                setFormError(err.message);
+              }
+            }} />
+          ) : null}
+        </>
+      ),
+    },
+  ]);
+
   return (
     <div className="page page-wide">
       <div className="page-head">
@@ -417,114 +558,15 @@ export function BotsPage() {
       dockSlot) : null}
       {data && filtered.length === 0 ? <p className="muted">{bots.length ? t("Nothing matches.") : t("No bots yet.")}</p> : null}
       {filtered.length ? (
-        <div className="table-wrap bot-list">
-          <table className="bot-table">
-            <thead>
-              <tr>
-                <th>
-                  <input ref={allRef} type="checkbox" checked={allPicked} disabled={!selectable.length} aria-label={t("Select all")} onChange={toggleVisible} />
-                </th>
-                <th>{t("Name")}</th>
-                <th>{t("Owner")}</th>
-                <th>{t("Instance")}</th>
-                <th>{t("Status")}</th>
-                <th className="bot-playing">{t("Now playing")}</th>
-                <th className="bot-volume">{t("Volume")}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((bot) => {
-                const playback = bot.playback;
-                const picked = selected.includes(bot.id);
-                let status = t("Not playing");
-                let pill = "pill";
-                if (playback && !playback.online) {
-                  status = t("Offline");
-                  pill = "pill pill-bad";
-                } else if (playback?.title && playback.paused === false) {
-                  status = t("Playing");
-                  pill = "pill pill-ok";
-                } else if (playback?.title && playback.paused) {
-                  status = t("Paused");
-                  pill = "pill pill-warn";
-                }
-                const server = playback?.online && playback.server ? playback.server : bot.address;
-                return (
-                  <tr key={bot.id} className={picked ? "picked" : ""}>
-                    <td className="bot-check">
-                      <input
-                        type="checkbox"
-                        checked={picked}
-                        disabled={!bot.canControl}
-                        aria-label={t("Select {name}", { name: bot.name })}
-                        title={bot.canControl ? "" : t("Read only")}
-                        onChange={() => toggle(bot.id)}
-                      />
-                    </td>
-                    <td className="bot-name"><Link className="bot-clip" to={`/bots/${bot.id}`} title={bot.name}>{bot.name}</Link></td>
-                    <td className="owner">
-                      {user.role === "admin" ? (
-                        <select
-                          className="owner-select"
-                          aria-label={t("Owner")}
-                          key={`${bot.id}-${bot.assigneeUserId || "none"}`}
-                          defaultValue={bot.assigneeUserId || ""}
-                          onChange={async (event) => {
-                            const select = event.currentTarget;
-                            const next = select.value;
-                            const previous = String(bot.assigneeUserId || "");
-                            setFormError("");
-                            try {
-                              const result = await api(`/api/bots/${bot.id}/assignee`, {
-                                method: "POST",
-                                body: { userId: next },
-                              });
-                              setNote(result.message || "");
-                              reload();
-                            } catch (err) {
-                              select.value = previous;
-                              setFormError(err.message);
-                              reload();
-                            }
-                          }}
-                        >
-                          <option value="">{bot.instanceOwnerName ? t("Instance owner ({name})", { name: bot.instanceOwnerName }) : t("Instance owner")}</option>
-                          {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
-                        </select>
-                      ) : (bot.ownerName || t("No owner"))}
-                    </td>
-                    <td>{bot.instanceId ? <Link className="bot-clip" to={`/instances/${bot.instanceId}`} title={bot.instanceName}>{bot.instanceName}</Link> : <span className="bot-clip" title={bot.instanceName}>{bot.instanceName}</span>}</td>
-                    <td>
-                      <span className={pill} title={playback?.error || ""}>{status}</span>
-                      {server ? <span className="mono muted bot-server" title={server}>{server}</span> : null}
-                    </td>
-                    <td className="bot-playing"><span className="bot-clip" title={playback?.title || ""}>{playback?.title || "—"}</span></td>
-                    <td className="mono bot-volume">{playback?.volume != null ? playback.volume : "—"}</td>
-                    <td className="inline bot-actions">
-                      <Link className="btn" to={`/bots/${bot.id}`}>{t("Open")}</Link>
-                      {bot.canDelete ? (
-                        <DeleteBot name={bot.name} onSubmit={async (confirm) => {
-                          setFormError("");
-                          try {
-                            const result = await api(`/api/instances/${bot.instanceId}/bots/delete`, {
-                              method: "POST",
-                              body: { name: bot.template || bot.name, confirm },
-                            });
-                            setNote(result.message || "");
-                            reload();
-                          } catch (err) {
-                            setFormError(err.message);
-                          }
-                        }} />
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ColumnFrame picker={botTable.picker} wrapClass="bot-list">
+          <ColumnTable
+            tableClass="bot-table"
+            columns={botTable.shown}
+            rows={visible}
+            rowKey={(bot) => bot.id}
+            rowClass={(bot) => (selected.includes(bot.id) ? "picked" : "")}
+          />
+        </ColumnFrame>
       ) : null}
     </div>
   );
@@ -766,6 +808,32 @@ export function Playback() {
     return player?.act(body);
   }
 
+  const queueTable = useColumns("queue", [
+    {
+      id: "index",
+      label: "#",
+      headerClass: "col-index",
+      cellClass: "mono",
+      cell: (item) => item.index,
+    },
+    {
+      id: "title",
+      label: "Queue",
+      header: () => queue?.title || t("Queue"),
+      cellClass: "clip-cell",
+      cellTitle: (item) => item.title,
+      cell: (item) => item.title,
+    },
+    {
+      id: "jump",
+      locked: "end",
+      headerClass: "fit-action",
+      cell: (item) => (
+        <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "jump", index: item.index })}>{t("Jump")}</button>
+      ),
+    },
+  ]);
+
   return (
     <div className="page">
       <div className="page-head">
@@ -785,20 +853,15 @@ export function Playback() {
         <button className="btn btn-danger" type="button" disabled={!canControl} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
       </div>
       {queue?.items?.length ? (
-        <div className="table-wrap">
-          <table className="fit-table">
-            <thead><tr><th className="col-index">#</th><th>{queue.title || t("Queue")}</th><th className="fit-action"></th></tr></thead>
-            <tbody>
-              {queue.items.map((item) => (
-                <tr key={item.index} className={item.index === queue.index ? "picked" : ""}>
-                  <td className="mono">{item.index}</td>
-                  <td className="clip-cell" title={item.title}>{item.title}</td>
-                  <td><button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "jump", index: item.index })}>{t("Jump")}</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ColumnFrame picker={queueTable.picker}>
+          <ColumnTable
+            tableClass="fit-table"
+            columns={queueTable.shown}
+            rows={queue.items}
+            rowKey={(item) => item.index}
+            rowClass={(item) => (item.index === queue.index ? "picked" : "")}
+          />
+        </ColumnFrame>
       ) : null}
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
@@ -1172,7 +1235,6 @@ export function Users() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState(null);
-  if (user.role !== "admin") return <p className="flash flash-error">{t("Administrators only")}</p>;
   async function post(path, body) {
     setFormError("");
     const result = await api(path, { method: "POST", body });
@@ -1191,6 +1253,56 @@ export function Users() {
     const names = (ids || []).map((id) => instances.find((item) => item.id === id)?.name).filter(Boolean);
     return names.length ? names.join(", ") : t("None");
   }
+  const userTable = useColumns("users", [
+    {
+      id: "username",
+      label: "Username",
+      cellClass: "nowrap",
+      cell: (account) => (
+        <>
+          {account.username}
+          {account.hasPassword ? null : <span className="pill pill-warn" title={t("Cannot sign in until a password is set")}>{t("No password")}</span>}
+        </>
+      ),
+    },
+    {
+      id: "role",
+      label: "Role",
+      cellClass: "nowrap",
+      cell: (account) => (account.role === "admin" ? t("Administrator") : t("User")),
+    },
+    {
+      id: "status",
+      label: "Status",
+      cellClass: "nowrap",
+      cell: (account) => <span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span>,
+    },
+    {
+      id: "create",
+      label: "Can create bots",
+      cellClass: "nowrap",
+      cell: (account) => (account.canCreateBots ? t("Yes") : t("No")),
+    },
+    {
+      id: "limit",
+      label: "Bot limit",
+      cellClass: "nowrap",
+      cell: (account) => account.botLimit ?? t("Unlimited"),
+    },
+    {
+      id: "instances",
+      label: "Instances",
+      cell: (account) => <span className="user-instances" title={instanceNames(account.instanceIds)}>{instanceNames(account.instanceIds)}</span>,
+    },
+    {
+      id: "edit",
+      locked: "end",
+      cell: (account) => (
+        <button className="btn" type="button" onClick={() => setOpenId(openId === account.id ? null : account.id)}>{openId === account.id ? t("Close") : t("Edit")}</button>
+      ),
+    },
+  ]);
+  if (user.role !== "admin") return <p className="flash flash-error">{t("Administrators only")}</p>;
   return (
     <div className="page">
       <h1>{t("Users")}</h1>
@@ -1259,40 +1371,15 @@ export function Users() {
           <button className="btn" type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>{t("Next page")}</button>
         </div>
       </div>
-      <div className="table-wrap">
-        <table>
-          <thead>
+      <ColumnFrame picker={userTable.picker}>
+        <ColumnTable
+          columns={userTable.shown}
+          rows={visible}
+          rowKey={(account) => account.id}
+          extra={(account, count) => (openId === account.id ? (
             <tr>
-              <th>{t("Username")}</th>
-              <th>{t("Role")}</th>
-              <th>{t("Status")}</th>
-              <th>{t("Can create bots")}</th>
-              <th>{t("Bot limit")}</th>
-              <th>{t("Instances")}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((account) => (
-              <Fragment key={account.id}>
-                <tr>
-                  <td className="nowrap">
-                    {account.username}
-                    {account.hasPassword ? null : <span className="pill pill-warn" title={t("Cannot sign in until a password is set")}>{t("No password")}</span>}
-                  </td>
-                  <td className="nowrap">{account.role === "admin" ? t("Administrator") : t("User")}</td>
-                  <td className="nowrap"><span className={account.suspended ? "pill pill-bad" : "pill pill-ok"}>{account.suspended ? t("Suspended") : t("Active")}</span></td>
-                  <td className="nowrap">{account.canCreateBots ? t("Yes") : t("No")}</td>
-                  <td className="nowrap">{account.botLimit ?? t("Unlimited")}</td>
-                  <td><span className="user-instances" title={instanceNames(account.instanceIds)}>{instanceNames(account.instanceIds)}</span></td>
-                  <td>
-                    <button className="btn" type="button" onClick={() => setOpenId(openId === account.id ? null : account.id)}>{openId === account.id ? t("Close") : t("Edit")}</button>
-                  </td>
-                </tr>
-                {openId === account.id ? (
-                  <tr>
-                    <td colSpan={7}>
-                      <form className="user-edit" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
+              <td colSpan={count}>
+                <form className="user-edit" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
                         event.preventDefault();
                         const form = new FormData(event.currentTarget);
                         const role = form.get("role");
@@ -1362,14 +1449,11 @@ export function Users() {
                           ) : null}
                         </div>
                       </form>
-                    </td>
-                  </tr>
-                ) : null}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </td>
+            </tr>
+          ) : null)}
+        />
+      </ColumnFrame>
     </div>
   );
 }
@@ -1380,6 +1464,27 @@ export function Audit() {
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
+  const auditTable = useColumns("audit", [
+    {
+      id: "time",
+      label: "Time",
+      cellClass: "mono",
+      cell: (row) => (row.createdAt ? new Date(row.createdAt).toLocaleString() : ""),
+    },
+    { id: "name", label: "Name", cell: (row) => row.username },
+    { id: "action", label: "Action", cell: (row) => row.action },
+    {
+      id: "detail",
+      label: "Detail",
+      cellClass: "audit-detail",
+      cell: (row) => (
+        <>
+          {row.detail}
+          {row.botName ? <div className="muted">{row.botName}</div> : null}
+        </>
+      ),
+    },
+  ]);
   if (user.role !== "admin") return <p className="flash flash-error">{t("Administrators only")}</p>;
   return (
     <div className="page">
@@ -1404,21 +1509,13 @@ export function Audit() {
       <p className="muted">{t("The last 200 actions. API tokens are not listed here.")}</p>
       <p className="muted">{t("This deletes every protocol entry older than 24 hours. The last day stays in the database.")}</p>
       <Notice error={formError || error} note={note} />
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>{t("Time")}</th><th>{t("Name")}</th><th>{t("Action")}</th><th>{t("Detail")}</th></tr></thead>
-          <tbody>
-            {(data?.rows || []).map((row, index) => (
-              <tr key={`${row.createdAt}-${index}`}>
-                <td className="mono">{row.createdAt ? new Date(row.createdAt).toLocaleString() : ""}</td>
-                <td>{row.username}</td>
-                <td>{row.action}</td>
-                <td className="audit-detail">{row.detail}{row.botName ? <div className="muted">{row.botName}</div> : null}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ColumnFrame picker={auditTable.picker}>
+        <ColumnTable
+          columns={auditTable.shown}
+          rows={data?.rows || []}
+          rowKey={(row, index) => `${row.createdAt}-${index}`}
+        />
+      </ColumnFrame>
     </div>
   );
 }
