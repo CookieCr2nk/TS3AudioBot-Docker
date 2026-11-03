@@ -24,6 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Connection can switch a bot between whisper and voice. The choice is saved, applied to a connected bot, and used again when the next song starts
 
 ### Changed
+- Help text on the panel pages states what a field does and what leaving it empty does
 - The panel database schema is one migration file. A database from release 1.0, or one that already applied the older migration files, is upgraded when the panel starts
 - Bot lists and the player ask the database for less work. Built files stay cached, and authenticated API responses are not stored by the browser. A password longer than 200 characters cannot be used to sign in
 - Stop on the playback page no longer asks for confirmation. A bot name can be 120 characters. A failed owner change stays on the previous user. A search result does not appear on another bot. The panel name in the sidebar opens the overview without reloading the page. Starting or stopping several bots counts against the action limit only when the whole batch fits

@@ -69,7 +69,7 @@ export function useColumns(tableId, columns) {
       </button>
       {open ? (
         <div className="column-menu" id={menuId} role="dialog" aria-label={t("Columns")}>
-          <p className="muted">{t("Saved in this browser.")}</p>
+          <p className="muted">{t("Kept in this browser only, not on the account.")}</p>
           {rows.map((col, index) => {
             const name = t(col.label);
             const shown = !layout.hidden.includes(col.id);
