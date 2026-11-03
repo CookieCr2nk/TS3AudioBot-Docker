@@ -286,6 +286,21 @@ export function presentClientChannel(data) {
   return text;
 }
 
+export function countRunningBots(listed, names) {
+  const live = [];
+  for (const item of listed || []) {
+    if (item?.status !== "connected" && item?.status !== "connecting") continue;
+    if (item.name) live.push(item.name);
+  }
+  if (!names) return live.length;
+  const known = names instanceof Set ? names : new Set(names);
+  let running = 0;
+  for (const name of known) {
+    if (live.includes(name)) running += 1;
+  }
+  return running;
+}
+
 export function presentBotList(data, t = applyParams) {
   const list = asList(data) || [];
   return list.map((item) => {

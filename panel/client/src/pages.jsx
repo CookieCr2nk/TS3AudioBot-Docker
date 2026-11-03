@@ -191,13 +191,88 @@ export function Login() {
   );
 }
 
+function boardWidth(part, total) {
+  if (!total) return "0%";
+  return `${Math.round((part / total) * 100)}%`;
+}
+
+function StatusBoard({ summary, admin }) {
+  const { t } = useAuth();
+  const instances = summary.instances || { total: 0, online: 0, offline: 0, disabled: 0 };
+  const bots = summary.bots || { registered: 0, running: 0, stopped: 0 };
+  const accounts = summary.users;
+  return (
+    <section className={admin && accounts ? "board" : "board board-two"} aria-label={t("Dashboard")}>
+      <article className="board-card">
+        <div className="board-head">
+          <h2>{t("Instances")}</h2>
+          <span className={instances.online ? "pill pill-ok" : "pill"}>{instances.online ? t("Online") : t("Offline")}</span>
+        </div>
+        <p className="board-figure">
+          <strong>{instances.online}</strong>
+          <span>/{instances.total}</span>
+        </p>
+        <div className="meter" role="img" aria-label={t("{online} of {count} instances are online", { online: instances.online, count: instances.total })}>
+          <span style={{ width: boardWidth(instances.online, instances.total) }} />
+        </div>
+        <ul className="board-rows">
+          <li><span className="pill pill-ok">{t("Online")}</span><b>{instances.online}</b></li>
+          <li><span className="pill pill-bad">{t("Offline")}</span><b>{instances.offline}</b></li>
+          {admin ? <li><span className="pill">{t("Disabled")}</span><b>{instances.disabled}</b></li> : null}
+        </ul>
+      </article>
+      <article className="board-card">
+        <div className="board-head">
+          <h2>{t("Bots")}</h2>
+          <Link to="/bots">{t("Open")}</Link>
+        </div>
+        <p className="board-figure">
+          <strong>{bots.running}</strong>
+          <span>/{bots.registered}</span>
+        </p>
+        <div className="meter meter-ok" role="img" aria-label={t("{running} of {count} bots are running", { running: bots.running, count: bots.registered })}>
+          <span style={{ width: boardWidth(bots.running, bots.registered) }} />
+        </div>
+        <ul className="board-rows">
+          <li><span className="pill pill-ok">{t("Running")}</span><b>{bots.running}</b></li>
+          <li><span className="pill pill-bad">{t("Stopped")}</span><b>{bots.stopped}</b></li>
+          <li><span className="pill">{t("Registered")}</span><b>{bots.registered}</b></li>
+        </ul>
+        {admin && bots.process > bots.running ? (
+          <p className="muted">{t("{count} connected on the process", { count: bots.process })}</p>
+        ) : null}
+      </article>
+      {admin && accounts ? (
+        <article className="board-card">
+          <div className="board-head">
+            <h2>{t("Accounts")}</h2>
+            <Link to="/users">{t("Open")}</Link>
+          </div>
+          <p className="board-figure">
+            <strong>{accounts.active}</strong>
+            <span>/{accounts.total}</span>
+          </p>
+          <div className="meter" role="img" aria-label={t("{active} of {count} accounts can sign in", { active: accounts.active, count: accounts.total })}>
+            <span style={{ width: boardWidth(accounts.active, accounts.total) }} />
+          </div>
+          <ul className="board-rows">
+            <li><span className="pill pill-ok">{t("Active")}</span><b>{accounts.active}</b></li>
+            <li><span className="pill pill-bad">{t("Suspended")}</span><b>{accounts.suspended}</b></li>
+            <li><span className="pill">{t("Administrators")}</span><b>{accounts.administrators}</b></li>
+            <li><span className="pill pill-warn">{t("No password")}</span><b>{accounts.noPassword}</b></li>
+          </ul>
+        </article>
+      ) : null}
+    </section>
+  );
+}
+
 export function Overview() {
   const { user, t } = useAuth();
   const location = useLocation();
   const { data, error } = useLoad("/api/overview");
   const cards = data?.cards || [];
-  const online = cards.filter((card) => card.online).length;
-  const bots = cards.reduce((total, card) => total + (card.botCount || 0), 0);
+  const summary = data?.summary;
   const overviewTable = useColumns("overview", [
     {
       id: "name",
@@ -223,7 +298,12 @@ export function Overview() {
     {
       id: "bots",
       label: "Bots",
-      cell: (card) => <Link to={`/bots?instance=${card.id}`} aria-label={t("Open in Bots")}>{t("{count} bots", { count: card.botCount })}</Link>,
+      cell: (card) => (
+        <>
+          <Link to={`/bots?instance=${card.id}`} aria-label={t("Open in Bots")}>{t("{count} bots", { count: card.botCount })}</Link>
+          <div className="muted">{t("{running} running", { running: card.running || 0 })}</div>
+        </>
+      ),
     },
     {
       id: "open",
@@ -244,20 +324,7 @@ export function Overview() {
         </span>
       </div>
       <Notice error={error} note={location.state?.note || ""} />
-      {data ? (
-        <section className="stats" aria-label={t("Dashboard")}>
-          <div className="stat"><span>{t("Instances")}</span><strong>{cards.length}</strong></div>
-          <div className="stat stat-ok"><span>{t("Online")}</span><strong>{online}</strong></div>
-          <div className="stat stat-bad"><span>{t("Offline")}</span><strong>{cards.length - online}</strong></div>
-          <div className="stat"><span>{t("Bots")}</span><strong>{bots}</strong></div>
-          <div className="stat-meter">
-            <div className="meter" role="img" aria-label={t("{online} of {count} instances are online", { online, count: cards.length })}>
-              <span style={{ width: cards.length ? `${Math.round((online / cards.length) * 100)}%` : "0%" }} />
-            </div>
-            <p className="muted">{t("{online} of {count} instances are online", { online, count: cards.length })}</p>
-          </div>
-        </section>
-      ) : null}
+      {summary ? <StatusBoard summary={summary} admin={user.role === "admin"} /> : null}
       {data && cards.length === 0 ? <p className="muted">{t("No instance has been added yet.")}</p> : null}
       {cards.length ? (
         <ColumnFrame picker={overviewTable.picker}>

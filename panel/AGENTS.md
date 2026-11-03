@@ -38,7 +38,7 @@ Read this section before changing a page. The human guide is `../README.md`. Thi
 
 | Route | Page | Who |
 |---|---|---|
-| `/` | Overview. Counts and instance cards | Signed in. A non-admin count includes only assigned bots |
+| `/` | Overview. Instance, bot, and account status, then the instance table | Signed in. A non-admin count includes only assigned bots. Account counts are administrators only |
 | `/bots` | Bot table, filter, pages, bulk start and stop | Signed in. Rows come from `listAccessibleBots` |
 | `/instances/:id` | Create, attach, and, for an administrator, edit or delete the instance | Signed in if the instance is visible. Settings are admin |
 | `/bots/:id` | Playback, search, queue | Anyone who can open that bot |

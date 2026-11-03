@@ -13,7 +13,7 @@ import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { rateLimit } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
-import { displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentSetting, presentStatus, presentTsIdentity, presentWhisper } from "../src/present.js";
+import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentSetting, presentStatus, presentTsIdentity, presentWhisper } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -299,6 +299,15 @@ describe("status and lists", () => {
 
   it("normalizes search and bot rows", () => {
     assert.equal(presentSearch("0: Sonne\n1: Ich will")[1].title, "Ich will");
+    assert.equal(countRunningBots([
+      { status: "connected", name: "default" },
+      { status: "connecting", name: "lobby" },
+      { status: "offline", name: "quiet" },
+    ], ["default", "quiet", "missing"]), 1);
+    assert.equal(countRunningBots([
+      { status: "connected", name: "default" },
+      { status: "offline", name: "quiet" },
+    ], null), 1);
     assert.deepEqual(presentBotList([
       { Id: null, Name: "default", Server: "ts.example.com", Status: 0 },
       { Id: 2, Name: "lobby", Server: "", Status: "Connected" },

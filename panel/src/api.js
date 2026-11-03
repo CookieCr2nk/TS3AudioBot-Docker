@@ -66,6 +66,7 @@ import { applyRequestLanguage, errorText, languages, phrasesFor } from "./i18n.j
 import { hashPassword, verifyPassword } from "./passwords.js";
 import {
   displayStreamUrl,
+  countRunningBots,
   presentBotList,
   presentCommander,
   presentSendMode,
@@ -243,6 +244,16 @@ function publicInstance(instance, admin) {
   };
 }
 
+function accountSummary(accounts) {
+  return {
+    total: accounts.length,
+    active: accounts.filter((account) => !account.suspended).length,
+    suspended: accounts.filter((account) => account.suspended).length,
+    administrators: accounts.filter((account) => account.role === "admin").length,
+    noPassword: accounts.filter((account) => !account.hasPassword).length,
+  };
+}
+
 api.get(
   "/overview",
   wrap(async (req, res) => {
@@ -250,19 +261,61 @@ api.get(
     const rows = admin
       ? await listInstances({ token: true })
       : await listInstancesForUser(req.user.id, { token: true });
+    const visible = await listAccessibleBots(req.user, { token: false });
+    const namesByInstance = new Map();
+    for (const row of visible) {
+      const id = row.bot.instanceId;
+      if (!namesByInstance.has(id)) namesByInstance.set(id, new Set());
+      if (row.bot.instanceRef) namesByInstance.get(id).add(row.bot.instanceRef);
+    }
     const cards = await Promise.all(
       rows.map(async (row) => {
-        const card = { ...publicInstance(row, admin), canControl: admin ? true : Boolean(row.canControl), online: false, version: null, error: null };
+        const card = {
+          ...publicInstance(row, admin),
+          canControl: admin ? true : Boolean(row.canControl),
+          online: false,
+          version: null,
+          error: null,
+          running: 0,
+        };
         try {
           card.version = presentVersion(await callBot(instanceClient(row), ["version"], { timeoutMs: 4000 }));
           card.online = true;
         } catch (err) {
           card.error = errorText(err, req.t);
+          return card;
+        }
+        try {
+          const listed = presentBotList(await callBot(instanceClient(row), ["bot", "list"], { timeoutMs: 4000 }));
+          const names = namesByInstance.get(row.id) || new Set();
+          card.running = countRunningBots(listed, names);
+          if (admin) card.process = countRunningBots(listed, null);
+        } catch {
+          card.running = 0;
         }
         return card;
       }),
     );
-    ok(res, { cards });
+    const registered = visible.length;
+    const running = cards.reduce((total, card) => total + (card.running || 0), 0);
+    const bots = {
+      registered,
+      running,
+      stopped: Math.max(0, registered - running),
+    };
+    if (admin) bots.process = cards.reduce((total, card) => total + (card.process || 0), 0);
+    for (const card of cards) delete card.process;
+    const summary = {
+      instances: {
+        total: cards.length,
+        online: cards.filter((card) => card.online).length,
+        offline: cards.filter((card) => card.enabled && !card.online).length,
+        disabled: cards.filter((card) => !card.enabled).length,
+      },
+      bots,
+      users: admin ? accountSummary(await listUsers()) : null,
+    };
+    ok(res, { cards, summary });
   }),
 );
 
