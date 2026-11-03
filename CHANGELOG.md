@@ -4,6 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Attaching an existing bot is limited to an administrator or the instance owner. An account that can create bots cannot claim a template that is already on the instance
+- Play and add no longer copy a stream password into the audit log
+- A link-local address written as IPv6 is rejected, including an IPv4 address inside IPv6
+- A password longer than 72 bytes is rejected. bcrypt would otherwise treat it as its first 72 bytes
+- The overview meter can set its width. Style attributes are allowed, and scripts stay limited to the panel
+
 ### Added
 - The overview shows how many instances answer, how many bots are running, and, for an administrator, how many accounts can sign in
 - List tables keep their current columns until the browser changes them. Columns can hide or reorder the other fields, and that choice stays in the browser

@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 
 const ROUNDS = 12;
-const MAX_PASSWORD = 200;
+const MAX_PASSWORD_BYTES = 72;
 let dummyHash = null;
 let dummyTask = null;
 
@@ -26,8 +26,9 @@ export async function hashPassword(password) {
 
 export async function verifyPassword(password, hash) {
   const text = String(password);
-  const usable = Boolean(hash) && text.length <= MAX_PASSWORD;
+  const usable = Boolean(hash) && Buffer.byteLength(text) <= MAX_PASSWORD_BYTES;
   const known = usable ? hash : await dummy();
-  const ok = await bcrypt.compare(text.length > MAX_PASSWORD ? text.slice(0, 72) : text, known);
+  // A longer password must not be compared. bcrypt would ignore everything after 72 bytes.
+  const ok = await bcrypt.compare(usable ? text : "ts3panel-dummy-password", known);
   return usable && ok;
 }

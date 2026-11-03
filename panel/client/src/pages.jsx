@@ -721,7 +721,7 @@ export function InstancePage() {
         </form>
       ) : null}
 
-      {data.canCreate ? (
+      {data.canManage ? (
         <form className="card" onSubmit={(event) => {
           event.preventDefault();
           const name = new FormData(event.currentTarget).get("name");
