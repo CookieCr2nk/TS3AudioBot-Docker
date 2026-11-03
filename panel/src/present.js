@@ -259,6 +259,135 @@ export function presentWhisper(data) {
   return whisperToken(raw);
 }
 
+export function presentWhisperTargets(data) {
+  const value = unwrap(data);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { clients: [], channels: [] };
+  return {
+    clients: idList(value.WhisperClients ?? value.whisperClients, 65535),
+    channels: idList(value.WhisperChannel ?? value.WhisperChannels ?? value.whisperChannel, 4294967295),
+  };
+}
+
+export function presentServerTree(data) {
+  const value = unwrap(data);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { channels: [], clients: [] };
+  const channels = [];
+  const seenChannel = new Set();
+  for (const row of pairs(value.Channels ?? value.channels)) {
+    const id = rowId(row.key, row.value);
+    if (!id || seenChannel.has(id) || channels.length >= 500) continue;
+    const record = row.value && typeof row.value === "object" ? row.value : {};
+    seenChannel.add(id);
+    channels.push({
+      id,
+      name: cleanLabel(record.Name ?? record.name ?? record.ChannelName) || `#${id}`,
+      parent: positiveId(record.Parent ?? record.ParentId ?? record.parent ?? record.Pid),
+    });
+  }
+  const byId = new Map(channels.map((item) => [item.id, item]));
+  const paths = new Map();
+  const pathOf = (id, trail) => {
+    if (paths.has(id) && trail.size === 0) return paths.get(id);
+    const item = byId.get(id);
+    if (!item || trail.has(id)) return item?.name || "";
+    const next = new Set(trail);
+    next.add(id);
+    let path = item.name;
+    if (item.parent && item.parent !== id && byId.has(item.parent) && !next.has(item.parent)) {
+      const parent = pathOf(item.parent, next);
+      if (parent) path = `${parent} / ${item.name}`;
+    }
+    if (trail.size === 0) paths.set(id, path);
+    return path;
+  };
+  const listed = channels
+    .map((item) => ({ id: item.id, name: item.name, path: pathOf(item.id, new Set()) }))
+    .sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true, sensitivity: "base" }) || a.id - b.id);
+  const clients = [];
+  const seenClient = new Set();
+  for (const row of pairs(value.Clients ?? value.clients)) {
+    const record = row.value && typeof row.value === "object" ? row.value : {};
+    if (isServerQuery(record)) continue;
+    const id = rowId(row.key, row.value);
+    if (!id || id > 65535 || seenClient.has(id) || clients.length >= 500) continue;
+    seenClient.add(id);
+    const channelId = positiveId(record.Channel ?? record.ChannelId ?? record.channel);
+    clients.push({
+      id,
+      name: cleanLabel(record.Name ?? record.name ?? record.NickName ?? record.Nickname) || `#${id}`,
+      channelId,
+    });
+  }
+  clients.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.id - b.id);
+  return { channels: listed, clients };
+}
+
+function pairs(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => (
+      item && typeof item === "object" && "Key" in item && "Value" in item
+        ? { key: item.Key, value: item.Value }
+        : { key: null, value: item }
+    ));
+  }
+  if (raw && typeof raw === "object") return Object.entries(raw).map(([key, value]) => ({ key, value }));
+  return [];
+}
+
+function positiveId(value, depth = 0) {
+  if (depth > 4 || value == null) return null;
+  const inner = unwrap(value);
+  if (typeof inner === "number" && Number.isInteger(inner) && inner > 0 && inner <= 4294967295) return inner;
+  if (typeof inner === "string") {
+    const text = inner.trim();
+    if (!/^[1-9]\d*$/.test(text)) return null;
+    const id = Number(text);
+    if (!Number.isSafeInteger(id) || id > 4294967295) return null;
+    return id;
+  }
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+    if ("Value" in inner) return positiveId(inner.Value, depth + 1);
+    if ("Id" in inner) return positiveId(inner.Id, depth + 1);
+    if ("id" in inner) return positiveId(inner.id, depth + 1);
+  }
+  return null;
+}
+
+function rowId(key, value) {
+  if (value && typeof value === "object") {
+    const fromValue = positiveId(value.Id ?? value.id ?? value.ChannelId ?? value.ClientId);
+    if (fromValue) return fromValue;
+  }
+  return positiveId(value) || positiveId(key);
+}
+
+function idList(raw, max) {
+  const items = [];
+  if (Array.isArray(raw)) items.push(...raw);
+  else if (typeof raw === "number" || typeof raw === "string") items.push(...String(raw).split(/[\s,;]+/));
+  else if (raw && typeof raw === "object") items.push(...Object.values(raw));
+  const ids = [];
+  const seen = new Set();
+  for (const item of items) {
+    const id = positiveId(item);
+    if (!id || id > max || seen.has(id) || ids.length >= 100) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function cleanLabel(value) {
+  return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, 80);
+}
+
+function isServerQuery(value) {
+  const raw = unwrap(value?.ClientType ?? value?.clientType);
+  if (raw === 1 || raw === "1") return true;
+  const text = String(raw ?? "").trim().toLowerCase();
+  return text === "query" || text === "serverquery";
+}
+
 function whisperToken(value) {
   const inner = unwrap(value);
   if (inner && typeof inner === "object") return null;

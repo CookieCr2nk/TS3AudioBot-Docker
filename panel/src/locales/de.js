@@ -355,11 +355,11 @@ const de = {
   "Instance owner ({name})": "Instanz-Besitzer ({name})",
   Nickname: "Nickname",
   "Default channel": "Standard-Channel",
-  "Joined on connect. Clear and save to remove it. Setting a channel also moves a connected bot.":
-    "Channel beim Verbinden. Leeren und speichern entfernt ihn. Ein gesetzter Channel verschiebt auch einen verbundenen Bot.",
+  "Pick a channel, or type /5 or Home/Lobby. Clear and save to remove it. Setting one also moves a connected bot.":
+    "Channel wählen oder /5 oder Home/Lobby tippen. Leeren und speichern entfernt ihn. Ein gesetzter Channel verschiebt auch einen verbundenen Bot.",
   "Move now": "Jetzt verschieben",
-  "Moves the connected bot now. The saved default channel stays.":
-    "Verschiebt den verbundenen Bot jetzt. Der gespeicherte Standard-Channel bleibt.",
+  "Moves the connected bot now. The saved default channel stays. Pick a channel, or type /5 or Home/Lobby.":
+    "Verschiebt den verbundenen Bot jetzt. Der gespeicherte Standard-Channel bleibt. Channel wählen oder /5 oder Home/Lobby tippen.",
   "Server password": "Serverpasswort",
   "A server password is saved on the bot.": "Ein Serverpasswort ist auf dem Bot gespeichert.",
   "Channel password": "Channelpasswort",
@@ -563,6 +563,27 @@ const de = {
   "Not sending": "Sendet nicht",
   "Whisper: subscribed clients. Voice: the whole channel. Applies from the next song.":
     "Flüstern: abonnierte Clients. Voice: der ganze Channel. Gilt ab dem nächsten Titel.",
+  "Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.":
+    "Abonnieren schaltet Flüstern ein und fügt diese Clients oder Channels hinzu. Entfernen nimmt sie wieder raus. Der Bot muss verbunden sein.",
+  "Connect the bot to subscribe clients and channels.":
+    "Verbinde den Bot, um Clients und Channels zu abonnieren.",
+  "Subscribed clients": "Abonnierte Clients",
+  "Subscribed channels": "Abonnierte Channels",
+  Clients: "Clients",
+  Channels: "Channels",
+  "Client ids": "Client-IDs",
+  "Channel ids": "Channel-IDs",
+  "Pick from the list, type ids, or both.": "Wähle aus der Liste, tippe IDs, oder beides.",
+  Subscribe: "Abonnieren",
+  "Choose a channel": "Channel wählen",
+  "Channel id or path": "Channel-ID oder Pfad",
+  "Whisper targets updated": "Flüsterziele geändert",
+  "Whisper targets added": "Flüsterziele hinzugefügt",
+  "Whisper targets removed": "Flüsterziele entfernt",
+  "The bot is not connected": "Der Bot ist nicht verbunden",
+  "Enter at least one id": "Mindestens eine ID eintragen",
+  "Enter at most {count} ids": "Höchstens {count} IDs eintragen",
+  "Target is invalid": "Das Ziel ist ungültig",
   "A custom command is saved. Whisper or Voice replaces it.":
     "Ein eigener Befehl ist gespeichert. Flüstern oder Voice ersetzt ihn.",
   "Whisper mode updated": "Flüstermodus geändert",

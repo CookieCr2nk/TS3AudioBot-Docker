@@ -11,10 +11,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A password longer than 72 bytes is rejected. bcrypt would otherwise treat it as its first 72 bytes
 - The overview meter can set its width. Style attributes are allowed, and scripts stay limited to the panel
 
-### Changed
-- Help text on the panel pages states what a field does and what leaving it empty does
-
 ### Added
+- Connection lists the server's channels for the default channel and for Move now. A channel id or a path such as Home/Lobby can still be typed
+- Whisper can subscribe and remove clients and channels, from that list or by id
 - The overview shows how many instances answer, how many bots are running, and, for an administrator, how many accounts can sign in
 - List tables keep their current columns until the browser changes them. Columns can hide or reorder the other fields, and that choice stays in the browser
 - A flag button to the right of the panel name, and on the sign-in page, follows the browser or picks English or German. Another translation is a catalog registered in one list
@@ -25,6 +24,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Connection can switch a bot between whisper and voice. The choice is saved, applied to a connected bot, and used again when the next song starts
 
 ### Changed
+- Help text on the panel pages states what a field does and what leaving it empty does
 - The panel database schema is one migration file. A database from release 1.0, or one that already applied the older migration files, is upgraded when the panel starts
 - Bot lists and the player ask the database for less work. Built files stay cached, and authenticated API responses are not stored by the browser. A password longer than 200 characters cannot be used to sign in
 - Stop on the playback page no longer asks for confirmation. A bot name can be 120 characters. A failed owner change stays on the previous user. A search result does not appear on another bot. The panel name in the sidebar opens the overview without reloading the page. Starting or stopping several bots counts against the action limit only when the whole batch fits

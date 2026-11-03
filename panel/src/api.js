@@ -73,6 +73,8 @@ import {
   presentSetting,
   presentTsIdentity,
   presentWhisper,
+  presentWhisperTargets,
+  presentServerTree,
   presentSearch,
   presentStatus,
   presentVersion,
@@ -927,11 +929,30 @@ api.get(
     }
     let whisper = null;
     let whisperError = null;
-    if (status === "connected" || status === "connecting") {
+    let whisperClients = [];
+    let whisperChannels = [];
+    const onServer = status === "connected" || status === "connecting";
+    if (onServer) {
       try {
-        whisper = presentWhisper(await callBot(access.bot, scope(access.bot, ["whisper", "list"]), { timeoutMs: 4000 }));
+        const listed = await callBot(access.bot, scope(access.bot, ["whisper", "list"]), { timeoutMs: 4000 });
+        whisper = presentWhisper(listed);
+        const targets = presentWhisperTargets(listed);
+        whisperClients = targets.clients;
+        whisperChannels = targets.channels;
       } catch (err) {
         whisperError = errorText(err, req.t);
+      }
+    }
+    let channels = [];
+    let clients = [];
+    let treeError = null;
+    if (onServer) {
+      try {
+        const tree = presentServerTree(await callBot(access.bot, scope(access.bot, ["server", "tree"]), { timeoutMs: 8000 }));
+        channels = tree.channels;
+        clients = tree.clients;
+      } catch (err) {
+        treeError = errorText(err, req.t);
       }
     }
     let teamspeakId = "";
@@ -962,6 +983,11 @@ api.get(
       sendModeError,
       whisper,
       whisperError,
+      whisperClients,
+      whisperChannels,
+      channels,
+      clients,
+      treeError,
       teamspeakId,
       teamspeakError,
     });
