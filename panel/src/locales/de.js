@@ -514,7 +514,6 @@ const de = {
   "Press Ctrl+C to copy the selected link.": "Mit Strg+C den markierten Link kopieren.",
   "Issued tokens": "Ausgegebene Tokens",
   "No invite tokens.": "Keine Einladungstokens.",
-  "Created by": "Erstellt von",
   Created: "Erstellt",
   Revoke: "Widerrufen",
   Revoked: "Widerrufen",

@@ -1711,14 +1711,24 @@ function InviteTokens() {
     try { apply(await api(`/api/admin/invites/${invite.id}`, { method: "DELETE", body: { confirm: true } })); }
     catch (err) { setFormError(err.message); }
   }
+  const shortDate = (value) => (value ? new Date(value).toLocaleDateString() : "");
+  const fullDate = (value) => (value ? new Date(value).toLocaleString() : "");
   const inviteTable = useColumns("invites", [
     { id: "label", label: "Label", cell: (invite) => invite.label || "—" },
-    { id: "createdBy", label: "Created by", cellClass: "nowrap", cell: (invite) => invite.createdByName || "—" },
-    { id: "created", label: "Created", cellClass: "nowrap", cell: (invite) => (invite.createdAt ? new Date(invite.createdAt).toLocaleString() : "") },
-    { id: "expires", label: "Expires", cellClass: "nowrap", cell: (invite) => (invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : t("Never")) },
-    { id: "uses", label: "Uses", cellClass: "nowrap", cell: (invite) => `${invite.useCount} / ${invite.maxUses}` },
+    { id: "status", label: "Status", cell: (invite) => { const s = inviteStatus(invite.state, t); return <span className={s.className}>{s.text}</span>; } },
+    { id: "uses", label: "Uses", cell: (invite) => `${invite.useCount} / ${invite.maxUses}` },
+    { id: "expires", label: "Expires", cell: (invite) => (invite.expiresAt ? <span title={fullDate(invite.expiresAt)}>{shortDate(invite.expiresAt)}</span> : t("Never")) },
     { id: "instances", label: "Instances", cell: (invite) => <span className="user-instances" title={instanceNames(invite.instanceIds)}>{instanceNames(invite.instanceIds)}</span> },
-    { id: "status", label: "Status", cellClass: "nowrap", cell: (invite) => { const s = inviteStatus(invite.state, t); return <span className={s.className}>{s.text}</span>; } },
+    {
+      id: "created",
+      label: "Created",
+      cell: (invite) => (
+        <>
+          <span title={fullDate(invite.createdAt)}>{shortDate(invite.createdAt)}</span>
+          {invite.createdByName ? <div className="muted">{invite.createdByName}</div> : null}
+        </>
+      ),
+    },
     {
       id: "actions",
       locked: "end",
