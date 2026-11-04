@@ -68,7 +68,7 @@ A submit handler must read `event.currentTarget` and `FormData` before the first
 
 ### JSON API
 
-`src/api.js` mounts these groups. Writes need the session and `X-CSRF-Token`.
+`src/api.js` mounts these groups. Writes need the session and `X-CSRF-Token`. The router answers only JSON. A signed-out request gets 401, never a redirect, and `client/src/api.js` then returns the UI to sign-in. Sign out clears the local session even when the request fails.
 
 - `/session`, `/login`, `/logout`, `/account`, `/account/password`
 - `/overview`, `/instances`, `/instances/:id`
@@ -84,7 +84,7 @@ A submit handler must read `event.currentTarget` and `FormData` before the first
 
 `accessToBot` in `src/db.js` is the check. An administrator can open, edit, and delete every bot. Anyone else can open a bot only when `ts_bots.assignee_user_id` is their id. Owning the instance does not reveal the other bots. The assignee can delete that bot. `canManage` is true for that assignee only when they also own the instance. The Add bot button is shown for an administrator, an instance owner, or an account with `users.can_create_bots`. That flag lets the account create a new bot on any enabled instance. Attaching a template that already exists is only for an administrator or the instance owner. A name that is already registered is not returned to an account that cannot open that bot. A user account must have at least one `instance_grants` row. An administrator may have none. An existing user with no grant can still sign in until an administrator saves them.
 
-Passwords are not stored in the panel database. A new account may have no password and cannot sign in until one is set. Login is limited to 8 attempts per 15 minutes per `login:${ip}:${username}`. Do not change that limit unless the user asks.
+Passwords are not stored in the panel database. A new account may have no password and cannot sign in until one is set. Login is limited to 8 attempts per 15 minutes per `login:${ip}:${username}`. Changing the own password allows the same 8 attempts per 15 minutes per `password:${userId}`. Do not change those limits unless the user asks.
 
 ### Connection save
 
@@ -110,7 +110,7 @@ On Connection, anyone who can open the bot can save it. The bot list can start a
 
 - CSRF header `X-CSRF-Token` on writes. The session cookie is `ts3panel`. Do not add a session cookie without the same protection. `ts3panel-lang` is only the language choice (`auto` or a language id), SameSite=Lax, and not a login.
 - Content-Security-Policy: scripts only from the panel origin. No inline script, no third-party CDN.
-- API tokens are stored only encrypted with `TOKEN_KEY`. Do not log them, put them in flash messages, or write them to the audit log.
+- API tokens are stored only encrypted with `TOKEN_KEY`. Do not log them, put them in notices, or write them to the audit log. A token that cannot be decrypted marks that row `tokenUnreadable`. Lists still load, and only calls to that bot API fail with the TOKEN_KEY message.
 - Bot API URLs are host and port only. No credentials, no query, no metadata address.
 - Resources and stream addresses sent to the bot stay HTTP or HTTPS. For a saved station the client sends the id, not the URL.
 
@@ -118,6 +118,6 @@ On Connection, anyone who can open the bot can save it. The bot list can start a
 
 From `panel/`: `node --test`. From the repo: `make panel-test`. `npm run build` writes `dist/`.
 
-The tests do not need MariaDB. They check the command allow-list, the schema, and that every `t("...")` string in `src/` and `client/` is in each translation catalog.
+The tests do not need MariaDB. They check the command allow-list, the schema, that every `t("...")` string in `src/` and `client/` is in each translation catalog, and that no catalog keeps an entry the source no longer uses. The tests do not compile JSX, so run `npm run build` after a client change.
 
-Node is often missing from `PATH` on this Windows checkout. Run the tests with a Node 26 binary, and do not treat a missing `node` on `PATH` as a pass.
+The panel targets Node 26. The tests also pass on Node 22. Say which version ran, and do not treat a missing `node` on `PATH` as a pass.

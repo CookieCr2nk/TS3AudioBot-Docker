@@ -8,8 +8,8 @@ help: ## List targets
 build: ## Build image locally
 	docker build -t ts3audiobot-docker:local .
 
-build-multiarch: ## Build amd64 + arm64 (requires buildx)
-	docker buildx build --platform linux/amd64,linux/arm64 -t ts3audiobot-docker:local .
+build-multiarch: ## Build amd64, arm64, and arm/v7 (requires buildx)
+	docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t ts3audiobot-docker:local .
 
 init-data: ## Copy seed config into ./data (not the Compose volume)
 	mkdir -p data

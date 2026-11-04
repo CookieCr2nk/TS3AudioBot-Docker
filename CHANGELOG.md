@@ -10,6 +10,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - A link-local address written as IPv6 is rejected, including an IPv4 address inside IPv6
 - A password longer than 72 bytes is rejected. bcrypt would otherwise treat it as its first 72 bytes
 - The overview meter can set its width. Style attributes are allowed, and scripts stay limited to the panel
+- An instance whose API token cannot be decrypted no longer breaks the overview, the bot list, or its bot pages. Only calls to that bot API report the TOKEN_KEY problem
+- An expired session returns the panel to sign-in. Sign out works even when the server session is already gone
+- Changing the own password is limited to 8 attempts per 15 minutes
+- A signed-out API request gets a JSON 401 instead of a redirect
+- A bitrate outside 8 to 98 always names that range
+- Create a bot no longer flashes "You cannot create bots" while the instance list loads
+- `make build-multiarch` also builds linux/arm/v7, like the published bot image
 
 ### Added
 - Connection lists the server's channels for the default channel and for Move now. A channel id or a path such as Home/Lobby can still be typed

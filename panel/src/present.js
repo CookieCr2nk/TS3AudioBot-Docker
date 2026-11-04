@@ -1,4 +1,4 @@
-import { applyParams, localeFor } from "./i18n.js";
+import { applyParams } from "./i18n.js";
 
 const REPEAT = new Map([
   ["0", "off"],
@@ -60,18 +60,6 @@ export function formatSeconds(value) {
   const sec = String(seconds).padStart(2, "0");
   if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${sec}`;
   return `${minutes}:${sec}`;
-}
-
-export function formatTime(value, lang = "en") {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const formatted = new Intl.DateTimeFormat(localeFor(lang), {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(date);
-  return `${formatted} UTC`;
 }
 
 export function displayStreamUrl(value) {
@@ -442,8 +430,4 @@ export function presentBotList(data, t = applyParams) {
       statusLabel: t(STATUS_LABEL[status] || "Unknown"),
     };
   });
-}
-
-export function needsRightsHint(message) {
-  return /unauthor|recht|forbidden|401|missing context|token|anonymous/i.test(message || "");
 }

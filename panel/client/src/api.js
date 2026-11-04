@@ -1,4 +1,13 @@
 let csrf = "";
+let signedOut = null;
+
+// The auth provider registers this. A 401 means the server session is gone, so the UI returns to sign-in.
+export function onSignedOut(listener) {
+  signedOut = listener;
+  return () => {
+    if (signedOut === listener) signedOut = null;
+  };
+}
 
 export function setCsrf(value) {
   csrf = value || "";
@@ -19,6 +28,7 @@ export async function api(path, { method = "GET", body } = {}) {
   if (!response.ok || data.ok === false) {
     const error = new Error(data.error || "Request failed");
     error.status = response.status;
+    if (response.status === 401 && path !== "/api/login" && signedOut) signedOut();
     throw error;
   }
   return data;

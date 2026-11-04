@@ -31,7 +31,10 @@ const server = app.listen(config.port, "0.0.0.0", () => {
   console.log(`[panel] Ready on :${config.port}`);
 });
 
+let stopping = false;
 function shutdown() {
+  if (stopping) return;
+  stopping = true;
   console.log("[panel] Stopping");
   server.close(() => {
     pool.end().finally(() => process.exit(0));

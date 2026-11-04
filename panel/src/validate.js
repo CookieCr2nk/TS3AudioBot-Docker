@@ -223,8 +223,10 @@ export function parseHostingSettings(input) {
   const channelPassword = parseOptionalSecret(input.channelPassword, "Channel password");
   let bitrate = null;
   if (clean(input.bitrate)) {
-    bitrate = parseIndex(input.bitrate, "Bitrate", 98);
-    if (bitrate < 8) throw new ValidationError("Bitrate must be between 8 and 98");
+    bitrate = Number(clean(input.bitrate));
+    if (!/^\d+$/.test(clean(input.bitrate)) || bitrate < 8 || bitrate > 98) {
+      throw new ValidationError("Bitrate must be between 8 and 98");
+    }
   }
   let volume = null;
   if (clean(input.volume)) volume = parseVolume(input.volume);
@@ -331,24 +333,6 @@ export function parseInstanceForm(body, { keepExisting = false } = {}) {
   };
 }
 
-export function parseBotForm(body, { keepExisting = false } = {}) {
-  const instance = parseInstance(clean(body.instanceMode), body.instanceRef);
-  const credential = splitApiCredential(body.apiUser, body.apiToken, {
-    keepExisting,
-    clear: body.clearToken === "on",
-  });
-  return {
-    name: parseName(body.name),
-    baseUrl: assertBaseUrl(body.baseUrl),
-    instanceMode: instance.mode,
-    instanceRef: instance.ref,
-    apiUser: credential.user,
-    apiToken: credential.secret,
-    enabled: body.enabled === "on" || body.enabled === "1",
-    notes: parseNotes(body.notes),
-  };
-}
-
 export function parseGrants(body, accounts) {
   const grants = [];
   for (const account of accounts) {
@@ -359,10 +343,4 @@ export function parseGrants(body, accounts) {
     });
   }
   return grants;
-}
-
-export function safeNext(value) {
-  const text = String(value || "");
-  if (!text.startsWith("/") || text.startsWith("//") || text.includes("\\") || text.includes("\n")) return "/";
-  return text;
 }

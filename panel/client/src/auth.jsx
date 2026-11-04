@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api, makeT, setCsrf } from "./api.js";
+import { api, makeT, onSignedOut, setCsrf } from "./api.js";
 import { readLangCookie, writeLangCookie } from "./lang.js";
 
 const AuthContext = createContext(null);
@@ -30,6 +30,11 @@ export function AuthProvider({ children }) {
     return data;
   }
 
+  useEffect(() => onSignedOut(() => {
+    setCsrf("");
+    setUser(null);
+  }), []);
+
   useEffect(() => {
     refresh()
       .catch(() => setUser(null))
@@ -43,10 +48,14 @@ export function AuthProvider({ children }) {
     applySession(data);
   }
 
+  // The local session ends even when the request fails, for example after the server session expired.
   async function signOut() {
-    await api("/api/logout", { method: "POST", body: {} });
-    setCsrf("");
-    setUser(null);
+    try {
+      await api("/api/logout", { method: "POST", body: {} });
+    } finally {
+      setCsrf("");
+      setUser(null);
+    }
   }
 
   async function setLanguage(choice) {
