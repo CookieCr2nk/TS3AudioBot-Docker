@@ -36,6 +36,21 @@ function useLoad(path) {
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
+// Page buttons under a table. The page size select sits in the toolbar above it.
+function Pager({ page, pages, onPage, total }) {
+  const { t } = useAuth();
+  return (
+    <div className="table-foot">
+      <span className="muted">{t("{count} entries", { count: total })}</span>
+      <div className="transport">
+        <button className="btn" type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>{t("Previous page")}</button>
+        <span className="muted">{t("Page {page} of {pages}", { page, pages })}</span>
+        <button className="btn" type="button" disabled={page >= pages} onClick={() => onPage(page + 1)}>{t("Next page")}</button>
+      </div>
+    </div>
+  );
+}
+
 function useToastDock() {
   const [dock, setDock] = useState(null);
   useLayoutEffect(() => {
@@ -174,10 +189,13 @@ export function Login() {
     <main className="login-page">
       <form className="login-card" onSubmit={submit}>
         <div className="login-head">
-          <h1>TS-Bot Panel</h1>
+          <div className="login-brand">
+            <img src="/favicon.svg" alt="" />
+            <h1>TS-Bot Panel</h1>
+          </div>
           <LanguageSelect />
         </div>
-        <p className="muted">{t("Sign in")}</p>
+        <p className="muted">{t("Management for bots, playback, and access.")}</p>
         <Notice error={error} />
         <label>{t("Username")}
           <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
@@ -582,9 +600,9 @@ export function BotsPage() {
       </div>
       <Notice error={formError || error} note={note} />
       {bots.length ? (
-        <div className="split">
+        <div className="toolbar">
           <label className="grow">{t("Filter by name")}
-            <input value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
           </label>
           <label>{t("Instance")}
             <select value={instanceId} onChange={(event) => setInstance(event.target.value)}>
@@ -593,21 +611,12 @@ export function BotsPage() {
               {instances.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
-          {instanceId || query ? <button className="btn" type="button" onClick={() => { setQuery(""); setInstance(""); }}>{t("Reset")}</button> : null}
-        </div>
-      ) : null}
-      {bots.length ? (
-        <div className="user-pager">
           <label>{t("Per page")}
             <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
               {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
             </select>
           </label>
-          <div className="transport">
-            <button className="btn" type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>{t("Previous page")}</button>
-            <span className="muted">{t("Page {page} of {pages}", { page: currentPage, pages: pageCount })}</span>
-            <button className="btn" type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>{t("Next page")}</button>
-          </div>
+          {instanceId || query ? <button className="btn" type="button" onClick={() => { setQuery(""); setInstance(""); }}>{t("Reset")}</button> : null}
         </div>
       ) : null}
       {dockSlot && selected.length ? createPortal(
@@ -623,7 +632,7 @@ export function BotsPage() {
         </div>
       </section>,
       dockSlot) : null}
-      {data && filtered.length === 0 ? <p className="muted">{bots.length ? t("Nothing matches.") : t("No bots yet.")}</p> : null}
+      {data && filtered.length === 0 ? <p className="empty">{bots.length ? t("Nothing matches.") : t("No bots yet.")}</p> : null}
       {filtered.length ? (
         <ColumnFrame picker={botTable.picker} wrapClass="bot-list">
           <ColumnTable
@@ -634,6 +643,9 @@ export function BotsPage() {
             rowClass={(bot) => (selected.includes(bot.id) ? "picked" : "")}
           />
         </ColumnFrame>
+      ) : null}
+      {filtered.length ? (
+        <Pager page={currentPage} pages={pageCount} onPage={setPage} total={filtered.length} />
       ) : null}
     </div>
   );
@@ -705,6 +717,8 @@ export function InstancePage() {
       </div>
       <Notice error={formError || error} note={note} />
 
+      {data.canCreate || data.canManage ? (
+      <div className="pair">
       {data.canCreate ? (
         <form className="card" onSubmit={(event) => {
           event.preventDefault();
@@ -727,8 +741,12 @@ export function InstancePage() {
           const name = new FormData(event.currentTarget).get("name");
           run(`/api/instances/${id}/bots/attach`, { name }, (result) => navigate(`/bots/${result.botId}`));
         }}>
-          <h2>{t("Add an existing bot")}</h2>
-          <p className="muted">{t("Template name already on the bot, for example default.")}</p>
+          <div className="card-head">
+            <div>
+              <h2>{t("Add an existing bot")}</h2>
+              <p className="hint">{t("Template name already on the bot, for example default.")}</p>
+            </div>
+          </div>
           <div className="split">
             <label className="grow">{t("Name")}
               <input name="name" required maxLength={64} pattern="[A-Za-z0-9_.\-]+" placeholder="default" />
@@ -737,19 +755,27 @@ export function InstancePage() {
           </div>
         </form>
       ) : null}
+      </div>
+      ) : null}
 
       {user.role === "admin" ? (
         <form className="card" onSubmit={saveInstance}>
-          <h2>{t("Settings")}</h2>
-          <p className="muted">{t("Host and port, for example http://ts3audiobot:58913. Add a token only if the bot requires one.")}</p>
-          <label>{t("Display name")}<input name="name" required maxLength={120} defaultValue={instance.name} /></label>
-          <label>{t("API address")}<input name="baseUrl" required maxLength={255} defaultValue={instance.baseUrl} /></label>
-          <label>{t("Owner")}
-            <select name="ownerUserId" defaultValue={instance.ownerUserId || ""}>
-              <option value="">{t("No owner")}</option>
-              {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
-            </select>
-          </label>
+          <div className="card-head">
+            <div>
+              <h2>{t("Settings")}</h2>
+              <p className="hint">{t("Host and port, for example http://ts3audiobot:58913. Add a token only if the bot requires one.")}</p>
+            </div>
+          </div>
+          <div className="field-grid">
+            <label>{t("Display name")}<input name="name" required maxLength={120} defaultValue={instance.name} /></label>
+            <label>{t("API address")}<input name="baseUrl" required maxLength={255} defaultValue={instance.baseUrl} /></label>
+            <label>{t("Owner")}
+              <select name="ownerUserId" defaultValue={instance.ownerUserId || ""}>
+                <option value="">{t("No owner")}</option>
+                {(data.users || []).map((account) => <option key={account.id} value={account.id}>{account.username}</option>)}
+              </select>
+            </label>
+          </div>
           <div className="split">
             <label className="grow">{t("API UID")}<input name="apiUser" maxLength={128} defaultValue={instance.apiUser || ""} autoComplete="off" /></label>
             <label className="grow">{t("API token")}<input name="apiToken" type="password" maxLength={512} autoComplete="off" placeholder={instance.hasToken ? t("Leave blank to keep the saved token") : t("optional, or uid:token")} /></label>
@@ -764,15 +790,15 @@ export function InstancePage() {
               ))}
             </select>
           </label>
-          <p className="muted">{t("These accounts can open this container. They see only bots assigned to them.")}</p>
-          <div className="transport">
+          <p className="hint">{t("These accounts can open this container. They see only bots assigned to them.")}</p>
+          <div className="card-foot">
             <button className="btn btn-primary" type="submit">{t("Save")}</button>
             <button className="btn" type="button" onClick={() => run(`/api/admin/instances/${id}/test`, {})}>{t("Check connection")}</button>
           </div>
         </form>
       ) : null}
       {user.role === "admin" ? (
-        <form className="card" onSubmit={async (event) => {
+        <form className="card card-danger" onSubmit={async (event) => {
           event.preventDefault();
           const confirm = new FormData(event.currentTarget).get("confirm");
           setFormError("");
@@ -785,8 +811,10 @@ export function InstancePage() {
           }
         }}>
           <h2>{t("Delete instance")}</h2>
-          <label>{t("Type the instance name to confirm")}<input name="confirm" required maxLength={120} /></label>
-          <button className="btn btn-danger" type="submit">{t("Delete")}</button>
+          <div className="split">
+            <label className="grow">{t("Type the instance name to confirm")}<input name="confirm" required maxLength={120} /></label>
+            <button className="btn btn-danger" type="submit">{t("Delete")}</button>
+          </div>
         </form>
       ) : null}
     </div>
@@ -868,9 +896,17 @@ export function Playback() {
     ? player.botError
     : unreachable ? t("Status unreachable") : offline ? t("Offline") : song?.title || t("Nothing is playing.");
   let pill = t("Not playing");
-  if (offline) pill = t("Offline");
-  else if (unreachable) pill = t("Status unreachable");
-  else if (song) pill = song.paused ? t("Paused") : t("Playing");
+  let pillClass = "";
+  if (offline) {
+    pill = t("Offline");
+    pillClass = "pill-bad";
+  } else if (unreachable) {
+    pill = t("Status unreachable");
+    pillClass = "pill-warn";
+  } else if (song) {
+    pill = song.paused ? t("Paused") : t("Playing");
+    pillClass = song.paused ? "pill-warn" : "pill-ok";
+  }
   function act(body) {
     return player?.act(body);
   }
@@ -903,22 +939,41 @@ export function Playback() {
 
   return (
     <div className="page">
-      <div className="page-head">
-        <div>
-          <h1>{t("Playback")}</h1>
-          <p className="muted song-title" title={song?.title || ""}>{headline}</p>
+      <h1>{t("Playback")}</h1>
+      <section className="card now-card" aria-label={t("Playback")}>
+        <div className="now-head">
+          <div>
+            <span className="now-label">{t("Now playing")}</span>
+            <p className="now-title song-title" title={song?.title || ""}>{headline}</p>
+            {song?.sourceHref ? (
+              <a className="now-source" href={song.sourceHref} target="_blank" rel="noopener noreferrer">{song.source}</a>
+            ) : song?.source ? <span className="now-source muted">{song.source}</span> : null}
+          </div>
+          <span className={`pill ${pillClass}`}>{pill}</span>
         </div>
-        <span className="pill">{pill}</span>
-      </div>
-      <div className="transport">
-        {[-30, -10, 10, 30].map((delta) => (
-          <button key={delta} className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "nudge", delta })}>
-            {delta > 0 ? `+${delta}` : delta}s
-          </button>
-        ))}
-        <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "stop" })}>{t("Stop")}</button>
-        <button className="btn btn-danger" type="button" disabled={!canControl} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
-      </div>
+        {song?.length ? (
+          <div className="now-progress">
+            <span className="mono muted">{song.positionLabel || "0:00"}</span>
+            <div className="meter" role="img" aria-label={`${song.positionLabel || "0:00"} / ${song.lengthLabel}`}>
+              <span style={{ width: `${Math.round(song.progress || 0)}%` }} />
+            </div>
+            <span className="mono muted">{song.lengthLabel}</span>
+          </div>
+        ) : null}
+        <div className="now-tools">
+          <div className="segmented" role="group" aria-label={t("Position")}>
+            {[-30, -10, 10, 30].map((delta) => (
+              <button key={delta} className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "nudge", delta })}>
+                {delta > 0 ? `+${delta}` : delta}s
+              </button>
+            ))}
+          </div>
+          <div className="transport">
+            <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "stop" })}>{t("Stop")}</button>
+            <button className="btn btn-danger" type="button" disabled={!canControl} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
+          </div>
+        </div>
+      </section>
       {queue?.items?.length ? (
         <ColumnFrame picker={queueTable.picker}>
           <ColumnTable
@@ -950,7 +1005,12 @@ export function Playback() {
           setSearchError(err.message);
         }
       }}>
-        <h2>{t("Search")}</h2>
+        <div className="card-head">
+          <div>
+            <h2>{t("Search")}</h2>
+            <p className="hint">{t("Type a search term, or paste a link to play it right away.")}</p>
+          </div>
+        </div>
         <Notice error={searchError} />
         <div className="split">
           <label className="grow">{t("Search term")}
@@ -971,13 +1031,17 @@ export function Playback() {
             </>
           ) : <button className="btn btn-primary" type="submit">{t("Search")}</button>}
         </div>
-        {results.map((item) => (
-          <div className="split" key={`${item.index}-${item.title}`}>
-            <span className="grow search-title" title={item.title}>{item.title}</span>
-            <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-play", index: item.index })}>{t("Play")}</button>
-            <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-add", index: item.index })}>{t("Append")}</button>
+        {results.length ? (
+          <div className="result-list">
+            {results.map((item) => (
+              <div className="result-row" key={`${item.index}-${item.title}`}>
+                <span className="grow search-title" title={item.title}>{item.title}</span>
+                <button className="btn btn-primary" type="button" disabled={!canControl} onClick={() => act({ op: "search-play", index: item.index })}>{t("Play")}</button>
+                <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "search-add", index: item.index })}>{t("Append")}</button>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : null}
       </form>
     </div>
   );
@@ -1029,20 +1093,15 @@ export function Radio() {
     <div className="page">
       <h1>{t("Radio")}</h1>
       <Notice error={formError || error} note={note} />
-      <form className="card" onSubmit={save}>
-        <h2>{t("New station")}</h2>
-        <label>{t("Name")}<input name="name" required maxLength={120} /></label>
-        <label>{t("Stream address")}<input name="url" required placeholder="https://" /></label>
-        <label>{t("Note")}<input name="notes" maxLength={500} /></label>
-        {user.role === "admin" ? <label className="check"><input type="checkbox" name="shared" value="on" /> {t("Shared catalog")}</label> : null}
-        <button className="btn btn-primary" type="submit">{t("Save")}</button>
-      </form>
+      <div className="page-grid">
       <div className="station-list">
+        {data && !(data.streams || []).length ? <p className="empty">{t("No stations yet.")}</p> : null}
         {(data?.streams || []).map((stream) => (
           <article className="card station" key={stream.id}>
             <div className="station-text">
               <h2>{stream.name}{stream.shared ? <span className="pill">{t("Shared")}</span> : null}</h2>
               <p className="mono muted">{stream.displayUrl}</p>
+              {stream.notes ? <p className="muted">{stream.notes}</p> : null}
             </div>
             <div className="station-actions">
               <button className="btn btn-primary" type="button" onClick={() => call(`/api/bots/${id}/streams/${stream.id}/play`, { method: "POST", body: { op: "play" } })}>{t("Play")}</button>
@@ -1051,6 +1110,17 @@ export function Radio() {
             </div>
           </article>
         ))}
+      </div>
+      <form className="card" onSubmit={save}>
+        <h2>{t("New station")}</h2>
+        <label>{t("Name")}<input name="name" required maxLength={120} /></label>
+        <label>{t("Stream address")}<input name="url" required placeholder="https://" /></label>
+        <label>{t("Note")}<input name="notes" maxLength={500} /></label>
+        {user.role === "admin" ? <label className="check"><input type="checkbox" name="shared" value="on" /> {t("Shared catalog")}</label> : null}
+        <div className="card-foot">
+          <button className="btn btn-primary" type="submit">{t("Save")}</button>
+        </div>
+      </form>
       </div>
     </div>
   );
@@ -1285,14 +1355,24 @@ export function Connection() {
   return (
     <div className="page">
       <h1>{t("Connection")}</h1>
+      <Notice error={error || actionError} note={note || localNote} />
+      <div className="pair">
       {data?.connection ? (
         <section className="card">
-          <h2>{t("Server")}</h2>
-          <p>
+          <div className="card-head">
+            <h2>{t("Server")}</h2>
             <span className={`pill pill-${data.connection.status === "connected" ? "ok" : data.connection.status === "offline" ? "bad" : "warn"}`}>{data.connection.statusLabel}</span>
-          </p>
+          </div>
           {data.connection.error ? <p className="muted">{data.connection.error}</p> : null}
-          {data.connection.status === "connected" || data.connection.status === "connecting" ? <p className="mono">{data.connection.server || "—"}</p> : (
+          {data.connection.status === "connected" || data.connection.status === "connecting" ? (
+            <dl className="facts">
+              <div><dt>{t("Server")}</dt><dd className="mono">{data.connection.server || "—"}</dd></div>
+              <div>
+                <dt>{t("TeamSpeak ID")}</dt>
+                <dd className="mono">{data.teamspeakId || <span className="muted">{data.teamspeakError || t("Unknown")}</span>}</dd>
+              </div>
+            </dl>
+          ) : (
             <form className="split" key={data.connection.server || "address"} onSubmit={(event) => {
               event.preventDefault();
               const formElement = event.currentTarget;
@@ -1306,25 +1386,49 @@ export function Connection() {
               <button className="btn btn-primary" type="submit">{t("Save")}</button>
             </form>
           )}
-          <div className="inline">
-            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (kept(result)) reload(); })}>{t("Start")}</button> : null}
+          <div className="card-foot">
+            {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn btn-primary" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (kept(result)) reload(); })}>{t("Start")}</button> : null}
             {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (kept(result)) reload(); })}>{t("Disconnect")}</button> : null}
+            {data.teamspeakId && onServer ? <button className="btn" type="button" onClick={() => navigator.clipboard?.writeText(data.teamspeakId)}>{t("Copy")}</button> : null}
           </div>
         </section>
       ) : null}
       <section className="card">
-        <h2>{t("Whisper")}</h2>
-        <p className="muted">{t("Whisper: subscribed clients. Voice: the whole channel. Applies from the next song.")}</p>
-        <p>{t("Next song")}: {sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</p>
-        {data?.sendMode === "custom" ? <p className="muted">{t("A custom command is saved. Whisper or Voice replaces it.")}</p> : null}
-        <p>{t("Right now")}: {whisperLabel(w.whisper, t)}{w.whisperError ? <span className="muted"> {w.whisperError}</span> : null}</p>
-        <div className="inline">
-          <button className="btn btn-primary" type="button" onClick={() => act({ op: "whisper", mode: "whisper" }).then((result) => { if (kept(result)) reload(); })}>{t("Whisper")}</button>
-          <button className="btn" type="button" onClick={() => act({ op: "whisper", mode: "voice" }).then((result) => { if (kept(result)) reload(); })}>{t("Voice")}</button>
+        <div className="card-head">
+          <div>
+            <h2>{t("Channel commander")}</h2>
+            <p className="hint">{t("Channel commander. Saved, and applied again on each connect.")}</p>
+          </div>
         </div>
+        <dl className="facts">
+          <div><dt>{t("Next connect")}</dt><dd>{data?.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data?.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</dd></div>
+          <div><dt>{t("Right now")}</dt><dd>{data?.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data?.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</dd></div>
+        </dl>
+        <div className="card-foot">
+          <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (kept(result)) reload(); })}>{t("Turn on")}</button>
+          <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
+        </div>
+      </section>
+      </div>
+      <section className="card">
+        <div className="card-head">
+          <div>
+            <h2>{t("Whisper")}</h2>
+            <p className="hint">{t("Whisper: subscribed clients. Voice: the whole channel. Applies from the next song.")}</p>
+          </div>
+          <div className="segmented" role="group" aria-label={t("Whisper")}>
+            <button className="btn" type="button" aria-pressed={data?.sendMode === "whisper"} onClick={() => act({ op: "whisper", mode: "whisper" }).then((result) => { if (kept(result)) reload(); })}>{t("Whisper")}</button>
+            <button className="btn" type="button" aria-pressed={data?.sendMode === "voice"} onClick={() => act({ op: "whisper", mode: "voice" }).then((result) => { if (kept(result)) reload(); })}>{t("Voice")}</button>
+          </div>
+        </div>
+        <dl className="facts">
+          <div><dt>{t("Next song")}</dt><dd>{sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</dd></div>
+          <div><dt>{t("Right now")}</dt><dd>{whisperLabel(w.whisper, t)}{w.whisperError ? <span className="muted"> {w.whisperError}</span> : null}</dd></div>
+        </dl>
+        {data?.sendMode === "custom" ? <p className="hint">{t("A custom command is saved. Whisper or Voice replaces it.")}</p> : null}
         {onServer ? (
           <>
-            <p className="muted">{t("Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.")}</p>
+            <p className="hint">{t("Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.")}</p>
             {w.treeError ? <p className="muted">{w.treeError}</p> : null}
             <div className="whisper-targets">
               <TargetForm
@@ -1356,10 +1460,8 @@ export function Connection() {
               <button className="btn" type="button" onClick={() => setLiveTick((value) => value + 1)}>{t("Refresh list")}</button>
             </div>
           </>
-        ) : <p className="muted">{t("Connect the bot to subscribe clients and channels.")}</p>}
+        ) : <p className="hint">{t("Connect the bot to subscribe clients and channels.")}</p>}
       </section>
-      <p className="muted">{t("Clear nickname or channel to remove it. Leave password, bitrate, or volume empty to keep the current value. Passwords are sent to the bot and not stored here.")}</p>
-      <Notice error={error || actionError} note={note || localNote} />
       <form className="card" key={[
         data?.bot?.name,
         data?.hosting?.name,
@@ -1401,16 +1503,29 @@ export function Connection() {
           reload();
         } else if (labelChanged) reload();
       }}>
-        <h2>{t("Connection settings")}</h2>
-        <label>{t("Display name")}
-          <input name="label" maxLength={120} defaultValue={data?.bot?.name || ""} />
-        </label>
-        <p className="muted">{t("Name in this list. The TeamSpeak nickname is the next field.")}</p>
+        <div className="card-head">
+          <div>
+            <h2>{t("Connection settings")}</h2>
+            <p className="hint">{t("Clear nickname or channel to remove it. Leave password, bitrate, or volume empty to keep the current value. Passwords are sent to the bot and not stored here.")}</p>
+          </div>
+        </div>
         <input type="hidden" name="name" value={data?.hosting?.name || ""} />
-        <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" defaultValue={data?.hosting?.nickname || ""} /></label>
-        <p className="muted">{t("Applied now if the bot is online, otherwise on the next connect.")}</p>
-        <ChannelChoice label={t("Default channel")} channels={data?.channels || []} saved={data?.hosting?.channel || ""} allowClear />
-        <p className="muted">{t("Pick a channel, or type /5 or Home/Lobby. Clear and save to remove it. Setting one also moves a connected bot.")}</p>
+        <div className="field-grid">
+          <div className="field">
+            <label>{t("Display name")}
+              <input name="label" maxLength={120} defaultValue={data?.bot?.name || ""} />
+            </label>
+            <p className="hint">{t("Name in this list. The TeamSpeak nickname is the next field.")}</p>
+          </div>
+          <div className="field">
+            <label>{t("Nickname")}<input name="nickname" maxLength={30} placeholder="Music" defaultValue={data?.hosting?.nickname || ""} /></label>
+            <p className="hint">{t("Applied now if the bot is online, otherwise on the next connect.")}</p>
+          </div>
+        </div>
+        <div className="field">
+          <ChannelChoice label={t("Default channel")} channels={data?.channels || []} saved={data?.hosting?.channel || ""} allowClear />
+          <p className="hint">{t("Pick a channel, or type /5 or Home/Lobby. Clear and save to remove it. Setting one also moves a connected bot.")}</p>
+        </div>
         <div className="split">
           <label className="grow">{t("Server password")}
             <input name="serverPassword" type="password" autoComplete="off" />
@@ -1433,11 +1548,17 @@ export function Connection() {
           </label>
         </div>
         <StartupStream hosting={data?.hosting} stations={data?.stations || []} />
-        <button className="btn btn-primary" type="submit">{t("Save")}</button>
+        <div className="card-foot">
+          <button className="btn btn-primary" type="submit">{t("Save")}</button>
+        </div>
       </form>
       <section className="card">
-        <h2>{t("Move now")}</h2>
-        <p className="muted">{t("Moves the connected bot now. The saved default channel stays. Pick a channel, or type /5 or Home/Lobby.")}</p>
+        <div className="card-head">
+          <div>
+            <h2>{t("Move now")}</h2>
+            <p className="hint">{t("Moves the connected bot now. The saved default channel stays. Pick a channel, or type /5 or Home/Lobby.")}</p>
+          </div>
+        </div>
         <form className="split" key={moveTick} onSubmit={(event) => {
           event.preventDefault();
           const formElement = event.currentTarget;
@@ -1451,26 +1572,6 @@ export function Connection() {
           </div>
           <button className="btn" type="submit">{t("Move")}</button>
         </form>
-      </section>
-      <section className="card">
-        <h2>{t("Channel commander")}</h2>
-        <p className="muted">{t("Channel commander. Saved, and applied again on each connect.")}</p>
-        <p>{t("Next connect")}: {data.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</p>
-        <p>{t("Right now")}: {data.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</p>
-        <div className="inline">
-          <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (kept(result)) reload(); })}>{t("Turn on")}</button>
-          <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
-        </div>
-      </section>
-      <section className="card">
-        <h2>{t("TeamSpeak ID")}</h2>
-        <p className="muted">{t("Shown while the bot is connected.")}</p>
-        {data.teamspeakId ? (
-          <div className="split">
-            <p className="mono grow">{data.teamspeakId}</p>
-            <button className="btn" type="button" onClick={() => navigator.clipboard?.writeText(data.teamspeakId)}>{t("Copy")}</button>
-          </div>
-        ) : <p className="muted">{data.teamspeakError || t("Unknown")}</p>}
       </section>
     </div>
   );
@@ -1554,10 +1655,10 @@ export function Users() {
   if (user.role !== "admin") return <p className="flash flash-error">{t("Administrators only")}</p>;
   return (
     <div className="page">
-      <h1>{t("Users")}</h1>
-      <p className="muted">{t("Sign-in for this panel, not a TeamSpeak login.")}</p>
-      <p className="muted">{t("Empty bot limit means unlimited. Bots with no assignee count for the instance owner.")}</p>
-      <p className="muted">{t("A user needs one instance. An administrator does not. Can create bots allows a new bot on any enabled instance.")}</p>
+      <div className="page-intro">
+        <h1>{t("Users")}</h1>
+        <p className="muted">{t("Sign-in for this panel, not a TeamSpeak login.")}</p>
+      </div>
       <Notice error={formError || error} note={note} />
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
@@ -1583,8 +1684,14 @@ export function Users() {
           setFormError(err.message);
         }
       }}>
-        <h2>{t("Create")}</h2>
-        <div className="split">
+        <div className="card-head">
+          <div>
+            <h2>{t("Create")}</h2>
+            <p className="hint">{t("A user needs one instance. An administrator does not. Can create bots allows a new bot on any enabled instance.")}</p>
+            <p className="hint">{t("Empty bot limit means unlimited. Bots with no assignee count for the instance owner.")}</p>
+          </div>
+        </div>
+        <div className="field-grid">
           <label>{t("Username")}<input name="username" required maxLength={32} pattern="[A-Za-z0-9][A-Za-z0-9._\-]{2,31}" autoComplete="off" /></label>
           <label>{t("Password")}<input name="password" type="password" autoComplete="new-password" placeholder={t("Leave empty until you set a password")} /></label>
           <label>{t("Role")}
@@ -1593,7 +1700,7 @@ export function Users() {
               <option value="admin">{t("Administrator")}</option>
             </select>
           </label>
-          <label>{t("Bot limit")}<input className="bot-limit" name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} /></label>
+          <label>{t("Bot limit")}<input name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} /></label>
           <label>{t("Can create bots")}
             <select name="canCreateBots" defaultValue="no">
               <option value="no">{t("No")}</option>
@@ -1605,20 +1712,18 @@ export function Users() {
               {instances.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </label>
+        </div>
+        <div className="card-foot">
           <button className="btn btn-primary" type="submit">{t("Create")}</button>
         </div>
       </form>
-      <div className="user-pager">
+      <div className="table-foot">
+        <h2>{t("Accounts")}</h2>
         <label>{t("Per page")}
           <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
             {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
           </select>
         </label>
-        <div className="transport">
-          <button className="btn" type="button" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>{t("Previous page")}</button>
-          <span className="muted">{t("Page {page} of {pages}", { page: currentPage, pages: pageCount })}</span>
-          <button className="btn" type="button" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>{t("Next page")}</button>
-        </div>
       </div>
       <ColumnFrame picker={userTable.picker}>
         <ColumnTable
@@ -1626,7 +1731,7 @@ export function Users() {
           rows={visible}
           rowKey={(account) => account.id}
           extra={(account, count) => (openId === account.id ? (
-            <tr>
+            <tr className="user-edit-row">
               <td colSpan={count}>
                 <form className="user-edit" key={`${account.id}-${account.role}-${account.suspended}-${account.canCreateBots}-${(account.instanceIds || []).join(".")}`} onSubmit={async (event) => {
                         event.preventDefault();
@@ -1703,6 +1808,7 @@ export function Users() {
           ) : null)}
         />
       </ColumnFrame>
+      <Pager page={currentPage} pages={pageCount} onPage={setPage} total={accounts.length} />
     </div>
   );
 }
@@ -1717,11 +1823,11 @@ export function Audit() {
     {
       id: "time",
       label: "Time",
-      cellClass: "mono",
+      cellClass: "mono nowrap",
       cell: (row) => (row.createdAt ? new Date(row.createdAt).toLocaleString() : ""),
     },
     { id: "name", label: "Name", cell: (row) => row.username },
-    { id: "action", label: "Action", cell: (row) => row.action },
+    { id: "action", label: "Action", cell: (row) => <span className="pill">{row.action}</span> },
     {
       id: "detail",
       label: "Detail",
@@ -1738,7 +1844,11 @@ export function Audit() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>{t("Audit")}</h1>
+        <div>
+          <h1>{t("Audit")}</h1>
+          <p className="muted">{t("Last 200 actions. Tokens are not shown.")}</p>
+          <p className="hint">{t("Keep the last day deletes entries older than 24 hours.")}</p>
+        </div>
         <button className="btn btn-danger" type="button" disabled={busy} onClick={async () => {
           if (!window.confirm(t("Delete entries older than one day?"))) return;
           setBusy(true);
@@ -1755,9 +1865,8 @@ export function Audit() {
           }
         }}>{t("Keep the last day")}</button>
       </div>
-      <p className="muted">{t("Last 200 actions. Tokens are not shown.")}</p>
-      <p className="muted">{t("Keep the last day deletes entries older than 24 hours.")}</p>
       <Notice error={formError || error} note={note} />
+      {data && !(data.rows || []).length ? <p className="empty">{t("No entries.")}</p> : null}
       <ColumnFrame picker={auditTable.picker}>
         <ColumnTable
           columns={auditTable.shown}
@@ -1770,7 +1879,7 @@ export function Audit() {
 }
 
 export function Account() {
-  const { t } = useAuth();
+  const { user, t } = useAuth();
   const { data, error: loadError } = useLoad("/api/account");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -1781,7 +1890,25 @@ export function Account() {
     <div className="page">
       <h1>{t("Account")}</h1>
       <Notice error={error || loadError} note={note} />
-      {limitText ? <p className="muted">{limitText}</p> : null}
+      <div className="pair">
+      <section className="card">
+        <div className="card-head">
+          <h2>{user.username}</h2>
+          <span className="pill">{user.role === "admin" ? t("Administrator") : t("User")}</span>
+        </div>
+        {data ? (
+          <dl className="facts">
+            <div><dt>{t("Bot limit")}</dt><dd>{data.botLimit == null ? t("Unlimited") : data.botLimit}</dd></div>
+            <div><dt>{t("Bots")}</dt><dd>{data.botCount}</dd></div>
+          </dl>
+        ) : null}
+        {data && data.botLimit != null ? (
+          <div className="meter" role="img" aria-label={limitText}>
+            <span style={{ width: `${Math.min(100, Math.round((data.botCount / Math.max(1, data.botLimit)) * 100))}%` }} />
+          </div>
+        ) : null}
+        {limitText ? <p className="hint">{limitText}</p> : null}
+      </section>
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
         const formElement = event.currentTarget;
@@ -1802,8 +1929,11 @@ export function Account() {
         <label>{t("Current password")}<input name="current" type="password" required autoComplete="current-password" /></label>
         <label>{t("New password")}<input name="password" type="password" required minLength={10} autoComplete="new-password" /></label>
         <label>{t("Confirm")}<input name="confirm" type="password" required minLength={10} autoComplete="new-password" /></label>
-        <button className="btn btn-primary" type="submit">{t("Change password")}</button>
+        <div className="card-foot">
+          <button className="btn btn-primary" type="submit">{t("Change password")}</button>
+        </div>
       </form>
+      </div>
     </div>
   );
 }
