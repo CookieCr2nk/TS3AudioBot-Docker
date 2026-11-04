@@ -219,7 +219,10 @@ api.get(
 api.post(
   "/account/password",
   wrap(async (req, res) => {
-    const user = await findUserByUsername(req.user.username);
+    if (!rateLimit(`password:${req.user.id}`, 8, 15 * 60 * 1000)) {
+      throw new HttpError("Too many attempts. Try again later.", 429);
+    }
+    const user = await findUserById(req.user.id);
     const currentOk = await verifyPassword(req.body.current || "", user?.password_hash);
     if (!currentOk) throw new HttpError("Current password is wrong.", 400);
     const password = parsePassword(req.body.password);
@@ -548,6 +551,7 @@ async function serverByTemplate(rows) {
         baseUrl: bot.baseUrl,
         apiUser: bot.apiUser,
         apiToken: bot.apiToken,
+        tokenUnreadable: bot.tokenUnreadable,
         useInstance: false,
         instanceMode: "none",
       }, ["bot", "list"], { timeoutMs: 4000 });

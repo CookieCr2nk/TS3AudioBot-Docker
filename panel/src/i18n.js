@@ -14,19 +14,6 @@ export const languages = [
   { id: "de", name: "Deutsch", locale: "de-DE" },
 ];
 
-const CLIENT_MESSAGES = [
-  "Action failed",
-  "Nothing is playing.",
-  "Paused",
-  "Playing",
-  "Empty",
-  "Session expired",
-  "Status unavailable",
-  "Status unreachable",
-  "Resume",
-  "Pause",
-];
-
 export function applyParams(message, params) {
   const text = String(message ?? "");
   if (!params) return text;
@@ -83,10 +70,6 @@ export function resolveLanguage(header, choice) {
   return languageFromHeader(header);
 }
 
-export function localeFor(lang) {
-  return languages.find((item) => item.id === lang)?.locale || lang || "en-GB";
-}
-
 export function phrasesFor(lang) {
   return catalogs[lang] || {};
 }
@@ -122,12 +105,6 @@ export function applyRequestLanguage(req, res) {
   req.lang = resolveLanguage(req.get("accept-language"), choice);
   req.t = translator(req.lang);
   if (res) res.set("Vary", "Accept-Language, Cookie");
-}
-
-export function clientJson(lang) {
-  const phrases = {};
-  for (const message of CLIENT_MESSAGES) phrases[message] = translate(lang, message);
-  return JSON.stringify(phrases).replace(/</g, "\\u003c");
 }
 
 export { de };

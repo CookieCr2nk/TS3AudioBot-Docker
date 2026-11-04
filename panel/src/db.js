@@ -45,15 +45,18 @@ export async function migrate() {
   await pool.query("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP(3)");
 }
 
-export function mapBot(row, { token = false } = {}) {
-  let apiToken = null;
-  if (token && row.api_token_enc) {
-    try {
-      apiToken = decrypt(row.api_token_enc);
-    } catch {
-      throw new HttpError("Cannot read the API token. Check TOKEN_KEY.", 422);
-    }
+// A token that cannot be decrypted fails only the calls to that bot API, not every list that shows it.
+function readToken(row, token) {
+  if (!token || !row.api_token_enc) return { apiToken: null, tokenUnreadable: false };
+  try {
+    return { apiToken: decrypt(row.api_token_enc), tokenUnreadable: false };
+  } catch {
+    return { apiToken: null, tokenUnreadable: true };
   }
+}
+
+export function mapBot(row, { token = false } = {}) {
+  const { apiToken, tokenUnreadable } = readToken(row, token);
   return {
     id: Number(row.id),
     name: row.name,
@@ -66,6 +69,7 @@ export function mapBot(row, { token = false } = {}) {
     useInstance: row.instance_mode !== "none",
     apiUser: row.api_user || "",
     apiToken,
+    tokenUnreadable,
     hasToken: Boolean(row.api_token_enc),
     enabled: Boolean(row.enabled),
     notes: row.notes || "",
@@ -247,11 +251,6 @@ export async function deleteUser(id) {
   }
 }
 
-export async function countAdmins() {
-  const [rows] = await pool.query("SELECT COUNT(*) AS total FROM users WHERE role = 'admin'");
-  return Number(rows[0].total);
-}
-
 export async function countActiveAdmins() {
   const [rows] = await pool.query(
     "SELECT COUNT(*) AS total FROM users WHERE role = 'admin' AND suspended = 0",
@@ -315,14 +314,7 @@ const TS_BOT_FROM = `ts_bots t
      LEFT JOIN users ou ON ou.id = i.owner_user_id`;
 
 function mapInstance(row, { token = false } = {}) {
-  let apiToken = null;
-  if (token && row.api_token_enc) {
-    try {
-      apiToken = decrypt(row.api_token_enc);
-    } catch {
-      throw new HttpError("Cannot read the API token. Check TOKEN_KEY.", 422);
-    }
-  }
+  const { apiToken, tokenUnreadable } = readToken(row, token);
   return {
     id: Number(row.id),
     name: row.name,
@@ -331,6 +323,7 @@ function mapInstance(row, { token = false } = {}) {
     ownerName: row.owner_name || "",
     apiUser: row.api_user || "",
     apiToken,
+    tokenUnreadable,
     hasToken: Boolean(row.api_token_enc),
     enabled: Boolean(row.enabled),
     notes: row.notes || "",
@@ -350,6 +343,7 @@ export function instanceClient(instance) {
     useInstance: false,
     apiUser: instance.apiUser,
     apiToken: instance.apiToken,
+    tokenUnreadable: Boolean(instance.tokenUnreadable),
   };
 }
 
@@ -474,17 +468,6 @@ export async function listAccessibleBots(user, { token = true } = {}) {
       canDelete: canDeleteBot(user, bot),
     };
   });
-}
-
-export async function listTsBots(instanceId) {
-  const [rows] = await pool.query(
-    `SELECT ${TS_BOT_COLUMNS}
-     FROM ${TS_BOT_FROM}
-     WHERE t.instance_id = ?
-     ORDER BY t.name`,
-    [instanceId],
-  );
-  return rows;
 }
 
 export async function getTsBotRow(id) {

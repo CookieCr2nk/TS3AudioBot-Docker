@@ -66,13 +66,6 @@ function mapOperational(err, startup) {
   }
   if (DENIED.has(code)) return exposed("The database rejected the panel login.", 503);
   if (code === "ER_BAD_DB_ERROR") return exposed("The panel database does not exist.", 503);
-  if (err?.view && String(err.message || "").startsWith("Failed to lookup view")) {
-    const name = err.view?.name;
-    if (typeof name === "string" && /^[A-Za-z0-9/_-]{1,64}$/.test(name)) {
-      return exposed("The page template {name} is missing.", 500, { name });
-    }
-    return exposed("The page template is missing.", 500);
-  }
   return null;
 }
 

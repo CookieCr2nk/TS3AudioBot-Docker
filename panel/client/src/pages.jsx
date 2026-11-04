@@ -57,10 +57,10 @@ export function AddBot({ instanceId = "" }) {
   const { t } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [instances, setInstances] = useState([]);
+  const [instances, setInstances] = useState(null);
   const [error, setError] = useState("");
   const [picked, setPicked] = useState(String(instanceId || ""));
-  const choices = instances.filter((item) => item.canCreate);
+  const choices = (instances || []).filter((item) => item.canCreate);
 
   useEffect(() => {
     if (instanceId) setPicked(String(instanceId));
@@ -103,7 +103,7 @@ export function AddBot({ instanceId = "" }) {
       }
     }}>
       <h2>{t("Create a bot")}</h2>
-      <Notice error={error || (choices.length ? "" : t("You cannot create bots. Ask an administrator to assign one."))} />
+      <Notice error={error || (instances && !choices.length ? t("You cannot create bots. Ask an administrator to assign one.") : "")} />
       <label>{t("Instance")}
         <select name="instanceId" value={picked} onChange={(event) => setPicked(event.target.value)} required>
           {choices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}

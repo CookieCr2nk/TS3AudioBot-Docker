@@ -1,4 +1,4 @@
-import { Ts3ApiError, ValidationError } from "./errors.js";
+import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
 
 export function buildApiPath(parts) {
   let out = "";
@@ -89,7 +89,13 @@ function failureFrom(data, status) {
 }
 
 export async function callBot(bot, parts, { timeoutMs = 15000 } = {}) {
-  const base = new URL(bot.baseUrl);
+  if (bot.tokenUnreadable) throw new HttpError("Cannot read the API token. Check TOKEN_KEY.", 422);
+  let base;
+  try {
+    base = new URL(bot.baseUrl);
+  } catch {
+    throw new Ts3ApiError("The bot API address is invalid.");
+  }
   const target = new URL(`/api${buildApiPath(parts)}`, base);
   if (target.origin !== base.origin) throw new Ts3ApiError("Target address was rejected");
 

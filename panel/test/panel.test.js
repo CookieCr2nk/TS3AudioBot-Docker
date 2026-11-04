@@ -5,17 +5,17 @@ import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../src/api.js";
 import { createApp, panelRoot } from "../src/app.js";
-import { canDeleteBot, pool } from "../src/db.js";
+import { canDeleteBot, instanceClient, mapBot, pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
-import { rateLimit } from "../src/http.js";
+import { rateLimit, requireUser } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
-import { catalogs, clientJson, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
+import { catalogs, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentServerTree, presentSetting, presentStatus, presentTsIdentity, presentWhisper, presentWhisperTargets } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
-import { apiHeaders, buildApiPath, scope, statusParts } from "../src/ts3ab.js";
+import { apiHeaders, buildApiPath, callBot, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
   parseBotLimit,
@@ -644,8 +644,7 @@ describe("language", () => {
     assert.equal(translate("en", "Sign in"), "Sign in");
     assert.equal(translate("de", "{label} is invalid", { label: "Password" }), "Passwort ist ungültig");
     assert.equal(translate("de", "Bot said no"), "Bot said no");
-    assert.equal(clientJson("de").includes("Gerade läuft nichts."), true);
-    assert.equal(clientJson("de").includes("<"), false);
+    assert.equal(translate("de", "Nothing is playing."), "Gerade läuft nichts.");
     const german = translator("de");
     assert.equal(presentStatus(null, german).problems[0], "Die Bot-API hat keinen Status geliefert.");
     assert.equal(presentBotList([{ Id: 2, Name: "lobby", Status: "Connected" }], german)[0].statusLabel, "Verbunden");
@@ -672,10 +671,14 @@ describe("language", () => {
     }
     const catalogIds = languages.filter((item) => item.id !== "en").map((item) => item.id);
     assert.deepEqual(Object.keys(catalogs).sort(), [...catalogIds].sort());
+    // Labels, status names, and message keys reach t() through a variable, so any quoted literal counts as used.
+    const sources = files.map((path) => readFileSync(path, "utf8")).join("\n");
     for (const id of catalogIds) {
       const catalog = catalogs[id];
       const missing = keys.filter((key) => !Object.prototype.hasOwnProperty.call(catalog, key));
       assert.deepEqual(missing, [], id);
+      const unused = Object.keys(catalog).filter((key) => !sources.includes(JSON.stringify(key)));
+      assert.deepEqual(unused, [], `${id}: catalog entries no source string uses`);
     }
 
     const localeDir = join(root, "src/locales");
@@ -722,11 +725,6 @@ describe("panel paths and failures", () => {
     const wrapped = new Error("aggregate");
     wrapped.errors = [Object.assign(new Error("lookup"), { code: "ENOTFOUND" })];
     assert.equal(failureFor(wrapped).message, "The database is unreachable.");
-    const missing = Object.assign(new Error('Failed to lookup view "login" in views directory "/views"'), {
-      view: { name: "login" },
-    });
-    assert.equal(failureFor(missing).message, "The page template {name} is missing.");
-    assert.deepEqual(failureFor(missing).params, { name: "login" });
     assert.equal(
       failureFor(new Error("Migration 2 changed after it was applied."), { startup: true }).message,
       "The database schema does not match this panel.",
@@ -793,5 +791,44 @@ describe("panel paths and failures", () => {
     } finally {
       await new Promise((resolve) => outageServer.close(resolve));
     }
+  });
+});
+
+describe("bot api failures", () => {
+  it("keeps a row with an unreadable token and fails only its bot calls", async () => {
+    const row = { id: 1, instance_id: 2, base_url: "http://ts3audiobot:58913", api_user: "uid", api_token_enc: "not.a.token", enabled: 1 };
+    const bot = mapBot(row, { token: true });
+    assert.equal(bot.apiToken, null);
+    assert.equal(bot.tokenUnreadable, true);
+    assert.equal(mapBot(row, { token: false }).tokenUnreadable, false);
+    await assert.rejects(callBot(bot, ["version"]), (err) => err instanceof HttpError && err.status === 422 && /TOKEN_KEY/.test(err.message));
+    await assert.rejects(callBot(instanceClient(bot), ["version"]), (err) => err.status === 422);
+  });
+
+  it("reports a broken bot API address as a bot API failure", async () => {
+    await assert.rejects(callBot({ baseUrl: "not a url" }, ["version"]), (err) => err instanceof Ts3ApiError && err.message === "The bot API address is invalid.");
+  });
+
+  it("answers a signed-out API request with JSON instead of a redirect", () => {
+    let sent = null;
+    const res = {
+      status(code) {
+        sent = { code };
+        return this;
+      },
+      json(body) {
+        sent.body = body;
+        return this;
+      },
+    };
+    requireUser({ get: () => "" }, res, () => assert.fail("next must not run"));
+    assert.deepEqual(sent, { code: 401, body: { ok: false, error: "Not signed in" } });
+  });
+
+  it("names the bitrate range for every out-of-range value", () => {
+    for (const bitrate of ["7", "99", "x"]) {
+      assert.throws(() => parseHostingSettings({ name: "default", bitrate }), /Bitrate must be between 8 and 98/);
+    }
+    assert.equal(parseHostingSettings({ name: "default", bitrate: "64" }).bitrate, 64);
   });
 });

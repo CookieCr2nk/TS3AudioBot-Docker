@@ -1,9 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { config } from "./config.js";
 import { sha256, tokensEqual } from "./crypto.js";
-import { deleteSession, getSession } from "./db.js";
+import { getSession } from "./db.js";
 import { HttpError } from "./errors.js";
-import { safeNext } from "./validate.js";
 
 const hits = new Map();
 const RATE_KEEP_MS = 15 * 60 * 1000;
@@ -41,19 +40,6 @@ export function numericId(value) {
   return id;
 }
 
-export function safeReferrer(req) {
-  const header = req.get("referer");
-  if (!header) return "/";
-  try {
-    const url = new URL(header);
-    if (url.host !== req.get("host")) return "/";
-    if (!url.pathname.startsWith("/") || url.pathname.startsWith("//")) return "/";
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return "/";
-  }
-}
-
 function pruneRateLimits(now) {
   for (const [entry, times] of hits) {
     const fresh = times.filter((time) => now - time < RATE_KEEP_MS);
@@ -87,9 +73,6 @@ export function newCsrf() {
 }
 
 export const loadSession = wrap(async (req, res, next) => {
-  res.locals.user = null;
-  res.locals.csrf = null;
-  res.locals.flash = null;
   const token = req.cookies?.ts3panel;
   if (!token) return next();
   const id = sha256(token);
@@ -106,16 +89,14 @@ export const loadSession = wrap(async (req, res, next) => {
   };
   req.sessionId = id;
   req.csrf = session.csrf;
-  res.locals.user = req.user;
-  res.locals.csrf = session.csrf;
   return next();
 });
 
+// The router is JSON only. A signed-out request gets 401, never a redirect.
 export function requireUser(req, res, next) {
   if (req.user) return next();
   const say = req.t || ((message) => message);
-  if (wantsJson(req)) return res.status(401).json({ ok: false, error: say("Not signed in") });
-  return res.redirect(`/login?next=${encodeURIComponent(safeNext(req.originalUrl))}`);
+  return res.status(401).json({ ok: false, error: say("Not signed in") });
 }
 
 export function requireAdmin(req, res, next) {
