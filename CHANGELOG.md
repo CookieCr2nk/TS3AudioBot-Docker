@@ -5,6 +5,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Fixed
+- The bot switcher at the top right is a structured menu: bots are grouped by instance, each shows its name and saved server, the open bot is marked, and a search appears when there are more than six bots
 - Whisper on Connection: the Clients and Channels columns line up. Each is a panel with its count, its subscribed targets, a list of the same height (or an empty-state box), the id field, and the buttons. On a narrow screen the panels stack
 - Move now and a saved default channel move the connected bot again. The panel sent "/509" to `bot move`, which only takes the number, and failed with "Could not convert to UInt64". A channel path such as Home/Lobby is looked up on the server
 - Whisper: the client list on Connection refreshes every 10 seconds and has a Refresh list button, so clients who joined or reconnected after the page opened show up. The bot's own client is no longer listed
