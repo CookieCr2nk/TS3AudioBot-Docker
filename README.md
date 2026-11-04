@@ -4,6 +4,9 @@ A music bot for TeamSpeak 3, ready to run in Docker, with a web panel to control
 
 It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker image and adds a panel where you can play music and radio streams, manage several bots, and set up who may use them.
 
+> [!WARNING]
+> **The web panel is still in development.** Features, pages, and settings can change between updates. Expect **breaking changes to the panel database**: an update may change or reset its tables, and an older panel may not read a database a newer one has upgraded. Back up the database before every update (see [Update](#update)) and do not rely on the panel for anything you cannot set up again. The bot image itself is stable.
+
 ![The panel: a bot playing a mix, with its queue and the player bar at the bottom](docs/panel.png)
 
 ## What you get
@@ -86,6 +89,14 @@ To give other people access, add accounts under **Users** and assign bots to the
 
 ## Update
 
+The panel is still in development, so an update can change the panel database in a way that cannot be undone. Back it up first:
+
+```bash
+docker exec ts3panel-db sh -c 'mariadb-dump -u root -p"$MARIADB_ROOT_PASSWORD" --all-databases' > panel-backup.sql
+```
+
+Then update:
+
 ```bash
 git pull
 ```
@@ -94,7 +105,13 @@ git pull
 docker compose -f docker-compose.panel.yml up -d
 ```
 
-Compose downloads the newest images and restarts what changed. Your bots, settings, accounts, and stations are kept.
+Compose downloads the newest images and restarts what changed. The bot files on the data volume are not touched. The panel upgrades its database on start. Read [CHANGELOG.md](CHANGELOG.md) before updating to see whether a release changes the database.
+
+If an update goes wrong, go back to the previous images and restore the backup:
+
+```bash
+docker exec -i ts3panel-db sh -c 'mariadb -u root -p"$MARIADB_ROOT_PASSWORD"' < panel-backup.sql
+```
 
 ## Stop
 
