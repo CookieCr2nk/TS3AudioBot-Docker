@@ -957,6 +957,7 @@ describe("instance version", () => {
     assert.equal(presentVersion({ Version: "<?>", CommitSha: "<?>" }), null);
     assert.equal(presentVersion("\nVersion: 0.13.0-alpha\nCommitHash: 3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39"), "0.13.0-alpha (3f2a9c1)");
     assert.equal(presentVersion("Version: 0.13.0-alpha\nCommitHash: <?>"), "0.13.0-alpha");
+    assert.equal(presentVersion({ Value: "\nVersion: 0.13.0-alpha\nCommitHash: 3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39" }), "0.13.0-alpha (3f2a9c1)");
     assert.equal(presentVersion({ Version: "0.13.0", CommitSha: "abc1234" }), "0.13.0 (abc1234)");
     assert.equal(presentVersion("0.12.0"), "0.12.0");
     assert.equal(presentVersion({ ErrorCode: 1, ErrorName: "x", ErrorMessage: "y" }), null);

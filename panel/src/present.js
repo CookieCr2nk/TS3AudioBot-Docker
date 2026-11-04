@@ -166,7 +166,7 @@ export function presentStatus(data, t = applyParams) {
 }
 
 // TS3AudioBot answers `version` with BuildData. Its fields are not serialized, so the API often returns {}.
-// `print (version)` returns the text form "Version: x / CommitHash: y", which this also reads.
+// `print (version)` returns the text form "Version: x / CommitHash: y", wrapped as {"Value": "..."}, which this also reads.
 function versionText(version, commit) {
   const known = (value) => typeof value === "string" && value.trim() && value.trim() !== "<?>";
   if (!known(version)) return null;
@@ -184,6 +184,8 @@ export function presentVersion(data) {
     return text.split(/\r?\n/)[0].trim() || null;
   }
   if (!data || typeof data !== "object" || isApiError(data)) return null;
+  // A text result arrives as {"Value": "..."}.
+  if (typeof data.Value === "string") return presentVersion(data.Value);
   return versionText(data.Version || data.version, data.CommitSha || data.commitSha);
 }
 
