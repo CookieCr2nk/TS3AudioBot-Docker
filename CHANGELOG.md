@@ -12,6 +12,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Radio lists stations next to the form for a new one. Instance, Account, Audit, and the sign-in page use the same layout
 
 ### Fixed
+- Default channel and Move now offer the channel list again. They used only the list from the first page load, so a server tree that was not ready then left a plain text field. They now use the list that Connection reads every 10 seconds, and a saved or picked channel stays selected when that list refreshes
+- Whisper: clients and channels are a list of checkboxes instead of a multi-select that needed Ctrl or Shift. Each row shows its id, long names are cut with the full name on hover, and subscribed targets are marked. After Subscribe or Remove, Next song shows the saved send mode
 - The bot switcher at the top right is a structured menu: bots are grouped by instance, each shows its name and saved server, the open bot is marked, and a search appears when there are more than six bots
 - Whisper on Connection: the Clients and Channels columns line up. Each is a panel with its count, its subscribed targets, a list of the same height (or an empty-state box), the id field, and the buttons. On a narrow screen the panels stack
 - Move now and a saved default channel move the connected bot again. The panel sent "/509" to `bot move`, which only takes the number, and failed with "Could not convert to UInt64". A channel path such as Home/Lobby is looked up on the server
