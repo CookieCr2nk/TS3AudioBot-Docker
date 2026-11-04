@@ -23,11 +23,14 @@ import {
   getTsBotRow,
   findUserByUsername,
   getInstanceRow,
+  getInvite,
   getStream,
   insertInstance,
+  insertInvite,
   insertStream,
   instanceClient,
   listAudit,
+  listInvites,
   trimAuditLog,
   listGrantIds,
   listGrants,
@@ -37,6 +40,9 @@ import {
   listStreams,
   listUsers,
   publicBot,
+  deleteInvite,
+  registerWithInvite,
+  revokeInvite,
   replaceGrants,
   replaceUserGrants,
   saveBotSettings,
@@ -64,6 +70,14 @@ import {
 } from "./http.js";
 import { applyRequestLanguage, errorText, languages, phrasesFor } from "./i18n.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
+import {
+  hashInviteToken,
+  inviteAuditLabel,
+  newInviteToken,
+  parseInviteForm,
+  parseRegistration,
+  presentInvite,
+} from "./invites.js";
 import {
   displayStreamUrl,
   countRunningBots,
@@ -159,6 +173,17 @@ export function signedInUser(user) {
   };
 }
 
+async function startSession(req, res, user) {
+  const token = randomBytes(32).toString("base64url");
+  const csrf = newCsrf();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await createSession({ id: sha256(token), userId: user.id, csrf, expiresAt });
+  await touchLogin(user.id);
+  res.cookie("ts3panel", token, cookieOptions());
+  req.user = signedInUser(user);
+  req.csrf = csrf;
+}
+
 api.post(
   "/login",
   wrap(async (req, res) => {
@@ -179,15 +204,30 @@ api.post(
       throw new HttpError("Username or password is wrong.", 401);
     }
     if (decision === "suspended") throw new HttpError("This account is suspended.", 401);
-    const token = randomBytes(32).toString("base64url");
-    const csrf = newCsrf();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await createSession({ id: sha256(token), userId: user.id, csrf, expiresAt });
-    await touchLogin(user.id);
+    await startSession(req, res, user);
     await addAudit({ userId: user.id, action: "login", detail: req.ip });
-    res.cookie("ts3panel", token, cookieOptions());
-    req.user = signedInUser(user);
-    req.csrf = csrf;
+    ok(res, sessionPayload(req));
+  }),
+);
+
+// Registration runs before the session check, like /login. It needs a valid invite token instead.
+api.post(
+  "/register",
+  wrap(async (req, res) => {
+    if (!rateLimit(`register:${req.ip}`, 8, 15 * 60 * 1000)) {
+      throw new HttpError("Too many attempts. Try again later.", 429);
+    }
+    if (req.user) throw new HttpError("Sign out before you register a new account.", 400);
+    const input = parseRegistration(req.body);
+    const passwordHash = await hashPassword(input.password);
+    const result = await registerWithInvite({ tokenHash: hashInviteToken(input.token), username: input.username, passwordHash });
+    await addAudit({
+      userId: result.userId,
+      action: "invite-register",
+      detail: `${input.username} via invite ${inviteAuditLabel({ id: result.inviteId, label: result.label })}`,
+    });
+    const user = await findUserById(result.userId);
+    await startSession(req, res, user);
     ok(res, sessionPayload(req));
   }),
 );
@@ -1294,6 +1334,60 @@ api.delete(
     await deleteUser(user.id);
     await addAudit({ userId: req.user.id, action: "user-delete", detail: user.username });
     ok(res, { message: req.t("User deleted."), ...(await adminDirectory()) });
+  }),
+);
+
+async function inviteDirectory() {
+  const instances = (await listInstances()).map((row) => ({ id: row.id, name: row.name }));
+  const now = Date.now();
+  return { invites: (await listInvites()).map((invite) => presentInvite(invite, now)), instances };
+}
+
+api.get(
+  "/admin/invites",
+  wrap(async (req, res) => {
+    ok(res, await inviteDirectory());
+  }),
+);
+
+api.post(
+  "/admin/invites",
+  wrap(async (req, res) => {
+    const known = new Set((await listInstances()).map((row) => row.id));
+    const fields = parseInviteForm(req.body, known);
+    const { token, hash } = newInviteToken();
+    const id = await insertInvite({ ...fields, tokenHash: hash, createdByUserId: req.user.id });
+    await addAudit({
+      userId: req.user.id,
+      action: "invite-create",
+      detail: `${inviteAuditLabel({ id, label: fields.label })} uses ${fields.maxUses} instances ${fields.instanceIds.join(",")}`,
+    });
+    ok(res, { message: req.t("Invite token created. Copy the link now. It is not shown again."), token, id, ...(await inviteDirectory()) });
+  }),
+);
+
+api.post(
+  "/admin/invites/:id/revoke",
+  wrap(async (req, res) => {
+    const id = numericId(req.params.id);
+    const invite = id ? await getInvite(id) : null;
+    if (!invite) throw new HttpError("Invite token not found.", 404);
+    await revokeInvite(invite.id);
+    await addAudit({ userId: req.user.id, action: "invite-revoke", detail: inviteAuditLabel(invite) });
+    ok(res, { message: req.t("Invite token revoked."), ...(await inviteDirectory()) });
+  }),
+);
+
+api.delete(
+  "/admin/invites/:id",
+  wrap(async (req, res) => {
+    const id = numericId(req.params.id);
+    const invite = id ? await getInvite(id) : null;
+    if (!invite) throw new HttpError("Invite token not found.", 404);
+    if (req.body.confirm !== true && req.body.confirm !== "on") throw new HttpError("Delete must be confirmed", 400);
+    await deleteInvite(invite.id);
+    await addAudit({ userId: req.user.id, action: "invite-delete", detail: inviteAuditLabel(invite) });
+    ok(res, { message: req.t("Invite token deleted."), ...(await inviteDirectory()) });
   }),
 );
 

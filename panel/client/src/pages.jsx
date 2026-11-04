@@ -204,6 +204,63 @@ export function Login() {
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
         </label>
         <button className="btn btn-primary" type="submit">{t("Sign in")}</button>
+        <p className="login-alt"><Link to="/register">{t("Register with an invite")}</Link></p>
+      </form>
+    </main>
+  );
+}
+
+export function Register() {
+  const { register, t } = useAuth();
+  const [params] = useSearchParams();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const token = String(form.get("token") || "");
+    const username = String(form.get("username") || "");
+    const password = String(form.get("password") || "");
+    const confirm = String(form.get("confirm") || "");
+    setError("");
+    if (password !== confirm) {
+      setError(t("The confirmation does not match."));
+      return;
+    }
+    setBusy(true);
+    try {
+      await register({ token, username, password, confirm });
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+  return (
+    <main className="login-page">
+      <form className="login-card" onSubmit={submit}>
+        <div className="login-head">
+          <div className="login-brand">
+            <img src="/favicon.svg" alt="" />
+            <h1>TS-Bot Panel</h1>
+          </div>
+          <LanguageSelect />
+        </div>
+        <p className="muted">{t("Create an account with an invite token from an administrator.")}</p>
+        <Notice error={error} />
+        <label>{t("Invite token")}
+          <input name="token" defaultValue={params.get("token") || ""} autoComplete="off" spellCheck={false} required />
+        </label>
+        <label>{t("Username")}
+          <input name="username" autoComplete="username" required maxLength={32} />
+        </label>
+        <label>{t("Password")}
+          <input name="password" type="password" autoComplete="new-password" required minLength={10} />
+        </label>
+        <label>{t("Confirm password")}
+          <input name="confirm" type="password" autoComplete="new-password" required minLength={10} />
+        </label>
+        <button className="btn btn-primary" type="submit" disabled={busy}>{t("Create account")}</button>
+        <p className="login-alt"><Link to="/login">{t("Back to sign-in")}</Link></p>
       </form>
     </main>
   );
@@ -1605,6 +1662,160 @@ export function Connection() {
   );
 }
 
+const INVITE_EXPIRY_DAYS = ["1", "7", "30", "90"];
+
+function inviteStatus(state, t) {
+  if (state === "active") return { className: "pill pill-ok", text: t("Active") };
+  if (state === "used") return { className: "pill pill-warn", text: t("Used up") };
+  if (state === "expired") return { className: "pill pill-warn", text: t("Expired") };
+  if (state === "unusable") return { className: "pill pill-bad", text: t("No instance left") };
+  return { className: "pill pill-bad", text: t("Revoked") };
+}
+
+function InviteTokens() {
+  const { t } = useAuth();
+  const { data, error, setData } = useLoad("/api/admin/invites");
+  const [note, setNote] = useState("");
+  const [formError, setFormError] = useState("");
+  const [created, setCreated] = useState("");
+  const linkRef = useRef(null);
+  const instances = data?.instances || [];
+  const invites = data?.invites || [];
+  function instanceNames(ids) {
+    const names = (ids || []).map((id) => instances.find((item) => item.id === id)?.name).filter(Boolean);
+    return names.length ? names.join(", ") : t("None");
+  }
+  function apply(result) {
+    setNote(result.message || "");
+    if (result.invites) setData({ invites: result.invites, instances: result.instances || [] });
+  }
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(created);
+      setNote(t("Link copied."));
+    } catch {
+      linkRef.current?.focus();
+      linkRef.current?.select();
+      setNote(t("Press Ctrl+C to copy the selected link."));
+    }
+  }
+  async function revoke(invite) {
+    if (!window.confirm(t("Revoke this invite token?"))) return;
+    setFormError("");
+    try { apply(await api(`/api/admin/invites/${invite.id}/revoke`, { method: "POST", body: {} })); }
+    catch (err) { setFormError(err.message); }
+  }
+  async function remove(invite) {
+    if (!window.confirm(t("Delete this invite token?"))) return;
+    setFormError("");
+    try { apply(await api(`/api/admin/invites/${invite.id}`, { method: "DELETE", body: { confirm: true } })); }
+    catch (err) { setFormError(err.message); }
+  }
+  const inviteTable = useColumns("invites", [
+    { id: "label", label: "Label", cell: (invite) => invite.label || "—" },
+    { id: "createdBy", label: "Created by", cellClass: "nowrap", cell: (invite) => invite.createdByName || "—" },
+    { id: "created", label: "Created", cellClass: "nowrap", cell: (invite) => (invite.createdAt ? new Date(invite.createdAt).toLocaleString() : "") },
+    { id: "expires", label: "Expires", cellClass: "nowrap", cell: (invite) => (invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : t("Never")) },
+    { id: "uses", label: "Uses", cellClass: "nowrap", cell: (invite) => `${invite.useCount} / ${invite.maxUses}` },
+    { id: "instances", label: "Instances", cell: (invite) => <span className="user-instances" title={instanceNames(invite.instanceIds)}>{instanceNames(invite.instanceIds)}</span> },
+    { id: "status", label: "Status", cellClass: "nowrap", cell: (invite) => { const s = inviteStatus(invite.state, t); return <span className={s.className}>{s.text}</span>; } },
+    {
+      id: "actions",
+      locked: "end",
+      cell: (invite) => (
+        <div className="inline">
+          {invite.state === "active" ? <button className="btn" type="button" onClick={() => revoke(invite)}>{t("Revoke")}</button> : null}
+          <button className="btn btn-danger" type="button" onClick={() => remove(invite)}>{t("Delete")}</button>
+        </div>
+      ),
+    },
+  ]);
+  return (
+    <>
+      <Notice error={formError || error} note={note} />
+      <form className="card" onSubmit={async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const form = new FormData(formElement);
+        const instanceIds = [...form.getAll("instanceId")];
+        setFormError("");
+        if (!instanceIds.length) {
+          setFormError(t("Assign at least one instance"));
+          return;
+        }
+        try {
+          const result = await api("/api/admin/invites", {
+            method: "POST",
+            body: {
+              label: form.get("label"),
+              instanceIds,
+              expiresDays: form.get("expiresDays"),
+              maxUses: form.get("maxUses"),
+              canCreateBots: form.get("canCreateBots") === "yes",
+              botLimit: form.get("botLimit"),
+            },
+          });
+          apply(result);
+          setCreated(`${window.location.origin}/register?token=${encodeURIComponent(result.token)}`);
+          formElement.reset();
+        } catch (err) {
+          setFormError(err.message);
+        }
+      }}>
+        <div className="card-head">
+          <div>
+            <h2>{t("Invite tokens")}</h2>
+            <p className="hint">{t("A token lets someone register one user account with the instances and bot rights chosen here.")}</p>
+          </div>
+        </div>
+        <div className="field-grid">
+          <label>{t("Label")}<input name="label" maxLength={120} autoComplete="off" placeholder={t("Optional")} /></label>
+          <label>{t("Expires")}
+            <select name="expiresDays" defaultValue="7">
+              {INVITE_EXPIRY_DAYS.map((days) => <option key={days} value={days}>{days === "1" ? t("1 day") : t("{count} days", { count: days })}</option>)}
+              <option value="never">{t("Never")}</option>
+            </select>
+          </label>
+          <label>{t("Uses")}<input name="maxUses" type="number" min={1} max={1000} defaultValue={1} required /></label>
+          <label>{t("Can create bots")}
+            <select name="canCreateBots" defaultValue="no">
+              <option value="no">{t("No")}</option>
+              <option value="yes">{t("Yes")}</option>
+            </select>
+          </label>
+          <label>{t("Bot limit")}<input name="botLimit" inputMode="numeric" placeholder={t("Unlimited")} /></label>
+        </div>
+        <fieldset className="check-group">
+          <legend>{t("Instances")}</legend>
+          {instances.length
+            ? instances.map((item) => <label className="check" key={item.id}><input type="checkbox" name="instanceId" value={item.id} /> {item.name}</label>)
+            : <p className="hint">{t("Add an instance first.")}</p>}
+        </fieldset>
+        {created ? (
+          <div className="invite-once">
+            <p className="hint">{t("Copy this link now. The token is not shown again.")}</p>
+            <div className="split">
+              <input ref={linkRef} className="grow mono" readOnly value={created} aria-label={t("Registration link")} onFocus={(event) => event.currentTarget.select()} />
+              <button className="btn" type="button" onClick={copyLink}>{t("Copy")}</button>
+              <button className="btn" type="button" onClick={() => setCreated("")}>{t("Close")}</button>
+            </div>
+          </div>
+        ) : null}
+        <div className="card-foot">
+          <button className="btn btn-primary" type="submit" disabled={!instances.length}>{t("Create token")}</button>
+        </div>
+      </form>
+      <h2>{t("Issued tokens")}</h2>
+      {data && !invites.length ? <p className="empty">{t("No invite tokens.")}</p> : null}
+      {invites.length ? (
+        <ColumnFrame picker={inviteTable.picker}>
+          <ColumnTable columns={inviteTable.shown} rows={invites} rowKey={(invite) => invite.id} />
+        </ColumnFrame>
+      ) : null}
+    </>
+  );
+}
+
 export function Users() {
   const { user, t } = useAuth();
   const { data, error, setData } = useLoad("/api/admin/users");
@@ -1837,6 +2048,7 @@ export function Users() {
         />
       </ColumnFrame>
       <Pager page={currentPage} pages={pageCount} onPage={setPage} total={accounts.length} />
+      <InviteTokens />
     </div>
   );
 }

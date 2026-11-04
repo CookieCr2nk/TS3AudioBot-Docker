@@ -3,15 +3,16 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { after, describe, it } from "node:test";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../src/api.js";
+import { api, loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../src/api.js";
 import { createApp, panelRoot } from "../src/app.js";
 import { canDeleteBot, instanceClient, mapBot, pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
 import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, channelNumber, liveMoveParts, liveRenameParts, resolveChannelId, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperGaps, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
-import { rateLimit, requireUser } from "../src/http.js";
+import { csrfProtect, rateLimit, requireAdmin, requireUser } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
+import { hashInviteToken, inviteAuditLabel, inviteState, newInviteToken, parseInviteForm, parseInviteToken, parseRegistration, presentInvite } from "../src/invites.js";
 import { catalogs, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentServerTree, presentSetting, presentStatus, presentTsIdentity, presentVersion, presentWhisper, presentWhisperTargets } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
@@ -440,7 +441,7 @@ describe("secrets and schema", () => {
 
   it("loads one schema and keeps the old migration checksums", () => {
     const migrations = loadMigrations();
-    assert.deepEqual(migrations.map((migration) => migration.version), ["001_schema"]);
+    assert.deepEqual(migrations.map((migration) => migration.version), ["001_schema", "002_invite_tokens"]);
     const creates = migrations[0].statements.filter((statement) => /^CREATE TABLE/i.test(statement));
     assert.deepEqual(
       creates.map((statement) => statement.match(/^CREATE TABLE IF NOT EXISTS (\w+)/i)[1]),
@@ -489,12 +490,13 @@ describe("secrets and schema", () => {
     });
     assert.deepEqual(
       lines.filter((line) => line.startsWith("[panel] Applied database migration")),
-      ["[panel] Applied database migration 001_schema"],
+      ["[panel] Applied database migration 001_schema", "[panel] Applied database migration 002_invite_tokens"],
     );
     assert.equal(lines.filter((line) => line === "[panel] Database schema is current").length, 1);
-    assert.equal(calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql)).length, 1);
-    assert.equal(applied.length, 1);
+    assert.equal(calls.filter((sql) => /INSERT INTO schema_migrations/i.test(sql)).length, 2);
+    assert.equal(applied.length, 2);
     assert.equal(applied[0].version, "001_schema");
+    assert.equal(applied[1].version, "002_invite_tokens");
 
     const changed = migrations.map((migration, index) =>
       index === 0 ? { ...migration, checksum: "0".repeat(64) } : migration,
@@ -515,7 +517,7 @@ describe("secrets and schema", () => {
     assert.equal(calls.some((sql) => /CREATE TABLE IF NOT EXISTS ts_bots/i.test(sql)), false);
     assert.equal(calls.includes("BEGIN"), true);
     assert.equal(calls.includes("COMMIT"), true);
-    assert.deepEqual(applied.map((row) => row.version), ["001_schema"]);
+    assert.deepEqual(applied.map((row) => row.version), ["001_schema", "002_invite_tokens"]);
     assert.equal(applied[0].checksum, migrations[0].checksum);
   });
 
@@ -526,7 +528,7 @@ describe("secrets and schema", () => {
     assert.equal(lines010.includes("[panel] Applied database migration 011_bot_settings"), true);
     assert.equal(lines010.includes("[panel] Applied database migration 012_bot_address"), true);
     assert.equal(through010.calls.filter((sql) => /ADD COLUMN IF NOT EXISTS connect_/i.test(sql)).length, 9);
-    assert.deepEqual(through010.applied.map((row) => row.version), ["001_schema"]);
+    assert.deepEqual(through010.applied.map((row) => row.version), ["001_schema", "002_invite_tokens"]);
 
     const through011 = memoryPool(legacyRows(11), { transactional: true });
     const lines011 = await captureLogs(() => applyMigrations(through011.pool, migrations));
@@ -536,7 +538,7 @@ describe("secrets and schema", () => {
       through011.calls.filter((sql) => /ALTER TABLE/i.test(sql)),
       ["ALTER TABLE ts_bots ADD COLUMN IF NOT EXISTS connect_address VARCHAR(200) NULL"],
     );
-    assert.deepEqual(through011.applied.map((row) => row.version), ["001_schema"]);
+    assert.deepEqual(through011.applied.map((row) => row.version), ["001_schema", "002_invite_tokens"]);
   });
 
   it("refuses a migration history this panel cannot finish", async () => {
@@ -694,6 +696,153 @@ describe("language", () => {
     }
   });
 
+});
+
+describe("invite tokens", () => {
+  it("adds exactly the two invite tables in migration 002", () => {
+    const migration = loadMigrations().find((item) => item.version === "002_invite_tokens");
+    assert.ok(migration);
+    const creates = migration.statements.filter((statement) => /^CREATE TABLE/i.test(statement));
+    assert.deepEqual(
+      creates.map((statement) => statement.match(/^CREATE TABLE IF NOT EXISTS (\w+)/i)[1]),
+      ["invite_tokens", "invite_token_instances"],
+    );
+    const sql = migration.statements.join("\n");
+    assert.match(sql, /token_hash CHAR\(64\) NOT NULL/);
+    assert.match(sql, /uq_invite_tokens_hash/);
+    assert.match(sql, /ON DELETE SET NULL/);
+    assert.match(sql, /fk_invite_inst_instance/);
+    assert.equal(/ALTER TABLE/i.test(sql), false);
+  });
+
+  it("creates a 43-character token and stores only its SHA-256 hash", () => {
+    const { token, hash } = newInviteToken();
+    assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(hash, hashInviteToken(token));
+    assert.match(hash, /^[0-9a-f]{64}$/);
+    assert.notEqual(hash, token);
+    assert.notEqual(newInviteToken().token, token);
+  });
+
+  it("accepts a bare token or a pasted registration link and rejects the rest", () => {
+    const { token } = newInviteToken();
+    assert.equal(parseInviteToken(`  ${token}  `), token);
+    assert.equal(parseInviteToken(`https://panel.example/register?token=${token}`), token);
+    for (const bad of ["", "short", "x".repeat(44), token.slice(0, 42) + "!", "https://x/register?token=%E0%A4%A"]) {
+      assert.throws(() => parseInviteToken(bad), (err) => err.message === "This invite token is not valid." && err.status === 400);
+    }
+  });
+
+  it("derives the invite state in a fixed order", () => {
+    const now = Date.parse("2026-01-02T00:00:00Z");
+    const base = { useCount: 0, maxUses: 1, expiresAt: null, revokedAt: null, instanceIds: [1] };
+    assert.equal(inviteState(base, now), "active");
+    assert.equal(inviteState({ ...base, revokedAt: "2026-01-01" }, now), "revoked");
+    assert.equal(inviteState({ ...base, revokedAt: "2026-01-01", useCount: 1, expiresAt: "2025-01-01" }, now), "revoked");
+    assert.equal(inviteState({ ...base, useCount: 1 }, now), "used");
+    assert.equal(inviteState({ ...base, expiresAt: "2026-01-01T00:00:00Z" }, now), "expired");
+    assert.equal(inviteState({ ...base, expiresAt: new Date(now) }, now), "expired");
+    assert.equal(inviteState({ ...base, expiresAt: "2026-02-01T00:00:00Z" }, now), "active");
+    assert.equal(inviteState({ ...base, instanceIds: [] }, now), "unusable");
+  });
+
+  it("parses the admin form into clean fields", () => {
+    const known = new Set([1, 2]);
+    const now = 0;
+    const parsed = parseInviteForm({ instanceIds: ["1", "1", "9", "x"] }, known, now);
+    assert.deepEqual(parsed.instanceIds, [1]);
+    assert.equal(parsed.maxUses, 1);
+    assert.deepEqual(parsed.expiresAt, new Date(7 * 86400000));
+    assert.equal(parsed.canCreateBots, false);
+    assert.equal(parsed.botLimit, null);
+    assert.equal(parsed.label, null);
+    assert.equal(parseInviteForm({ instanceIds: ["2"], expiresDays: "never" }, known, now).expiresAt, null);
+    assert.equal(parseInviteForm({ instanceIds: ["2"], canCreateBots: true }, known, now).canCreateBots, true);
+    const bots = parseInviteForm({ instanceIds: ["2"], canCreateBots: "on", botLimit: "3" }, known, now);
+    assert.equal(bots.canCreateBots, true);
+    assert.equal(bots.botLimit, 3);
+    assert.throws(() => parseInviteForm({ instanceIds: [] }, known, now), /Assign at least one instance/);
+    for (const expiresDays of ["0", "366", "1.5"]) {
+      assert.throws(() => parseInviteForm({ instanceIds: ["1"], expiresDays }, known, now), /Expiry/);
+    }
+    for (const maxUses of ["0", "1001"]) {
+      assert.throws(() => parseInviteForm({ instanceIds: ["1"], maxUses }, known, now), /Uses must be/);
+    }
+    assert.throws(() => parseInviteForm({ instanceIds: ["1"], label: "x".repeat(121) }, known, now), /Label is too long/);
+    assert.throws(() => parseInviteForm({ instanceIds: ["1"], label: "a\nb" }, known, now), /is invalid/);
+  });
+
+  it("checks the token before the username and the password confirmation", () => {
+    const { token } = newInviteToken();
+    assert.deepEqual(parseRegistration({ token, username: "ada", password: "longenough1", confirm: "longenough1" }), {
+      token,
+      username: "ada",
+      password: "longenough1",
+    });
+    assert.throws(() => parseRegistration({ token: "bad", username: "!!", password: "x" }), /invite token is not valid/);
+    assert.throws(() => parseRegistration({ token, username: "!!", password: "longenough1", confirm: "longenough1" }), /Username: 3/);
+    assert.throws(() => parseRegistration({ token, username: "ada", password: "short", confirm: "short" }), /at least 10 characters/);
+    assert.throws(() => parseRegistration({ token, username: "ada", password: "longenough1", confirm: "other" }), /confirmation does not match/);
+    assert.throws(() => parseRegistration({ token, username: "ada", password: "p".repeat(73), confirm: "p".repeat(73) }), /at most 72 bytes/);
+  });
+
+  it("never presents the hash and labels audit entries by id and label", () => {
+    const view = presentInvite(
+      { id: 3, label: "Team", tokenHash: "a".repeat(64), token_hash: "b".repeat(64), maxUses: 1, useCount: 0, instanceIds: [1], expiresAt: null },
+      0,
+    );
+    assert.equal(view.state, "active");
+    assert.equal(JSON.stringify(view).includes("a".repeat(64)), false);
+    assert.equal(JSON.stringify(view).includes("b".repeat(64)), false);
+    assert.equal("tokenHash" in view, false);
+    assert.equal("token_hash" in view, false);
+    assert.equal(inviteAuditLabel({ id: 3, label: "" }), "#3");
+    assert.equal(inviteAuditLabel({ id: 3, label: "Team" }), "#3 (Team)");
+  });
+
+  it("keeps registration before the session check and admin invites behind it", () => {
+    const paths = api.stack.map((layer) => {
+      if (layer.route) return [layer.route.path, Object.keys(layer.route.methods)[0]];
+      return [layer.name, null];
+    });
+    const index = (name, method) =>
+      paths.findIndex(([path, verb]) => path === name && (method === undefined || verb === method));
+    const login = index("/login", "post");
+    const register = index("/register", "post");
+    const csrf = paths.findIndex(([path]) => path === "csrfProtect");
+    const requireUserAt = paths.findIndex(([path]) => path === "requireUser");
+    const requireAdminAt = paths.findIndex(([path]) => path === "requireAdmin");
+    assert.ok(login >= 0 && register > login && csrf > register && requireUserAt > csrf);
+    assert.ok(requireAdminAt > requireUserAt);
+    for (const [route, method] of [["/admin/invites", "get"], ["/admin/invites", "post"], ["/admin/invites/:id/revoke", "post"], ["/admin/invites/:id", "delete"]]) {
+      assert.ok(index(route, method) > requireAdminAt, `${method} ${route}`);
+    }
+    assert.equal(typeof csrfProtect, "function");
+    assert.equal(typeof requireAdmin, "function");
+  });
+
+  it("answers a bad registration token in German and blocks invite admin without a session", async () => {
+    const live = createApp();
+    const server = await new Promise((resolve) => {
+      const started = live.listen(0, "127.0.0.1", () => resolve(started));
+    });
+    try {
+      const port = server.address().port;
+      const bad = await fetch(`http://127.0.0.1:${port}/api/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "accept-language": "de", accept: "application/json" },
+        body: JSON.stringify({ token: "bad", username: "ada", password: "longenough1", confirm: "longenough1" }),
+      });
+      assert.equal(bad.status, 400);
+      assert.equal((await bad.json()).error, "Dieses Einladungstoken ist nicht gültig.");
+      const anonymous = await fetch(`http://127.0.0.1:${port}/api/admin/invites`, {
+        headers: { accept: "application/json" },
+      });
+      assert.equal(anonymous.status, 401);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
 });
 
 describe("panel paths and failures", () => {

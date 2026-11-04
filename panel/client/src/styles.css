@@ -517,6 +517,11 @@ tr.user-edit-row > td { background: var(--subtle); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.check-group { border: 0; margin: 0; padding: 0; display: grid; gap: 0.4rem; min-width: 0; }
+.check-group legend { padding: 0; margin-bottom: 0.3rem; font-size: 0.9rem; font-weight: 550; color: var(--text); }
+.invite-once { display: grid; gap: 0.5rem; padding: 0.75rem 0.85rem; background: var(--subtle); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.invite-once input { overflow-wrap: anywhere; }
+.login-alt { text-align: center; font-size: 0.9rem; }
 
 /* ---------- Popovers ---------- */
 .add-pop { position: relative; }

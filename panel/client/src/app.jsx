@@ -3,7 +3,7 @@ import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigat
 import { api } from "./api.js";
 import { useAuth } from "./auth.jsx";
 import { LanguageSelect } from "./language.jsx";
-import { Account, AddBot, Audit, BotsPage, Connection, InstancePage, Login, Notice, Overview, Playback, Radio, Users } from "./pages.jsx";
+import { Account, AddBot, Audit, BotsPage, Connection, InstancePage, Login, Notice, Overview, Playback, Radio, Register, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
 
 export function App() {
@@ -12,6 +12,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
       <Route element={user ? <Shell /> : <Navigate to="/login" replace />}>
         <Route index element={<Overview />} />
         <Route path="bots" element={<BotsPage />} />
