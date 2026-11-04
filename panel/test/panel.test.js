@@ -13,7 +13,7 @@ import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { rateLimit, requireUser } from "../src/http.js";
 import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { catalogs, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
-import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentServerTree, presentSetting, presentStatus, presentTsIdentity, presentWhisper, presentWhisperTargets } from "../src/present.js";
+import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentServerTree, presentSetting, presentStatus, presentTsIdentity, presentVersion, presentWhisper, presentWhisperTargets } from "../src/present.js";
 import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, callBot, scope, statusParts } from "../src/ts3ab.js";
 import {
@@ -948,5 +948,21 @@ describe("bot move", () => {
     });
     assert.equal(paths.includes("/bot/template/default/(/bot/move/509)"), true);
     assert.equal(result.messageKey, "Connection settings saved. The bot moved to that channel.");
+  });
+});
+
+describe("instance version", () => {
+  it("reads the version from the print fallback, an object, or plain text", () => {
+    assert.equal(presentVersion({}), null);
+    assert.equal(presentVersion({ Version: "<?>", CommitSha: "<?>" }), null);
+    assert.equal(presentVersion("\nVersion: 0.13.0-alpha\nCommitHash: 3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39"), "0.13.0-alpha (3f2a9c1)");
+    assert.equal(presentVersion("Version: 0.13.0-alpha\nCommitHash: <?>"), "0.13.0-alpha");
+    assert.equal(presentVersion({ Version: "0.13.0", CommitSha: "abc1234" }), "0.13.0 (abc1234)");
+    assert.equal(presentVersion("0.12.0"), "0.12.0");
+    assert.equal(presentVersion({ ErrorCode: 1, ErrorName: "x", ErrorMessage: "y" }), null);
+  });
+
+  it("asks print for the text form of version", () => {
+    assert.equal(buildApiPath(["print", ["version"]]), "/print/(/version)");
   });
 });
