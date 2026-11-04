@@ -64,6 +64,8 @@ The bot table ellipsizes only the Now playing column. The server address and the
 | `client/src/hostingForm.js` | Diff for Connection. The server applies that patch |
 | `client/src/player.jsx` | Bottom bar. It reads the shell player context |
 
+Styling lives in `client/src/styles.css`. Colours, radii, and shadows are tokens on `:root`. Reuse the layout classes before adding new ones: `.card` with `.card-head` and `.card-foot`, `.facts` for label and value rows, `.field-grid` for form fields, `.toolbar` above a table, `Pager` under a table, `.pair` and `.page-grid` for two columns, `.hint` for help text, and `.empty` for an empty list. Paragraphs have no margin. Cards space their children with `gap`.
+
 A submit handler must read `event.currentTarget` and `FormData` before the first `await`. After that, React may clear the event. Do not build a choice with `<datalist>`, the `list` attribute, or the browser's suggestion popup. Use a `<select>` or another control the panel renders itself.
 
 ### JSON API

@@ -385,8 +385,6 @@ const de = {
   "Channel commander is saved as off. The connected bot could not be changed.":
     "Channel-Commander ist als aus gespeichert. Der verbundene Bot konnte nicht geändert werden.",
   "TeamSpeak ID": "TeamSpeak-ID",
-  "Shown while the bot is connected.":
-    "Sichtbar, solange der Bot verbunden ist.",
   Copy: "Kopieren",
   Dashboard: "Dashboard",
   Online: "Online",
@@ -427,6 +425,11 @@ const de = {
   "Channel {channel} is not on this server.": "Den Channel {channel} gibt es auf diesem Server nicht.",
   "Search bots": "Bots suchen",
   "No bot matches.": "Kein Bot passt.",
+  "{count} entries": "{count} Einträge",
+  "Management for bots, playback, and access.": "Verwaltung für Bots, Wiedergabe und Zugänge.",
+  "Type a search term, or paste a link to play it right away.": "Suchbegriff eingeben oder einen Link einfügen, um ihn sofort abzuspielen.",
+  "No stations yet.": "Noch keine Sender.",
+  "No entries.": "Keine Einträge.",
   "Whisper targets added": "Flüsterziele hinzugefügt",
   "Whisper targets removed": "Flüsterziele entfernt",
   "The bot is not connected": "Der Bot ist nicht verbunden",

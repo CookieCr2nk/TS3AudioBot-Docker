@@ -4,6 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- The panel has a new look: calmer colours, larger type, cards with headers, status pills with a dot, and clearer focus and disabled states. Help text sits in the card it belongs to
+- Playback shows the current song in a card with a progress bar. The seek steps are one button group
+- Connection puts server and channel commander side by side, shows status as label and value rows, and makes Whisper or Voice a toggle. The TeamSpeak ID sits in the server card
+- Bots and Users keep filters and page size in a toolbar above the table and page buttons below it. The row buttons on Bots no longer stretch each row and stay visible while the table scrolls sideways
+- Radio lists stations next to the form for a new one. Instance, Account, Audit, and the sign-in page use the same layout
+
 ### Fixed
 - The bot switcher at the top right is a structured menu: bots are grouped by instance, each shows its name and saved server, the open bot is marked, and a search appears when there are more than six bots
 - Whisper on Connection: the Clients and Channels columns line up. Each is a panel with its count, its subscribed targets, a list of the same height (or an empty-state box), the id field, and the buttons. On a narrow screen the panels stack
