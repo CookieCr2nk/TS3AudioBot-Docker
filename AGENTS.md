@@ -54,17 +54,30 @@ An API token in the panel is required only when the bot sits outside this networ
 
 ## Checks
 
-- `make test` checks the config and the Compose and workflow YAML, and runs the panel tests when `node` is on `PATH`.
+- `make test` checks the config and the Compose and workflow YAML, and runs the panel tests and the GHCR prune test when `node` is on `PATH`.
 - `make panel-test` is the panel tests only.
-- This Windows checkout often has no `node` and no `docker`. A missing binary is not a passing test. Panel tests are described in `panel/AGENTS.md`.
+- `npm run build` in `panel/` builds the client. Run it after a change under `panel/client/`. The tests do not compile JSX.
+- A checkout can have no `node`, no `docker`, or no MariaDB. A missing binary is not a passing test. Say which check did not run. Panel tests are described in `panel/AGENTS.md`.
 
-## Cursor Cloud
+## Agent setup
 
-Cloud agents get Node 26.13.0 on `/usr/local/bin` and MariaDB 10.11. Put `/usr/local/bin` first on `PATH` before `node`, `npm`, or `make test`. The agent runtime can otherwise appear first as Node 22. `systemd` is not running, and `policy-rc.d` blocks `service`, so MariaDB is started with `mysqld` and the socket `/run/mysqld/mysqld.sock`. It listens on `127.0.0.1:3307`. Port 3306 stays closed so `make test` still reports a refused database connection. Do not export `DB_PORT` into the shell that runs `make test`.
+`CLAUDE.md`, `.cursor/rules/project.mdc`, and `.grok/rules/start.md` only point to this file. Put rules here or in `panel/AGENTS.md`, not in those files.
+
+Check `node -v` first. The panel image and CI run Node 26 (`engines` in `panel/package.json`). Some agent containers have Node 22 first on `PATH`, and sometimes also on `/usr/local/bin`. The panel tests pass on Node 22, so a Node 22 result counts as a test run, but say which version ran. Install dependencies with `npm ci --ignore-scripts` from `panel/`.
+
+When MariaDB is available, start it with `mysqld` and the socket `/run/mysqld/mysqld.sock`, because `systemd` is not running and `policy-rc.d` blocks `service`. Let it listen on `127.0.0.1:3307`. Port 3306 stays closed so `make test` still reports a refused database connection. Do not export `DB_PORT` into the shell that runs `make test`. When `mysqld` is missing, skip the live run and say so.
 
 The database is `ts3panel`. The user and password are both `ts3panel`. The panel process uses `DB_HOST=127.0.0.1`, `DB_PORT=3307`, `TOKEN_KEY=dev-only-token-key`, `ADMIN_USER=admin`, and `ADMIN_PASSWORD=dev-admin-password`. `npm start` in `panel/` serves the API on port 8080. `npm run client -- --host 127.0.0.1 --port 5173` serves the UI, and that dev server proxies `/api` to 8080. Sign in at `http://127.0.0.1:5173` as `admin` / `dev-admin-password`.
 
-Dependencies are `npm ci --ignore-scripts` from `panel/`. `make test` is the local check. This environment does not build the bot image. An instance can be saved without a bot process; Overview then shows that API address as unreachable.
+The bot image is not built in agent containers. An instance can be saved without a bot process; Overview then shows that API address as unreachable.
+
+## Before you finish
+
+1. `make test` passes, or you said which part could not run.
+2. After a client change, `npm run build` in `panel/` passes.
+3. Every new UI string or fixed error sentence is in every catalog, and a removed string is gone from every catalog. The catalog test fails on both.
+4. A behavior change has a test in `panel/test/` and, when users can see it, a line in `CHANGELOG.md` under `[Unreleased]`.
+5. `README.md`, this file, and `panel/AGENTS.md` still describe the code. Fix the file that is wrong instead of adding a new one.
 
 ## Commits
 
