@@ -1,59 +1,153 @@
 # TS3AudioBot-Docker
 
-Docker image for [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) and an optional web panel.
+A music bot for TeamSpeak 3, ready to run in Docker, with a web panel to control it from the browser.
 
-Agent rules are in [`AGENTS.md`](AGENTS.md). Panel work also follows [`panel/AGENTS.md`](panel/AGENTS.md). Grok loads both by filename, Claude loads `CLAUDE.md`, and Cursor loads `.cursor/rules/project.mdc`.
+It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker image and adds a panel where you can play music and radio streams, manage several bots, and set up who may use them.
 
-There are three Compose files. Each one starts on its own.
+![The panel: a bot playing a mix, with its queue and the player bar at the bottom](docs/panel.png)
 
-| | Bot only | Bot, panel, MariaDB | Bot, panel, external MariaDB |
-|---|---|---|---|
-| File | `docker-compose.yml` | `docker-compose.panel.yml` | `docker-compose.panel-external-db.yml` |
-| Start | `docker compose up -d` | `docker compose up -d` | `docker compose up -d` |
-| UI | none | http://localhost:8080 | http://localhost:8080 |
-| Bot API port 58913 | not reachable from outside | panel only, on the internal network | panel only, on the internal network |
+## What you get
 
-The panel and the bot are separate containers. In `docker-compose.panel.yml` MariaDB is a third container and cannot see the bot API.
+- **Playback** in the browser: play, pause, skip, seek, volume, and a queue. The player bar stays at the bottom while you move between pages.
+- **Search** YouTube and other sources and add the results to the queue.
+- **Radio stations**: save your own stations, or publish them for everyone.
+- **Several bots** on one server, each with its own nickname, channel, and stream.
+- **Connection settings** in the panel: server address, nickname, default channel, passwords, bitrate, and volume. You do not need to edit config files.
+- **Whisper or voice**: play to the whole channel, or only to chosen clients and channels.
+- **Accounts**: administrators, users who may create bots, users who only control bots assigned to them, and a bot limit per account.
+- **English and German**. The panel follows your browser language, or you can choose one.
 
-## Start the bot and the panel
+## What you need
+
+- A machine with [Docker](https://docs.docker.com/get-docker/) and Docker Compose, on amd64 or arm64 (for example a 64-bit Raspberry Pi OS). The bot alone also runs on 32-bit arm/v7.
+- A TeamSpeak 3 server the bot can connect to.
+- `git`, or download this repository as a ZIP file.
+
+## Install
+
+1. Get the files:
+
+   ```bash
+   git clone https://github.com/CookieCr2nk/TS3AudioBot-Docker.git
+   ```
+
+   ```bash
+   cd TS3AudioBot-Docker
+   ```
+
+2. Create your settings file:
+
+   ```bash
+   cp panel/.env.example .env
+   ```
+
+3. Open `.env` in a text editor and change these values:
+
+   | Setting | What to enter |
+   |---|---|
+   | `PANEL_ADMIN_PASSWORD` | The password for the first panel account (`admin`). At least 10 characters. If you leave it empty, the panel writes a random password into its log on the first start. |
+   | `PANEL_DB_PASSWORD` | Any long password. Only the panel uses it, so you never type it anywhere else. |
+   | `PANEL_DB_ROOT_PASSWORD` | Another long password for the database administrator. |
+   | `PANEL_TOKEN_KEY` | A long random text. It encrypts API tokens. You only need one if the bot runs on another machine, but set it now: changing it later makes saved tokens unreadable. |
+
+4. Start everything:
+
+   ```bash
+   docker compose -f docker-compose.panel.yml up -d
+   ```
+
+   This starts three containers: the bot, the panel, and a database for the panel.
+
+5. Open **http://localhost:8080** (or `http://<your-server>:8080`) and sign in as `admin` with the password from step 3.
+
+## First steps in the panel
+
+1. **Add the bot container.** On **Overview**, press **+**. Give it a name and enter the API address `http://ts3audiobot:58913`. The panel calls this an *instance*: one Docker container that can run several TeamSpeak bots.
+2. **Create a bot.** Open the instance and add a bot. The ready-made `default` bot can be attached as well.
+3. **Connect to your TeamSpeak server.** Open the bot, go to **Connection**, enter your server address (for example `ts.example.org` or `ts.example.org:9987`), save, and press **Start**.
+4. **Set it up.** On the same page, set a nickname, a default channel, passwords if your server needs them, and optionally a radio stream that starts when the bot connects.
+5. **Play something.** Go to **Playback**, search for a song or paste a link, and play it. Save streams you use often under **Radio**.
+
+To give other people access, add accounts under **Users** and assign bots to them under **Bots**.
+
+## Everyday use
+
+| Page | What you do there |
+|---|---|
+| **Overview** | See which instances are online, their TS3AudioBot version, and how many bots run. |
+| **Bots** | List of all bots you may open. Select several to start or stop them together. |
+| **Playback** | What is playing now, the queue, search, seek, and volume. |
+| **Radio** | Your saved stations. Play one now or add it to the queue. |
+| **Connection** | Server, nickname, channels, passwords, bitrate, volume, stream on connect, channel commander, and whisper. |
+| **Users**, **Audit** | Accounts and a log of who did what. Administrators only. |
+| **Account** | Change your own password. |
+
+**Whisper:** On **Connection**, choose **Whisper** to play only to the clients and channels you tick in the lists. Choose **Voice** to play to everyone in the bot's channel.
+
+## Update
 
 ```bash
-git clone https://github.com/CookieCr2nk/TS3AudioBot-Docker.git
-cd TS3AudioBot-Docker
-cp panel/.env.example .env
+git pull
 ```
 
-Set at least these two values in the `.env` at the repo root:
-
-- `PANEL_DB_PASSWORD` — password of the panel database
-- `PANEL_ADMIN_PASSWORD` — at least 10 characters, or the first start writes a random password once into the panel logs
-
-Then:
-
 ```bash
-make compose-panel-up
+docker compose -f docker-compose.panel.yml up -d
 ```
 
-Open http://localhost:8080 and sign in. Add an instance. One instance is one Docker container. On the Compose network the API address is `http://ts3audiobot:58913`. Leave the UID and token empty. The owner of that instance can then create several TeamSpeak bots on it.
+Compose downloads the newest images and restarts what changed. Your bots, settings, accounts, and stations are kept.
 
-Compose pulls `ghcr.io/cookiecr2nk/ts3audiobot-docker` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel` with the tag in `IMAGE_TAG`. The default is `main`. Put `IMAGE_TAG=develop` in the root `.env` to pull the images built from `develop`. The Compose files are the same on both branches.
-
-The UI is a single page. The menu stays in place, and saving a setting does not reload it. Playback stays in a bar at the bottom while you move between a bot's pages. Bots lists every TeamSpeak bot you can open. Select more than one to pause, play, or set the volume on all of them. The source strings are English. A control beside the panel name can follow the browser or pick a language. German is `panel/src/locales/de.js`. Another language is a new file there, registered in `panel/src/i18n.js`.
-
-To work on the UI locally, from `panel/`: `npm install`, then `npm start` and `npm run client`. Open `http://127.0.0.1:5173`. `npm run build` writes the files the image serves.
-
-Bot files live in the named volume `ts3audiobot-data`, mounted at `/data`. The first start copies `config/` from the image into an empty volume. Put the TeamSpeak server in `bots/default/bot.toml` on that volume (`address`, then restart the bot). The bot creates its identity on the first connection attempt.
-
-Logs: `make compose-panel-logs` and `docker compose -f docker-compose.panel.yml logs -f ts3audiobot`
-
-Stop: `make compose-panel-down`
-
-## External MariaDB
-
-`docker-compose.panel-external-db.yml` starts the bot and the panel and does not start a MariaDB container. Host, port, user, password, and database name come only from `.env`.
+## Stop
 
 ```bash
-# in the .env at the repo root
+docker compose -f docker-compose.panel.yml down
+```
+
+This keeps all data. Only `down -v` deletes the stored data as well.
+
+Logs, if something does not work:
+
+```bash
+docker compose -f docker-compose.panel.yml logs -f
+```
+
+## Troubleshooting
+
+**The instance shows as offline on Overview.** Check that the API address is `http://ts3audiobot:58913` and that the `ts3audiobot` container runs (`docker ps`).
+
+**The bot does not connect.** Check the server address on **Connection**. If the server has a password, enter it there. The bot log shows the reason (`docker compose -f docker-compose.panel.yml logs ts3audiobot`).
+
+**"Missing teamspeak permissions" with a permission name such as `b_client_info_view`.** That is a right on your TeamSpeak server, not a panel error. In TeamSpeak, open *Permissions → Server Groups*, select the group the bot is in (often *Guest*), and grant the named permission. A separate *Bot* server group is cleaner. For the channel and client lists the group also needs `b_virtualserver_channel_list` and `b_virtualserver_client_list`.
+
+**Version shows "Unknown".** The instance is reachable but did not report its version. Update to the newest images.
+
+**Forgot the admin password.** Another administrator can set a new one under **Users**.
+
+## Security
+
+- The bot's control port (58913) is never published to your network. Only the panel can reach it, over an internal Docker network. Because of that the bot accepts every command from the panel without a token.
+- **Do not map port 58913 to the host.** Anyone who can reach it could control the bot. If you need that, first remove `isapi = true` from `rights.toml` on the bot volume and use an API token.
+- Put the panel behind HTTPS (for example a reverse proxy) if it is reachable from the internet. Then set `PANEL_COOKIE_SECURE=true` and, behind a proxy, `PANEL_TRUST_PROXY=1` in `.env`.
+- The bot runs as an unprivileged user with a read-only file system. Details and how to report a problem: [SECURITY.md](SECURITY.md).
+
+## Advanced
+
+### Other setups
+
+There are three Compose files. Each one starts a complete setup on its own.
+
+| File | Starts | Web panel |
+|---|---|---|
+| `docker-compose.panel.yml` | bot, panel, MariaDB | http://localhost:8080 |
+| `docker-compose.panel-external-db.yml` | bot, panel. Uses your own MariaDB | http://localhost:8080 |
+| `docker-compose.yml` | bot only | none |
+
+The `Makefile` has short commands for these, for example `make compose-panel-up`, `make compose-panel-down`, and `make compose-panel-logs`.
+
+**Bot only:** `docker compose up -d`. There is no web panel, and the bot's API stays inside the container. Configure the bot in `bots/default/bot.toml` on the data volume.
+
+**Own MariaDB server:** set the connection in `.env` and start with `docker compose -f docker-compose.panel-external-db.yml up -d`.
+
+```bash
 PANEL_DB_HOST=db.example.com
 PANEL_DB_PORT=3306
 PANEL_DB_NAME=ts3panel
@@ -61,80 +155,59 @@ PANEL_DB_USER=ts3panel
 PANEL_DB_PASSWORD=change-me
 ```
 
-When MariaDB runs on the same machine as Docker, set `PANEL_DB_HOST=host.docker.internal`. `127.0.0.1` would be the panel container itself.
+When MariaDB runs on the same machine as Docker, use `PANEL_DB_HOST=host.docker.internal`, not `127.0.0.1`. The database and user must exist already. The panel creates its tables on the first start and updates them on later starts.
 
-The database and user must already exist and must accept connections from the Docker bridge. The panel creates its tables on startup.
+### Other settings in `.env`
 
-Schema changes are numbered files in `panel/sql/migrations/`. Each new file runs once and is stored in `schema_migrations` with a checksum. A file that has already been applied must not change. The next change is a new file with the next number, for example `002_name.sql`. The SQL statements must be safe to run again if the process stops between two statements. A database from release 1.0, or one that already applied the older migration files, is upgraded to this schema when the panel starts.
+| Setting | Default | Meaning |
+|---|---|---|
+| `PANEL_PORT` | `8080` | Port of the web panel on the host. |
+| `PANEL_ADMIN_USER` | `admin` | Name of the first account. |
+| `IMAGE_TAG` | `main` | `main` is the stable line. `develop` gets new features first. |
+| `PANEL_COOKIE_SECURE` | `false` | `true` when the panel is served over HTTPS. |
+| `PANEL_TRUST_PROXY` | `0` | `1` when the panel runs behind a reverse proxy. |
 
-```bash
-make compose-panel-external-up
-```
+### Where the data lives
 
-Stop with `make compose-panel-external-down`. The external database is left as it is.
+- Bot files are in the Docker volume `ts3audiobot-data`, mounted at `/data`. The first start copies the defaults from `config/` into the empty volume. Later image updates do not change it.
 
-## Radio and connection
+  | File on the volume | Contents |
+  |---|---|
+  | `bots/<name>/bot.toml` | TeamSpeak address, nickname, identity of one bot |
+  | `ts3audiobot.toml` | Global defaults, the web API on port 58913 |
+  | `rights.toml` | Who may run which commands |
 
-Radio stations are stored in the panel database, not in the bot files. Under Radio, every user who can control a bot can save private stations. An administrator can publish a station for everyone and can also see private stations. A shared station remains when the account that created it is deleted. Play and append use the bot that is open. The same address remains when the bot volume is replaced.
+- Accounts, instances, radio stations, and the audit log are in the panel database.
+- Passwords for TeamSpeak servers are sent to the bot and are not stored in the panel database.
 
-An administrator registers each container as an instance and can assign an owner and extra users. The owner can create TeamSpeak bots on that instance. The account a bot is assigned to can delete that bot. Granted users can control playback. They can create bots only when an administrator allows it. Otherwise an administrator assigns each bot to a user from Bots, and that user can open and delete it. A user sees only bots assigned to that user. A user account must be assigned to at least one instance. The bot list shows who it belongs to and the saved TeamSpeak address, including while the bot is offline. While the bot is online that row shows the connected server name. The bot switcher uses the saved address. Each account can own unlimited bots or a fixed number. An administrator sets that number. It counts bots assigned to the account. A bot with nobody assigned counts for the instance owner. An instance with no owner has no limit. A new account can be created without a password and cannot sign in until one is set. A suspended account cannot sign in. The panel does not start containers, and it has no billing and no tickets.
+All bot options: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki).
 
-Under Connection, the TeamSpeak server, its address, and connect or disconnect are at the top. Anyone who can open the bot writes the nickname, default channel, server password, channel password, bitrate, default volume, whether the bot connects when the process starts, and an optional HTTP or HTTPS stream into the bot template. Clearing the nickname or the default channel resets it. An empty password, bitrate, or volume stays unchanged. Not set removes the stream that plays on connect. The control lists saved stations and can take another HTTP or HTTPS address. A saved station is stored by its id. A connected bot takes the new nickname immediately. An offline bot uses it the next time it connects. The stream plays when the bot connects. Passwords are sent to the bot and are not stored in the panel database. Channel commander can be turned on or off. That choice is saved on the bot and is applied again each time the bot connects. Whisper and Voice choose who hears the bot. Whisper reaches subscribed clients and the bot's current channel. Voice reaches everyone in that channel. The choice is saved and applied again when the next song starts. A connected bot changes immediately. Connection shows the bot's TeamSpeak ID while the bot is connected.
+### How accounts and bots relate
 
-## Why there is no API token
+An administrator registers each container as an instance and can give it an owner. The owner can create bots on that instance. Every bot can be assigned to one account, which can open and delete it. Other accounts see only bots assigned to them, and can create bots only when an administrator allows it. An administrator can limit how many bots an account may have. Accounts can be suspended, and a new account cannot sign in until it has a password.
 
-The bot API listens on port 58913 inside the container. Compose does not publish that port. In the panel setup only the bot and the panel are on the `botapi` network. MariaDB is on a second network, `paneldb`, with no route to the internet.
+## For developers
 
-`rights.toml` on the bot volume therefore allows every API call (`isapi = true`). That is safe as long as port 58913 is not mapped to the host. There is no fixed container IP, because it changes with the Docker install.
+Rules for code changes, including for AI agents, are in [`AGENTS.md`](AGENTS.md) and [`panel/AGENTS.md`](panel/AGENTS.md). `CLAUDE.md`, `.cursor/rules/project.mdc`, and `.grok/rules/start.md` point there.
 
-If `rights.toml` is left from an older start, set `isapi = true` on the admin rule, remove old panel IPs, and restart the bot.
-
-An API token in the panel is required only when the bot is deliberately outside this network.
-
-## Start the bot only
-
-```bash
-docker compose up -d
-```
-
-There is no web UI. The API stays inside the container. Publishing port 58913 anyway makes everyone who can reach the port a bot admin. Remove `isapi = true` from `rights.toml` on the bot volume before doing that.
-
-## Configuration
-
-The image copies `config/` to `/data`. Compose mounts the named volume `ts3audiobot-data` there. Docker fills the volume from the image only while it is empty. A later image update does not change an existing volume. `make init-data` copies `config/` to a host directory `data/` and does not update this volume.
-
-| File on the volume | Contents |
-|---|---|
-| `bots/default/bot.toml` | TeamSpeak address, name, identity |
-| `ts3audiobot.toml` | Global defaults, web API on port 58913 |
-| `rights.toml` | Who may run which commands |
-
-Options: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki)
-
-## Build the images
+**Images.** Published to GHCR as `ghcr.io/cookiecr2nk/ts3audiobot-docker` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel`, tagged `:main` from `main` and `:develop` from `develop`. To build them yourself:
 
 ```bash
 docker build -t ts3audiobot-docker:local .
+```
+
+```bash
 docker build -t ts3audiobot-panel:local ./panel
 ```
 
-`BOT_REF` is a git ref of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot). The default is `develop`. Upstream does not publish a build for that branch, so the image follows the Linux steps in that README: clone the ref with submodules, run `dotnet build --framework net10.0 --configuration Release TS3AudioBot` on the .NET 10 SDK, and start `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`. The image installs ffmpeg, libopus, and a per-architecture `yt-dlp`. It does not build the upstream WebInterface.
+The bot image builds the `develop` branch of [Splamy/TS3AudioBot](https://github.com/Splamy/TS3AudioBot) (set `BOT_REF` for another ref), because upstream does not publish that build. It runs `dotnet build --framework net10.0 --configuration Release TS3AudioBot` on the .NET 10 SDK and starts `dotnet TS3AudioBot.dll` on `mcr.microsoft.com/dotnet/runtime:10.0`, with ffmpeg, libopus, and `yt-dlp`. It does not include the upstream web interface.
 
-Images from GitHub: `ghcr.io/cookiecr2nk/ts3audiobot-docker` and `ghcr.io/cookiecr2nk/ts3audiobot-docker-panel`, tagged `:main` from `main` and `:develop` from `develop`. Compose selects the tag with `IMAGE_TAG` and defaults to `main`.
+**Panel.** Node.js, Express, MariaDB, and a React UI built with Vite. To work on it, from `panel/`: `npm install`, then `npm start` and `npm run client`, and open `http://127.0.0.1:5173`. `npm run build` writes the files the image serves. To add a language, add `panel/src/locales/<id>.js` and register it in `panel/src/i18n.js`.
 
-## CI
+**Database changes** are numbered files in `panel/sql/migrations/`. Each runs once and is recorded with a checksum, so an applied file must not change. Statements must be safe to run again.
 
-Two workflows:
-
-- `.github/workflows/ci.yml` checks the config and the panel tests on every push and pull request, builds both images, and starts the stack. The run passes only when the panel is healthy, the bot API answers from the panel, and port 58913 is not bound on the host.
-- `.github/workflows/docker-publish.yml` builds the bot image for `linux/amd64`, `linux/arm64`, and `linux/arm/v7`, and the panel image for `linux/amd64` and `linux/arm64`, on `main` and `develop`, and pushes them to GHCR. `main` gets the tag `:main`. `develop` gets the tag `:develop`. The images are scanned and signed. After both publishes succeed, older GHCR versions are deleted. `main`, `develop`, `master`, release tags, and the three newest commit tags stay, including the untagged platform manifests those images still use.
-
-Locally: `make test` and `make panel-test`.
-
-## Security
-
-The bot runs as user `ts3audiobot` (UID 9999), with a read-only root filesystem and no Linux capabilities. Details and reports: [SECURITY.md](SECURITY.md).
+**Checks.** `make test` and `make panel-test`. CI (`.github/workflows/ci.yml`) also builds both images, starts the stack, and checks that the panel is healthy, reaches the bot API, and that port 58913 is not bound on the host. `.github/workflows/docker-publish.yml` builds the bot for `linux/amd64`, `linux/arm64`, and `linux/arm/v7` and the panel for `linux/amd64` and `linux/arm64`, scans and signs them, pushes them to GHCR, and then deletes old image versions. It keeps `main`, `develop`, `master`, release tags, and the three newest commit tags.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The bot compiled into the image is OSL-3.0.
+MIT, see [LICENSE](LICENSE). The TS3AudioBot build inside the image is licensed under OSL-3.0.

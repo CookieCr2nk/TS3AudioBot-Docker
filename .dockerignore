@@ -21,4 +21,4 @@ panel
 .pre-commit-config.yaml
 renovate.json
 scripts
-Makefile
+Makefiledocs/
