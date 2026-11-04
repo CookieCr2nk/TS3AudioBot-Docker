@@ -712,3 +712,127 @@ export async function listAudit(limit = 200) {
     botName: [row.instance_name, row.bot_name].filter(Boolean).join(" / "),
   }));
 }
+
+const INVITE_COLUMNS = `t.id, t.label, t.created_at, t.expires_at, t.max_uses, t.use_count, t.revoked_at,
+            t.can_create_bots, t.bot_limit, u.username AS created_by_name`;
+
+function mapInvite(row, instanceIds) {
+  return {
+    id: Number(row.id),
+    label: row.label || "",
+    createdByName: row.created_by_name || "",
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    maxUses: Number(row.max_uses),
+    useCount: Number(row.use_count),
+    revokedAt: row.revoked_at,
+    canCreateBots: Boolean(row.can_create_bots),
+    botLimit: row.bot_limit == null ? null : Number(row.bot_limit),
+    instanceIds,
+  };
+}
+
+export async function listInvites() {
+  const [rows] = await pool.query(
+    `SELECT ${INVITE_COLUMNS} FROM invite_tokens t LEFT JOIN users u ON u.id = t.created_by_user_id
+     ORDER BY t.created_at DESC, t.id DESC`,
+  );
+  const [links] = await pool.query("SELECT token_id, instance_id FROM invite_token_instances");
+  const byToken = new Map();
+  for (const link of links) {
+    const id = Number(link.token_id);
+    if (!byToken.has(id)) byToken.set(id, []);
+    byToken.get(id).push(Number(link.instance_id));
+  }
+  return rows.map((row) => mapInvite(row, byToken.get(Number(row.id)) || []));
+}
+
+export async function getInvite(id) {
+  const [rows] = await pool.query(
+    `SELECT ${INVITE_COLUMNS} FROM invite_tokens t LEFT JOIN users u ON u.id = t.created_by_user_id WHERE t.id = ? LIMIT 1`,
+    [id],
+  );
+  if (!rows[0]) return null;
+  const [links] = await pool.query("SELECT instance_id FROM invite_token_instances WHERE token_id = ?", [id]);
+  return mapInvite(rows[0], links.map((link) => Number(link.instance_id)));
+}
+
+export async function insertInvite({ tokenHash, label, createdByUserId, expiresAt, maxUses, canCreateBots, botLimit, instanceIds }) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      `INSERT INTO invite_tokens (token_hash, label, created_by_user_id, expires_at, max_uses, can_create_bots, bot_limit)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [tokenHash, label, createdByUserId, expiresAt, maxUses, canCreateBots ? 1 : 0, botLimit],
+    );
+    const id = Number(result.insertId);
+    for (const instanceId of instanceIds) {
+      await connection.query("INSERT INTO invite_token_instances (token_id, instance_id) VALUES (?, ?)", [id, instanceId]);
+    }
+    await connection.commit();
+    return id;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function revokeInvite(id) {
+  await pool.query("UPDATE invite_tokens SET revoked_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND revoked_at IS NULL", [id]);
+}
+
+export async function deleteInvite(id) {
+  await pool.query("DELETE FROM invite_tokens WHERE id = ?", [id]);
+}
+
+// One transaction. The conditional UPDATE locks the token row, so concurrent use cannot pass max_uses.
+export async function registerWithInvite({ tokenHash, username, passwordHash }) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [updated] = await connection.query(
+      `UPDATE invite_tokens SET use_count = use_count + 1
+       WHERE token_hash = ? AND revoked_at IS NULL AND use_count < max_uses
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP(3))`,
+      [tokenHash],
+    );
+    if (updated.affectedRows !== 1) throw new HttpError("This invite token is not valid.", 400);
+    const [tokens] = await connection.query(
+      "SELECT id, label, can_create_bots, bot_limit FROM invite_tokens WHERE token_hash = ? LIMIT 1",
+      [tokenHash],
+    );
+    const invite = tokens[0];
+    const [links] = await connection.query(
+      `SELECT l.instance_id FROM invite_token_instances l JOIN instances i ON i.id = l.instance_id WHERE l.token_id = ?`,
+      [invite.id],
+    );
+    if (!links.length) throw new HttpError("This invite token is not valid.", 400);
+    let userId;
+    try {
+      const [result] = await connection.query(
+        "INSERT INTO users (username, password_hash, role, bot_limit, can_create_bots) VALUES (?, ?, 'user', ?, ?)",
+        [username, passwordHash, invite.bot_limit == null ? null : Number(invite.bot_limit), invite.can_create_bots ? 1 : 0],
+      );
+      userId = Number(result.insertId);
+    } catch (err) {
+      if (err.code === "ER_DUP_ENTRY") throw new HttpError("Username is already taken", 400);
+      throw err;
+    }
+    for (const link of links) {
+      await connection.query("INSERT INTO instance_grants (instance_id, user_id, can_control) VALUES (?, ?, 1)", [
+        Number(link.instance_id),
+        userId,
+      ]);
+    }
+    await connection.commit();
+    return { userId, inviteId: Number(invite.id), label: invite.label || "" };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}

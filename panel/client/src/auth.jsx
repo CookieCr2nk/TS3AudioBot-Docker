@@ -48,6 +48,11 @@ export function AuthProvider({ children }) {
     applySession(data);
   }
 
+  async function register({ token, username, password, confirm }) {
+    const data = await api("/api/register", { method: "POST", body: { token, username, password, confirm } });
+    applySession(data);
+  }
+
   // The local session ends even when the request fails, for example after the server session expired.
   async function signOut() {
     try {
@@ -69,7 +74,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, ready, t, languages, langChoice, setLanguage, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, ready, t, languages, langChoice, setLanguage, signIn, register, signOut }}>
       {children}
     </AuthContext.Provider>
   );

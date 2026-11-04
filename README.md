@@ -17,7 +17,7 @@ It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker ima
 - **Several bots** on one server, each with its own nickname, channel, and stream.
 - **Connection settings** in the panel: server address, nickname, default channel, passwords, bitrate, and volume. You do not need to edit config files.
 - **Whisper or voice**: play to the whole channel, or only to chosen clients and channels.
-- **Accounts**: administrators, users who may create bots, users who only control bots assigned to them, and a bot limit per account.
+- **Accounts**: administrators, users who may create bots, users who only control bots assigned to them, a bot limit per account, and invite links that let people register their own account.
 - **English and German**. The panel follows your browser language, or you can choose one.
 
 ## What you need
@@ -71,7 +71,7 @@ It packages [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) as a Docker ima
 4. **Set it up.** On the same page, set a nickname, a default channel, passwords if your server needs them, and optionally a radio stream that starts when the bot connects.
 5. **Play something.** Go to **Playback**, search for a song or paste a link, and play it. Save streams you use often under **Radio**.
 
-To give other people access, add accounts under **Users** and assign bots to them under **Bots**.
+To give other people access, add accounts under **Users** or create an invite link there, and assign bots to them under **Bots**.
 
 ## Everyday use
 
@@ -82,7 +82,7 @@ To give other people access, add accounts under **Users** and assign bots to the
 | **Playback** | What is playing now, the queue, search, seek, and volume. |
 | **Radio** | Your saved stations. Play one now or add it to the queue. |
 | **Connection** | Server, nickname, channels, passwords, bitrate, volume, stream on connect, channel commander, and whisper. |
-| **Users**, **Audit** | Accounts and a log of who did what. Administrators only. |
+| **Users**, **Audit** | Accounts, invite links, and a log of who did what. Administrators only. |
 | **Account** | Change your own password. |
 
 **Whisper:** On **Connection**, choose **Whisper** to play only to the clients and channels you tick in the lists. Choose **Voice** to play to everyone in the bot's channel.
@@ -201,7 +201,7 @@ All bot options: [TS3AudioBot Wiki](https://github.com/Splamy/TS3AudioBot/wiki).
 
 ### How accounts and bots relate
 
-An administrator registers each container as an instance and can give it an owner. The owner can create bots on that instance. Every bot can be assigned to one account, which can open and delete it. Other accounts see only bots assigned to them, and can create bots only when an administrator allows it. An administrator can limit how many bots an account may have. Accounts can be suspended, and a new account cannot sign in until it has a password.
+An administrator registers each container as an instance and can give it an owner. The owner can create bots on that instance. Every bot can be assigned to one account, which can open and delete it. Other accounts see only bots assigned to them, and can create bots only when an administrator allows it. An administrator can limit how many bots an account may have. Accounts can be suspended, and a new account cannot sign in until it has a password. An administrator can create an invite link instead of an account. The link registers one user account with the instances and bot rights chosen for it. It expires after the chosen time or number of uses and can be revoked.
 
 ## For developers
 
