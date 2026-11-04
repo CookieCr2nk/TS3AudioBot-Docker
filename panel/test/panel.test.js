@@ -7,7 +7,7 @@ import { loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../
 import { createApp, panelRoot } from "../src/app.js";
 import { canDeleteBot, instanceClient, mapBot, pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperGaps, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
+import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, channelNumber, liveMoveParts, liveRenameParts, resolveChannelId, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperGaps, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { rateLimit, requireUser } from "../src/http.js";
@@ -207,10 +207,9 @@ describe("action guard", () => {
     assert.equal(hostingLiveMessage({ channel: true, connected: true, moveOk: true }), "Connection settings saved. The bot moved to that channel.");
     assert.equal(hostingLiveMessage({ channel: true, connected: true, moveOk: false }), "Connection settings saved. The bot could not be moved.");
     assert.equal(hostingLiveMessage({ nickname: true, connected: true, nicknameOk: true }), "Connection settings saved. The nickname is updated.");
-    assert.equal(buildApiPath(liveMoveParts("lobby", "/5")), "/bot/template/lobby/(/bot/move/%2F5)");
+    assert.equal(buildApiPath(liveMoveParts("lobby", "5")), "/bot/template/lobby/(/bot/move/5)");
     const moved = buildActionRequest(templateBot, "move", { channel: "/5" }, admin);
-    assert.equal(buildApiPath(moved.parts), "/bot/template/default/(/bot/move/%2F5)");
-    assert.equal(JSON.stringify(moved.parts).includes("connect.channel"), false);
+    assert.equal(moved.parts, null);
     assert.throws(() => buildActionRequest(templateBot, "move", { channel: "/5" }, reader), /control rights/);
     assert.throws(() => buildActionRequest(templateBot, "commander", { mode: "on" }, reader), /control rights/);
     assert.equal(buildActionRequest(templateBot, "move", { channel: "/5" }, user).args.channel, "/5");
@@ -906,5 +905,48 @@ describe("whisper targets", () => {
     assert.deepEqual(whisperGaps({ SendMode: "Voice", WhisperClients: [5] }, { kind: "client", ids: [5] }), [5]);
     assert.deepEqual(whisperGaps({ SendMode: 2, WhisperClients: [5], WhisperChannel: [] }, { kind: "channel", ids: [3] }), [3]);
     assert.deepEqual(whisperGaps({ SendMode: 2, WhisperClients: [5] }, { kind: "client", ids: [5] }), []);
+  });
+});
+
+describe("bot move", () => {
+  const tree = {
+    Channels: {
+      1: { Id: 1, Name: "Home", Parent: 0 },
+      509: { Id: 509, Name: "Lobby", Parent: 1 },
+    },
+    Clients: {},
+  };
+
+  it("sends bot move the numeric channel id, not the /id form", async () => {
+    const paths = [];
+    const { action, args } = buildActionRequest(templateBot, "move", { channel: "/509" }, user);
+    await action.run(templateBot, args, async (parts) => {
+      paths.push(buildApiPath(parts));
+      return null;
+    });
+    assert.deepEqual(paths, ["/bot/template/default/(/bot/move/509)"]);
+  });
+
+  it("finds a channel path in the server tree", async () => {
+    assert.equal(channelNumber(" /509 "), "509");
+    assert.equal(channelNumber("509"), "509");
+    assert.equal(channelNumber("Home/Lobby"), null);
+    assert.equal(await resolveChannelId("Home/Lobby", async () => tree), "509");
+    assert.equal(await resolveChannelId("Home", async () => tree), "1");
+    await assert.rejects(resolveChannelId("Home/Nowhere", async () => tree), /is not on this server/);
+  });
+
+  it("moves a connected bot to the saved channel after a connection save", async () => {
+    const paths = [];
+    const { action, args } = buildActionRequest(templateBot, "template-hosting", { name: "default", channel: "Home/Lobby" }, user);
+    const result = await action.run(templateBot, args, async (parts) => {
+      const path = buildApiPath(parts);
+      paths.push(path);
+      if (path === "/bot/list") return [{ Id: 0, Name: "default", Status: 2 }];
+      if (path === "/bot/template/default/(/server/tree)") return tree;
+      return null;
+    });
+    assert.equal(paths.includes("/bot/template/default/(/bot/move/509)"), true);
+    assert.equal(result.messageKey, "Connection settings saved. The bot moved to that channel.");
   });
 });

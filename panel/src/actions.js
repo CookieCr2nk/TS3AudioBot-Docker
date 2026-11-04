@@ -117,7 +117,11 @@ export const actions = {
     audit: true,
     success: "Bot moved",
     parse: (input) => ({ channel: parseChannel(input.channel) }),
-    build: (args) => ["bot", "move", args.channel],
+    async run(bot, args, call) {
+      const id = await resolveChannelId(args.channel, () => call(scope(bot, ["server", "tree"]), 15000));
+      await call(scope(bot, ["bot", "move", id]), 15000);
+      return undefined;
+    },
     detail: (args) => args.channel,
   },
   search: {
@@ -250,10 +254,11 @@ export const actions = {
       }
       if (args.channel) {
         try {
-          await call(liveMoveParts(args.name, args.channel), 15000);
+          const id = await resolveChannelId(args.channel, () => call(["bot", "template", args.name, ["server", "tree"]], 15000));
+          await call(liveMoveParts(args.name, id), 15000);
           moveOk = true;
         } catch (err) {
-          if (!(err instanceof Ts3ApiError)) throw err;
+          if (!(err instanceof HttpError)) throw err;
         }
       }
       return {
@@ -613,6 +618,29 @@ export function commanderSaved(current) {
 
 export function liveRenameParts(name, nickname) {
   return ["bot", "template", name, ["bot", "name", nickname]];
+}
+
+// connect.channel takes "/<id>" or a path, but `bot move` takes only the numeric id.
+export function channelNumber(channel) {
+  const match = String(channel ?? "").trim().match(/^\/?([1-9]\d*)$/);
+  return match ? match[1] : null;
+}
+
+function pathParts(value, separator) {
+  return String(value ?? "").split(separator).map((part) => part.trim()).filter(Boolean);
+}
+
+export async function resolveChannelId(channel, readTree) {
+  const direct = channelNumber(channel);
+  if (direct) return direct;
+  const wanted = pathParts(channel, "/");
+  const tree = presentServerTree(await readTree());
+  const hit = tree.channels.find((item) => {
+    const parts = pathParts(item.path, " / ");
+    return parts.length === wanted.length && parts.every((part, index) => part === wanted[index]);
+  });
+  if (!hit) throw new ValidationError("Channel {channel} is not on this server.", { channel: String(channel) });
+  return String(hit.id);
 }
 
 export function liveMoveParts(name, channel) {
