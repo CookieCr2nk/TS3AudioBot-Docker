@@ -5,6 +5,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Fixed
+- Whisper: the client list on Connection refreshes every 10 seconds and has a Refresh list button, so clients who joined or reconnected after the page opened show up. The bot's own client is no longer listed
+- Whisper: subscribing a client works on the first save. The panel adds the targets before it turns whisper on, reads the targets back, and repeats once if the bot did not take them. An id from an outdated list is refused with the client named
 - Attaching an existing bot is limited to an administrator or the instance owner. An account that can create bots cannot claim a template that is already on the instance
 - Play and add no longer copy a stream password into the audit log
 - A link-local address written as IPv6 is rejected, including an IPv4 address inside IPv6
