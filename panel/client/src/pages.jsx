@@ -1138,11 +1138,12 @@ function ChannelChoice({ label, channels, saved = "", allowClear = false }) {
   );
 }
 
-function TargetForm({ kind, rows, channels, title, idLabel, act, done }) {
+function TargetForm({ kind, rows, channels, title, idLabel, subscribedLabel, subscribed, empty, act, done }) {
   const { t } = useAuth();
   const mode = useRef("add");
+  const listId = `whisper-${kind}-list`;
   return (
-    <form onSubmit={(event) => {
+    <form className="whisper-panel" onSubmit={(event) => {
       event.preventDefault();
       const formElement = event.currentTarget;
       const data = new FormData(formElement);
@@ -1155,21 +1156,24 @@ function TargetForm({ kind, rows, channels, title, idLabel, act, done }) {
         done(result);
       });
     }}>
-      <label>{title}
-        {rows.length ? (
-          <select name="picked" multiple size={Math.min(8, Math.max(rows.length, 3))}>
-            {rows.map((item) => {
-              const channel = channels.find((entry) => entry.id === item.channelId);
-              const text = item.path
-                ? `${item.path} (${item.id})`
-                : channel
-                  ? `${item.name} · ${channel.name} (${item.id})`
-                  : `${item.name} (${item.id})`;
-              return <option key={item.id} value={item.id}>{text}</option>;
-            })}
-          </select>
-        ) : <span className="muted">{t("None")}</span>}
-      </label>
+      <div className="whisper-head">
+        <h3 id={listId}>{title}</h3>
+        <span className="pill">{rows.length}</span>
+      </div>
+      <p className="whisper-current">{subscribedLabel}: <strong>{subscribed || t("None")}</strong></p>
+      {rows.length ? (
+        <select className="whisper-list" name="picked" multiple aria-labelledby={listId}>
+          {rows.map((item) => {
+            const channel = channels.find((entry) => entry.id === item.channelId);
+            const text = item.path
+              ? `${item.path} (${item.id})`
+              : channel
+                ? `${item.name} · ${channel.name} (${item.id})`
+                : `${item.name} (${item.id})`;
+            return <option key={item.id} value={item.id}>{text}</option>;
+          })}
+        </select>
+      ) : <div className="whisper-list whisper-empty">{empty}</div>}
       <label>{idLabel}
         <input name="ids" inputMode="numeric" autoComplete="off" spellCheck={false} placeholder={kind === "client" ? "12, 34" : "5, 8"} />
       </label>
@@ -1322,19 +1326,16 @@ export function Connection() {
           <>
             <p className="muted">{t("Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.")}</p>
             {w.treeError ? <p className="muted">{w.treeError}</p> : null}
-            {!w.treeError && !(w.clients || []).length ? <p className="muted">{t("No other client is on the server right now.")}</p> : null}
-            <p>{t("Subscribed clients")}: {w.whisperError ? "—" : namedIds(w.whisperClients, w.clients || [], w.channels || []) || t("None")}</p>
-            <p>{t("Subscribed channels")}: {w.whisperError ? "—" : namedIds(w.whisperChannels, w.channels || [], w.channels || []) || t("None")}</p>
-            <div className="inline">
-              <button className="btn" type="button" onClick={() => setLiveTick((value) => value + 1)}>{t("Refresh list")}</button>
-            </div>
-            <div className="split whisper-targets">
+            <div className="whisper-targets">
               <TargetForm
                 kind="client"
                 rows={w.clients || []}
                 channels={w.channels || []}
                 title={t("Clients")}
                 idLabel={t("Client ids")}
+                subscribedLabel={t("Subscribed clients")}
+                subscribed={w.whisperError ? "—" : namedIds(w.whisperClients, w.clients || [], w.channels || [])}
+                empty={t("No other client is on the server right now.")}
                 act={act}
                 done={afterTarget}
               />
@@ -1344,9 +1345,15 @@ export function Connection() {
                 channels={w.channels || []}
                 title={t("Channels")}
                 idLabel={t("Channel ids")}
+                subscribedLabel={t("Subscribed channels")}
+                subscribed={w.whisperError ? "—" : namedIds(w.whisperChannels, w.channels || [], w.channels || [])}
+                empty={t("None")}
                 act={act}
                 done={afterTarget}
               />
+            </div>
+            <div className="inline">
+              <button className="btn" type="button" onClick={() => setLiveTick((value) => value + 1)}>{t("Refresh list")}</button>
             </div>
           </>
         ) : <p className="muted">{t("Connect the bot to subscribe clients and channels.")}</p>}

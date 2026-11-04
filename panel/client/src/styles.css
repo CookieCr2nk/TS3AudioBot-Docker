@@ -263,9 +263,43 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(27, 108, 168
 .sidebar .btn-ghost { color: var(--side-text); }
 .sidebar .btn-ghost:hover { background: rgba(0, 0, 0, 0.18); }
 .inline { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
-.whisper-targets { align-items: start; }
-.whisper-targets form { flex: 1 1 16rem; display: grid; gap: 0.55rem; align-content: start; }
-.whisper-targets select[multiple] { width: 100%; }
+/* Both panels share one row grid, so the lists, inputs, and buttons line up whatever each column holds. */
+.whisper-targets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto 12rem auto auto auto;
+  column-gap: 0.75rem;
+  row-gap: 0.55rem;
+}
+.whisper-panel {
+  grid-row: span 6;
+  display: grid;
+  grid-template-rows: subgrid;
+  gap: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.75rem;
+  min-width: 0;
+}
+.whisper-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.whisper-head h3 { margin: 0; font-size: 0.98rem; font-weight: 650; }
+.whisper-current { margin: 0; overflow-wrap: anywhere; }
+.whisper-panel .muted { margin: 0; }
+.whisper-list { width: 100%; height: 12rem; min-height: 12rem; }
+.whisper-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .whisper-targets { grid-template-columns: 1fr; grid-template-rows: none; row-gap: 0.75rem; }
+  .whisper-panel { grid-row: auto; grid-template-rows: none; }
+}
 
 .pill {
   display: inline-flex;
