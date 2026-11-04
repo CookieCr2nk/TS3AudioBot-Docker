@@ -1160,11 +1160,20 @@ function ChannelChoice({ label, channels, saved = "", allowClear = false }) {
   const [manual, setManual] = useState(channels.length > 0 && saved !== "" && !known);
   const [picked, setPicked] = useState(known ? saved : "");
   const [typedValue, setTypedValue] = useState(saved);
+  // The list is read again while the page is open. Keep what the user chose, and fall back to the text field only when that channel is gone.
   if (seenList !== listKey) {
     setSeenList(listKey);
-    setManual(channels.length > 0 && saved !== "" && !known);
-    setPicked(known ? saved : "");
-    setTypedValue(saved);
+    const wasTyped = seenList === "" || manual;
+    const current = wasTyped ? typedValue : picked;
+    const stillListed = channels.some((item) => `/${item.id}` === current);
+    if (stillListed) {
+      setManual(false);
+      setPicked(current);
+    } else {
+      setManual(channels.length > 0 && current !== "");
+      setPicked("");
+      setTypedValue(current);
+    }
   }
   const typed = channels.length === 0 || manual;
   return (
@@ -1208,16 +1217,18 @@ function ChannelChoice({ label, channels, saved = "", allowClear = false }) {
   );
 }
 
-function TargetForm({ kind, rows, channels, title, idLabel, subscribedLabel, subscribed, empty, act, done }) {
+function TargetForm({ kind, rows, channels, title, idLabel, subscribedIds, subscribedLabel, subscribed, empty, act, done }) {
   const { t } = useAuth();
   const mode = useRef("add");
   const listId = `whisper-${kind}-list`;
+  const active = new Set((subscribedIds || []).map(Number));
   return (
     <form className="whisper-panel" onSubmit={(event) => {
       event.preventDefault();
       const formElement = event.currentTarget;
       const data = new FormData(formElement);
       const on = mode.current !== "remove";
+      mode.current = "add";
       const ids = [...data.getAll("picked"), ...String(data.get("ids") || "").split(/[\s,;]+/)]
         .map((item) => String(item).trim())
         .filter(Boolean);
@@ -1232,22 +1243,30 @@ function TargetForm({ kind, rows, channels, title, idLabel, subscribedLabel, sub
       </div>
       <p className="whisper-current">{subscribedLabel}: <strong>{subscribed || t("None")}</strong></p>
       {rows.length ? (
-        <select className="whisper-list" name="picked" multiple aria-labelledby={listId}>
+        <div className="whisper-list" role="group" aria-labelledby={listId}>
           {rows.map((item) => {
             const channel = channels.find((entry) => entry.id === item.channelId);
             const text = item.path
-              ? `${item.path} (${item.id})`
+              ? item.path
               : channel
-                ? `${item.name} · ${channel.name} (${item.id})`
-                : `${item.name} (${item.id})`;
-            return <option key={item.id} value={item.id}>{text}</option>;
+                ? `${item.name} · ${channel.name}`
+                : item.name;
+            const on = active.has(Number(item.id));
+            return (
+              <label key={item.id} className={on ? "check whisper-row whisper-on" : "check whisper-row"} title={`${text} (${item.id})`}>
+                <input type="checkbox" name="picked" value={item.id} />
+                <span className="whisper-name">{text}</span>
+                <span className="muted mono">{item.id}</span>
+                {on ? <span className="pill pill-ok">{t("Subscribed")}</span> : null}
+              </label>
+            );
           })}
-        </select>
+        </div>
       ) : <div className="whisper-list whisper-empty">{empty}</div>}
       <label>{idLabel}
         <input name="ids" inputMode="numeric" autoComplete="off" spellCheck={false} placeholder={kind === "client" ? "12, 34" : "5, 8"} />
       </label>
-      <p className="muted">{t("Pick from the list, type ids, or both.")}</p>
+      <p className="muted">{t("Tick entries in the list, type ids, or both.")}</p>
       <div className="inline">
         <button className="btn btn-primary" type="submit" onClick={() => { mode.current = "add"; }}>{t("Subscribe")}</button>
         <button className="btn" type="submit" onClick={() => { mode.current = "remove"; }}>{t("Remove")}</button>
@@ -1349,7 +1368,8 @@ export function Connection() {
   }, [id, onServer, liveTick]);
   const w = live || data || {};
   function afterTarget(result) {
-    if (kept(result)) setLiveTick((value) => value + 1);
+    // Subscribing also saves whisper as the send mode, so the whole page is read again.
+    if (kept(result)) reload();
   }
   if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
   return (
@@ -1437,6 +1457,7 @@ export function Connection() {
                 channels={w.channels || []}
                 title={t("Clients")}
                 idLabel={t("Client ids")}
+                subscribedIds={w.whisperClients}
                 subscribedLabel={t("Subscribed clients")}
                 subscribed={w.whisperError ? "—" : namedIds(w.whisperClients, w.clients || [], w.channels || [])}
                 empty={t("No other client is on the server right now.")}
@@ -1449,6 +1470,7 @@ export function Connection() {
                 channels={w.channels || []}
                 title={t("Channels")}
                 idLabel={t("Channel ids")}
+                subscribedIds={w.whisperChannels}
                 subscribedLabel={t("Subscribed channels")}
                 subscribed={w.whisperError ? "—" : namedIds(w.whisperChannels, w.channels || [], w.channels || [])}
                 empty={t("None")}
@@ -1523,7 +1545,7 @@ export function Connection() {
           </div>
         </div>
         <div className="field">
-          <ChannelChoice label={t("Default channel")} channels={data?.channels || []} saved={data?.hosting?.channel || ""} allowClear />
+          <ChannelChoice label={t("Default channel")} channels={w.channels || []} saved={data?.hosting?.channel || ""} allowClear />
           <p className="hint">{t("Pick a channel, or type /5 or Home/Lobby. Clear and save to remove it. Setting one also moves a connected bot.")}</p>
         </div>
         <div className="split">
@@ -1568,7 +1590,7 @@ export function Connection() {
           });
         }}>
           <div className="grow">
-            <ChannelChoice label={t("Channel")} channels={data?.channels || []} />
+            <ChannelChoice label={t("Channel")} channels={w.channels || []} />
           </div>
           <button className="btn" type="submit">{t("Move")}</button>
         </form>
