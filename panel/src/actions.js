@@ -1,5 +1,13 @@
 import { HttpError, Ts3ApiError, ValidationError } from "./errors.js";
-import { displayStreamUrl, presentBotList, presentClientChannel, presentSetting } from "./present.js";
+import {
+  displayStreamUrl,
+  presentBotList,
+  presentClientChannel,
+  presentServerTree,
+  presentSetting,
+  presentWhisper,
+  presentWhisperTargets,
+} from "./present.js";
 import { callBot, scope } from "./ts3ab.js";
 import {
   parseChannel,
@@ -332,9 +340,9 @@ export const actions = {
         };
       }
       try {
+        if (args.mode === "whisper") await subscribeBotChannel(bot, call);
         const live = args.mode === "whisper" ? ["whisper", "subscription"] : ["whisper", "off"];
         await call(scope(bot, live), 15000);
-        if (args.mode === "whisper") await subscribeBotChannel(bot, call);
       } catch (err) {
         if (!(err instanceof Ts3ApiError)) throw err;
         return {
@@ -364,12 +372,35 @@ export const actions = {
         connected = true;
       }
       if (!connected) throw new ValidationError("The bot is not connected");
-      if (args.on) {
-        await call(["settings", "bot", "set", name, "audio.send_mode", "whisper"], 15000);
-        await call(scope(bot, ["whisper", "subscription"]), 15000);
+      if (!args.on) {
+        for (const parts of whisperTargetCalls(bot, args)) await call(parts, 15000);
+        return { messageKey: "Whisper targets removed" };
       }
-      for (const parts of whisperTargetCalls(bot, args)) await call(parts, 15000);
-      return { messageKey: args.on ? "Whisper targets added" : "Whisper targets removed" };
+      if (args.kind === "client") {
+        // A client id changes when that client reconnects, so an id from an older list can point at nobody.
+        const gone = await missingClients(bot, args.ids, call);
+        if (gone.length) {
+          throw new ValidationError("These clients are no longer on the server: {ids}. Pick them again from the refreshed list.", {
+            ids: gone.join(", "),
+          });
+        }
+      }
+      // Targets first, then the send mode, so whisper never runs with an empty target list.
+      const apply = async () => {
+        for (const parts of whisperTargetCalls(bot, args)) await call(parts, 15000);
+        await call(scope(bot, ["whisper", "subscription"]), 15000);
+      };
+      await apply();
+      await call(["settings", "bot", "set", name, "audio.send_mode", "whisper"], 15000);
+      let missing = await unconfirmedTargets(bot, args, call);
+      if (missing.length) {
+        await apply();
+        missing = await unconfirmedTargets(bot, args, call);
+      }
+      if (missing.length) {
+        return { messageKey: "The bot did not confirm these whisper targets: {ids}", messageParams: { ids: missing.join(", ") } };
+      }
+      return { messageKey: "Whisper targets added" };
     },
     detail: (args) => `${args.on ? "subscribe" : "unsubscribe"} ${args.kind} ${args.ids.join(",")}`,
   },
@@ -397,6 +428,38 @@ function parseWhisperTarget(input) {
   }
   if (!ids.length) throw new ValidationError("Enter at least one id");
   return { kind, ids, on };
+}
+
+async function missingClients(bot, ids, call) {
+  let tree;
+  try {
+    tree = presentServerTree(await call(scope(bot, ["server", "tree"]), 15000));
+  } catch (err) {
+    if (!(err instanceof Ts3ApiError)) throw err;
+    return [];
+  }
+  if (!tree.clients.length) return [];
+  const known = new Set(tree.clients.map((client) => client.id));
+  return ids.filter((id) => !known.has(id));
+}
+
+// Reads `whisper list` back. Returns the ids the bot does not report, or every id when whisper is not on.
+export async function unconfirmedTargets(bot, args, call) {
+  let listed;
+  try {
+    listed = await call(scope(bot, ["whisper", "list"]), 15000);
+  } catch (err) {
+    if (!(err instanceof Ts3ApiError)) throw err;
+    return [];
+  }
+  return whisperGaps(listed, args);
+}
+
+export function whisperGaps(listed, args) {
+  if (presentWhisper(listed) !== "whisper") return [...args.ids];
+  const targets = presentWhisperTargets(listed);
+  const have = new Set(args.kind === "client" ? targets.clients : targets.channels);
+  return args.ids.filter((id) => !have.has(id));
 }
 
 function flag(value) {

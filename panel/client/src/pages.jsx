@@ -1138,7 +1138,7 @@ function ChannelChoice({ label, channels, saved = "", allowClear = false }) {
   );
 }
 
-function TargetForm({ kind, rows, channels, title, idLabel, act, kept, reload }) {
+function TargetForm({ kind, rows, channels, title, idLabel, act, done }) {
   const { t } = useAuth();
   const mode = useRef("add");
   return (
@@ -1151,7 +1151,8 @@ function TargetForm({ kind, rows, channels, title, idLabel, act, kept, reload })
         .map((item) => String(item).trim())
         .filter(Boolean);
       act({ op: "whisper-target", kind, ids, on }).then((result) => {
-        if (kept(result)) reload();
+        if (result) formElement.reset();
+        done(result);
       });
     }}>
       <label>{title}
@@ -1238,12 +1239,43 @@ export function Connection() {
   const [seenId, setSeenId] = useState(id);
   const pageId = useRef(id);
   pageId.current = id;
+  const [live, setLive] = useState(null);
+  const [liveTick, setLiveTick] = useState(0);
   if (seenId !== id) {
     setSeenId(id);
     setLocalNote("");
+    setLive(null);
   }
   function kept(result) {
     return pageId.current === id && result;
+  }
+  const onServer = data?.connection?.status === "connected" || data?.connection?.status === "connecting";
+  // A full page load already carries fresh lists.
+  useEffect(() => {
+    setLive(null);
+  }, [data]);
+  // Clients join, leave, and get a new id when they reconnect, so the whisper lists are read again while the page is open.
+  useEffect(() => {
+    if (!onServer) return undefined;
+    let stop = false;
+    async function pull() {
+      try {
+        const next = await api(`/api/bots/${id}/whisper`);
+        if (!stop) setLive(next);
+      } catch {
+        /* Keep the last list. The next pull tries again. */
+      }
+    }
+    if (liveTick) pull();
+    const timer = window.setInterval(pull, 10000);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, [id, onServer, liveTick]);
+  const w = live || data || {};
+  function afterTarget(result) {
+    if (kept(result)) setLiveTick((value) => value + 1);
   }
   if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
   return (
@@ -1281,37 +1313,39 @@ export function Connection() {
         <p className="muted">{t("Whisper: subscribed clients. Voice: the whole channel. Applies from the next song.")}</p>
         <p>{t("Next song")}: {sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</p>
         {data?.sendMode === "custom" ? <p className="muted">{t("A custom command is saved. Whisper or Voice replaces it.")}</p> : null}
-        <p>{t("Right now")}: {whisperLabel(data?.whisper, t)}{data?.whisperError ? <span className="muted"> {data.whisperError}</span> : null}</p>
+        <p>{t("Right now")}: {whisperLabel(w.whisper, t)}{w.whisperError ? <span className="muted"> {w.whisperError}</span> : null}</p>
         <div className="inline">
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "whisper", mode: "whisper" }).then((result) => { if (kept(result)) reload(); })}>{t("Whisper")}</button>
           <button className="btn" type="button" onClick={() => act({ op: "whisper", mode: "voice" }).then((result) => { if (kept(result)) reload(); })}>{t("Voice")}</button>
         </div>
-        {data?.connection?.status === "connected" || data?.connection?.status === "connecting" ? (
+        {onServer ? (
           <>
             <p className="muted">{t("Subscribe turns whisper on and adds those clients or channels. Remove drops them. The bot has to be connected.")}</p>
-            {data.treeError ? <p className="muted">{data.treeError}</p> : null}
-            <p>{t("Subscribed clients")}: {data.whisperError ? "—" : namedIds(data.whisperClients, data.clients || [], data.channels || []) || t("None")}</p>
-            <p>{t("Subscribed channels")}: {data.whisperError ? "—" : namedIds(data.whisperChannels, data.channels || [], data.channels || []) || t("None")}</p>
+            {w.treeError ? <p className="muted">{w.treeError}</p> : null}
+            {!w.treeError && !(w.clients || []).length ? <p className="muted">{t("No other client is on the server right now.")}</p> : null}
+            <p>{t("Subscribed clients")}: {w.whisperError ? "—" : namedIds(w.whisperClients, w.clients || [], w.channels || []) || t("None")}</p>
+            <p>{t("Subscribed channels")}: {w.whisperError ? "—" : namedIds(w.whisperChannels, w.channels || [], w.channels || []) || t("None")}</p>
+            <div className="inline">
+              <button className="btn" type="button" onClick={() => setLiveTick((value) => value + 1)}>{t("Refresh list")}</button>
+            </div>
             <div className="split whisper-targets">
               <TargetForm
                 kind="client"
-                rows={data.clients || []}
-                channels={data.channels || []}
+                rows={w.clients || []}
+                channels={w.channels || []}
                 title={t("Clients")}
                 idLabel={t("Client ids")}
                 act={act}
-                kept={kept}
-                reload={reload}
+                done={afterTarget}
               />
               <TargetForm
                 kind="channel"
-                rows={data.channels || []}
-                channels={data.channels || []}
+                rows={w.channels || []}
+                channels={w.channels || []}
                 title={t("Channels")}
                 idLabel={t("Channel ids")}
                 act={act}
-                kept={kept}
-                reload={reload}
+                done={afterTarget}
               />
             </div>
           </>

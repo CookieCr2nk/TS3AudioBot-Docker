@@ -793,7 +793,7 @@ api.post(
     }
     const redirect = op === "template-delete" && args.name === access.bot.instanceRef ? `/instances/${access.bot.instanceId}` : null;
     const messageKey = typeof data?.messageKey === "string" ? data.messageKey : action.success || "Done";
-    ok(res, { message: req.t(messageKey), redirect, botId: op === "template-create" ? botId : undefined });
+    ok(res, { message: req.t(messageKey, data?.messageParams), redirect, botId: op === "template-create" ? botId : undefined });
   }),
 );
 
@@ -931,43 +931,8 @@ api.get(
         sendModeError = errorText(err, req.t);
       }
     }
-    let whisper = null;
-    let whisperError = null;
-    let whisperClients = [];
-    let whisperChannels = [];
     const onServer = status === "connected" || status === "connecting";
-    if (onServer) {
-      try {
-        const listed = await callBot(access.bot, scope(access.bot, ["whisper", "list"]), { timeoutMs: 4000 });
-        whisper = presentWhisper(listed);
-        const targets = presentWhisperTargets(listed);
-        whisperClients = targets.clients;
-        whisperChannels = targets.channels;
-      } catch (err) {
-        whisperError = errorText(err, req.t);
-      }
-    }
-    let channels = [];
-    let clients = [];
-    let treeError = null;
-    if (onServer) {
-      try {
-        const tree = presentServerTree(await callBot(access.bot, scope(access.bot, ["server", "tree"]), { timeoutMs: 8000 }));
-        channels = tree.channels;
-        clients = tree.clients;
-      } catch (err) {
-        treeError = errorText(err, req.t);
-      }
-    }
-    let teamspeakId = "";
-    let teamspeakError = null;
-    try {
-      const identity = presentTsIdentity(await callBot(access.bot, scope(access.bot, ["bot", "info", "client"]), { timeoutMs: 4000 }));
-      teamspeakId = identity.uid || identity.clientId || "";
-      if (!teamspeakId) teamspeakError = req.t("Unknown");
-    } catch (err) {
-      teamspeakError = errorText(err, req.t);
-    }
+    const whisperLive = await whisperState(access.bot, req.t, onServer);
     const streams = await listStreams(req.user);
     const hosting = hostingFromBot(access.bot);
     const startupMatches = hosting.startup
@@ -985,18 +950,72 @@ api.get(
       commanderSavedError,
       sendMode,
       sendModeError,
-      whisper,
-      whisperError,
-      whisperClients,
-      whisperChannels,
-      channels,
-      clients,
-      treeError,
-      teamspeakId,
-      teamspeakError,
+      ...whisperLive,
     });
   }),
 );
+
+// Whisper targets and the server tree change while the page is open, so the client polls this.
+api.get(
+  "/bots/:id/whisper",
+  wrap(async (req, res) => {
+    const access = await openBot(req);
+    let status = "offline";
+    try {
+      const data = await callBot(access.bot, ["bot", "list"], { timeoutMs: 8000 });
+      status = presentBotList(data).find((item) => item.name === access.bot.instanceRef)?.status || "offline";
+    } catch {
+      status = "unknown";
+    }
+    const onServer = status === "connected" || status === "connecting";
+    ok(res, { status, ...(await whisperState(access.bot, req.t, onServer)) });
+  }),
+);
+
+async function whisperState(bot, t, onServer) {
+  const state = {
+    whisper: null,
+    whisperError: null,
+    whisperClients: [],
+    whisperChannels: [],
+    channels: [],
+    clients: [],
+    treeError: null,
+    teamspeakId: "",
+    teamspeakError: null,
+  };
+  let ownClientId = null;
+  try {
+    const identity = presentTsIdentity(await callBot(bot, scope(bot, ["bot", "info", "client"]), { timeoutMs: 4000 }));
+    state.teamspeakId = identity.uid || identity.clientId || "";
+    ownClientId = numericId(identity.clientId);
+    if (!state.teamspeakId) state.teamspeakError = t("Unknown");
+  } catch (err) {
+    state.teamspeakError = errorText(err, t);
+  }
+  if (!onServer) return state;
+  const [listed, tree] = await Promise.allSettled([
+    callBot(bot, scope(bot, ["whisper", "list"]), { timeoutMs: 4000 }),
+    callBot(bot, scope(bot, ["server", "tree"]), { timeoutMs: 8000 }),
+  ]);
+  if (listed.status === "fulfilled") {
+    state.whisper = presentWhisper(listed.value);
+    const targets = presentWhisperTargets(listed.value);
+    state.whisperClients = targets.clients;
+    state.whisperChannels = targets.channels;
+  } else {
+    state.whisperError = errorText(listed.reason, t);
+  }
+  if (tree.status === "fulfilled") {
+    const present = presentServerTree(tree.value);
+    state.channels = present.channels;
+    // The bot cannot whisper to itself.
+    state.clients = present.clients.filter((client) => client.id !== ownClientId);
+  } else {
+    state.treeError = errorText(tree.reason, t);
+  }
+  return state;
+}
 
 async function useStartupStation(req) {
   const raw = String(req.body.streamId ?? "").trim();

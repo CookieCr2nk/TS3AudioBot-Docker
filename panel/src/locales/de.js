@@ -419,6 +419,11 @@ const de = {
   "Choose a channel": "Channel wählen",
   "Channel id or path": "Channel-ID oder Pfad",
   "Whisper targets updated": "Flüsterziele geändert",
+  "These clients are no longer on the server: {ids}. Pick them again from the refreshed list.":
+    "Diese Clients sind nicht mehr auf dem Server: {ids}. Wähle sie in der aktualisierten Liste neu aus.",
+  "The bot did not confirm these whisper targets: {ids}": "Der Bot hat diese Flüsterziele nicht bestätigt: {ids}",
+  "No other client is on the server right now.": "Gerade ist kein anderer Client auf dem Server.",
+  "Refresh list": "Liste aktualisieren",
   "Whisper targets added": "Flüsterziele hinzugefügt",
   "Whisper targets removed": "Flüsterziele entfernt",
   "The bot is not connected": "Der Bot ist nicht verbunden",

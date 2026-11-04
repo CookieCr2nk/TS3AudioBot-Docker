@@ -7,7 +7,7 @@ import { loginDecision, missingLiveBot, serverErrorLog, signedInUser } from "../
 import { createApp, panelRoot } from "../src/app.js";
 import { canDeleteBot, instanceClient, mapBot, pool } from "../src/db.js";
 import { HttpError, Ts3ApiError, failureFor } from "../src/errors.js";
-import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
+import { actions, buildActionRequest, commanderSaved, hostingCalls, hostingLiveMessage, liveMoveParts, liveRenameParts, ownLiveId, parseBulk, settingsRecord, templateIsConnected, whisperGaps, whisperTargetCalls, withCommander, withPlay } from "../src/actions.js";
 import { hostingChanges } from "../client/src/hostingForm.js";
 import { decrypt, encrypt, tokensEqual } from "../src/crypto.js";
 import { rateLimit, requireUser } from "../src/http.js";
@@ -830,5 +830,81 @@ describe("bot api failures", () => {
       assert.throws(() => parseHostingSettings({ name: "default", bitrate }), /Bitrate must be between 8 and 98/);
     }
     assert.equal(parseHostingSettings({ name: "default", bitrate: "64" }).bitrate, 64);
+  });
+});
+
+describe("whisper targets", () => {
+  // A stand-in for one connected TS3AudioBot that answers the panel's whisper calls.
+  function fakeBot({ online = [5, 7], dropFirst = 0 } = {}) {
+    const state = { mode: "Voice", clients: new Set(), channels: new Set(), sendMode: "voice", calls: [] };
+    let drops = dropFirst;
+    const call = async (parts) => {
+      const path = buildApiPath(parts);
+      state.calls.push(path);
+      if (path === "/bot/list") return [{ Id: 0, Name: "default", Status: 2 }];
+      if (path === "/bot/template/default/(/server/tree)") {
+        return { Clients: Object.fromEntries(online.map((id) => [String(id), { Id: id, Channel: 1, Name: `c${id}`, ClientType: 0 }])), Channels: { 1: { Id: 1, Name: "Lobby", Parent: 0 } } };
+      }
+      if (path === "/bot/template/default/(/whisper/list)") {
+        return { SendMode: state.mode, WhisperClients: [...state.clients], WhisperChannel: [...state.channels] };
+      }
+      if (path === "/bot/template/default/(/whisper/subscription)") {
+        state.mode = "Whisper";
+        return null;
+      }
+      const sub = path.match(/^\/bot\/template\/default\/\(\/subscribe\/client\/(\d+)\)$/);
+      if (sub) {
+        if (drops > 0) drops -= 1;
+        else state.clients.add(Number(sub[1]));
+        return null;
+      }
+      if (path === "/settings/bot/set/default/audio.send_mode/whisper") {
+        state.sendMode = "whisper";
+        return null;
+      }
+      throw new Error(`unexpected call ${path}`);
+    };
+    return { state, call };
+  }
+
+  it("subscribes the targets before whisper turns on and saves the send mode", async () => {
+    const { state, call } = fakeBot();
+    const { args, action } = buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [5], on: true }, user);
+    const result = await action.run(templateBot, args, call);
+    assert.equal(result.messageKey, "Whisper targets added");
+    assert.deepEqual([...state.clients], [5]);
+    assert.equal(state.sendMode, "whisper");
+    const subscribeAt = state.calls.indexOf("/bot/template/default/(/subscribe/client/5)");
+    const whisperAt = state.calls.indexOf("/bot/template/default/(/whisper/subscription)");
+    assert.ok(subscribeAt >= 0 && subscribeAt < whisperAt);
+  });
+
+  it("repeats the subscription once when the bot does not report it", async () => {
+    const { state, call } = fakeBot({ dropFirst: 1 });
+    const { args, action } = buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [5], on: true }, user);
+    const result = await action.run(templateBot, args, call);
+    assert.equal(result.messageKey, "Whisper targets added");
+    assert.equal(state.calls.filter((path) => path.endsWith("/subscribe/client/5)")).length, 2);
+  });
+
+  it("names the targets the bot still does not report", async () => {
+    const { call } = fakeBot({ dropFirst: 2 });
+    const { args, action } = buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [5], on: true }, user);
+    const result = await action.run(templateBot, args, call);
+    assert.equal(result.messageKey, "The bot did not confirm these whisper targets: {ids}");
+    assert.deepEqual(result.messageParams, { ids: "5" });
+  });
+
+  it("rejects a client id that is no longer on the server", async () => {
+    const { state, call } = fakeBot({ online: [7] });
+    const { args, action } = buildActionRequest(templateBot, "whisper-target", { kind: "client", ids: [5, 7], on: true }, user);
+    await assert.rejects(action.run(templateBot, args, call), (err) => err.params?.ids === "5" && /no longer on the server/.test(err.message));
+    assert.equal(state.calls.some((path) => path.includes("/subscribe/")), false);
+  });
+
+  it("counts every target as missing while the bot is not whispering", () => {
+    assert.deepEqual(whisperGaps({ SendMode: "Voice", WhisperClients: [5] }, { kind: "client", ids: [5] }), [5]);
+    assert.deepEqual(whisperGaps({ SendMode: 2, WhisperClients: [5], WhisperChannel: [] }, { kind: "channel", ids: [3] }), [3]);
+    assert.deepEqual(whisperGaps({ SendMode: 2, WhisperClients: [5] }, { kind: "client", ids: [5] }), []);
   });
 });
