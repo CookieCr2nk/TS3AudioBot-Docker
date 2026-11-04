@@ -264,16 +264,155 @@ function BotTabs({ id, bot, roster, pathname, admin }) {
       </nav>
       {admin || user.canCreateBots || bot.canManage ? <AddBot instanceId={bot.instanceId || ""} /> : null}
       {options.length > 1 ? (
-        <label className="bot-switch">
-          <span className="visually-hidden">{t("Switch bot")}</span>
-          <select value={String(id)} onChange={(event) => navigate(`/bots/${event.target.value}${sectionPath(pathname)}`)}>
-            {options.map((item) => (
-              <option key={item.id} value={String(item.id)}>
-                {botMenuLabel(item)}
-              </option>
+        <BotSwitch
+          current={String(bot.id)}
+          options={options}
+          onPick={(item) => navigate(`/bots/${item.id}${sectionPath(pathname)}`)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// A menu the panel renders itself, so bots can be grouped by instance and show their server on a second line.
+function BotSwitch({ current, options, onPick }) {
+  const { t } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const rootRef = useRef(null);
+  const panelRef = useRef(null);
+  const searchRef = useRef(null);
+  const toggleRef = useRef(null);
+  const searchable = options.length > 6;
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? options.filter((item) => [item.name, item.address, item.instanceName].some((value) => String(value || "").toLowerCase().includes(needle)))
+    : options;
+  const groups = [];
+  for (const item of shown) {
+    const key = item.instanceName || "";
+    let group = groups.find((entry) => entry.name === key);
+    if (!group) {
+      group = { name: key, items: [] };
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  const flat = groups.flatMap((group) => group.items);
+  const currentItem = options.find((item) => String(item.id) === current) || options[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const start = flat.findIndex((item) => String(item.id) === current);
+    setActive(start < 0 ? 0 : start);
+    (searchRef.current || panelRef.current)?.focus();
+    function onDown(event) {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  function close() {
+    setOpen(false);
+    setQuery("");
+    toggleRef.current?.focus();
+  }
+
+  function pick(item) {
+    close();
+    if (String(item.id) !== current) onPick(item);
+  }
+
+  function onKey(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActive((value) => Math.min(flat.length - 1, value + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActive((value) => Math.max(0, value - 1));
+    } else if (event.key === "Enter" && flat[active]) {
+      event.preventDefault();
+      pick(flat[active]);
+    }
+  }
+
+  let index = -1;
+  return (
+    <div className="bot-switch" ref={rootRef}>
+      <button
+        ref={toggleRef}
+        className="bot-switch-toggle"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={t("Switch bot")}
+        onClick={() => (open ? close() : setOpen(true))}
+      >
+        <span className="bot-switch-text">
+          <strong>{currentItem?.name}</strong>
+          <span>{currentItem?.address || currentItem?.instanceName || ""}</span>
+        </span>
+        <span className="bot-switch-caret" aria-hidden="true">▾</span>
+      </button>
+      {open ? (
+        <div className="bot-switch-panel" ref={panelRef} tabIndex={-1} onKeyDown={onKey}>
+          {searchable ? (
+            <input
+              ref={searchRef}
+              className="bot-switch-search"
+              type="search"
+              value={query}
+              placeholder={t("Search bots")}
+              aria-label={t("Search bots")}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActive(0);
+              }}
+            />
+          ) : null}
+          <div className="bot-switch-list" role="listbox" aria-label={t("Switch bot")}>
+            {groups.map((group) => (
+              <div className="bot-switch-group" role="group" aria-label={group.name || t("Instances")} key={group.name}>
+                {groups.length > 1 || group.name ? <div className="bot-switch-heading">{group.name || t("Instances")}</div> : null}
+                {group.items.map((item) => {
+                  index += 1;
+                  const at = index;
+                  const selected = String(item.id) === current;
+                  return (
+                    <div
+                      key={item.id}
+                      role="option"
+                      aria-selected={selected}
+                      data-index={at}
+                      className={`bot-switch-option${selected ? " current" : ""}${at === active ? " active" : ""}`}
+                      onMouseEnter={() => setActive(at)}
+                      onClick={() => pick(item)}
+                    >
+                      <span className="bot-switch-text">
+                        <strong>{item.name}</strong>
+                        {item.address ? <span>{item.address}</span> : null}
+                      </span>
+                      {selected ? <span className="bot-switch-check" aria-hidden="true">✓</span> : null}
+                    </div>
+                  );
+                })}
+              </div>
             ))}
-          </select>
-        </label>
+            {!flat.length ? <p className="bot-switch-none">{t("No bot matches.")}</p> : null}
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -293,12 +432,6 @@ function SideLink({ to, end, children }) {
       {children}
     </NavLink>
   );
-}
-
-function botMenuLabel(item) {
-  if (item.address) return `${item.name} · ${item.address}`;
-  if (item.instanceName) return `${item.name} · ${item.instanceName}`;
-  return item.name;
 }
 
 function sectionPath(pathname) {
