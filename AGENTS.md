@@ -63,6 +63,8 @@ An API token in the panel is required only when the bot sits outside this networ
 
 `CLAUDE.md`, `.cursor/rules/project.mdc`, and `.grok/rules/start.md` only point to this file. Put rules here or in `panel/AGENTS.md`, not in those files.
 
+`.claude/settings.json` holds shared Claude Code settings (model choices). It holds no rules. Other files under `.claude/` stay ignored.
+
 Check `node -v` first. The panel image and CI run Node 26 (`engines` in `panel/package.json`). Some agent containers have Node 22 first on `PATH`, and sometimes also on `/usr/local/bin`. The panel tests pass on Node 22, so a Node 22 result counts as a test run, but say which version ran. Install dependencies with `npm ci --ignore-scripts` from `panel/`.
 
 When MariaDB is available, start it with `mysqld` and the socket `/run/mysqld/mysqld.sock`, because `systemd` is not running and `policy-rc.d` blocks `service`. Let it listen on `127.0.0.1:3307`. Port 3306 stays closed so `make test` still reports a refused database connection. Do not export `DB_PORT` into the shell that runs `make test`. When `mysqld` is missing, skip the live run and say so.

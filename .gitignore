@@ -22,4 +22,5 @@ panel/dist/
 *~
 .idea/
 .vscode/launch.json
-.claude/
+.claude/*
+!.claude/settings.json
