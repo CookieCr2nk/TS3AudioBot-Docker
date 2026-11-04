@@ -33,6 +33,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `make build-multiarch` also builds linux/arm/v7, like the published bot image
 
 ### Added
+- Overview shows each instance's TS3AudioBot version and short commit in a Version column. The bot answers `version` with an empty object, so the panel reads the text form instead. Instance test shows the same version
 - Connection lists the server's channels for the default channel and for Move now. A channel id or a path such as Home/Lobby can still be typed
 - Whisper can subscribe and remove clients and channels, from that list or by id
 - The overview shows how many instances answer, how many bots are running, and, for an administrator, how many accounts can sign in

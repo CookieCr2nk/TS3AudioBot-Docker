@@ -82,6 +82,7 @@ const de = {
   Append: "Anhängen",
   Server: "Server",
   Status: "Status",
+  Version: "Version",
   Active: "Aktiv",
   Start: "Starten",
   Disconnect: "Trennen",

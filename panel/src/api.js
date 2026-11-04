@@ -259,6 +259,17 @@ function accountSummary(accounts) {
   };
 }
 
+// Throws when the API is unreachable. A reachable API without a readable version gives null.
+async function readVersion(client, timeoutMs) {
+  const version = presentVersion(await callBot(client, ["version"], { timeoutMs }));
+  if (version) return version;
+  try {
+    return presentVersion(await callBot(client, ["print", ["version"]], { timeoutMs }));
+  } catch {
+    return null;
+  }
+}
+
 api.get(
   "/overview",
   wrap(async (req, res) => {
@@ -284,7 +295,7 @@ api.get(
           running: 0,
         };
         try {
-          card.version = presentVersion(await callBot(instanceClient(row), ["version"], { timeoutMs: 4000 }));
+          card.version = await readVersion(instanceClient(row), 4000);
           card.online = true;
         } catch (err) {
           card.error = errorText(err, req.t);
@@ -1087,7 +1098,7 @@ api.post(
   wrap(async (req, res) => {
     const instance = await getInstanceRow(numericId(req.params.id));
     if (!instance) throw new HttpError("Instance not found.", 404);
-    const version = presentVersion(await callBot(instanceClient(instance), ["version"], { timeoutMs: 8000 }));
+    const version = await readVersion(instanceClient(instance), 8000);
     ok(res, { message: req.t("API reachable{version}.", { version: version ? ` (${version})` : "" }) });
   }),
 );

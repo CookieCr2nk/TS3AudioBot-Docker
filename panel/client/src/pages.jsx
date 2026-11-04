@@ -308,10 +308,16 @@ export function Overview() {
       cell: (card) => (
         <>
           <span className={card.online ? "pill pill-ok" : "pill pill-bad"}>{card.online ? t("Connected") : t("Offline")}</span>
-          {card.version ? <div className="muted mono">{card.version}</div> : null}
           {card.error ? <div className="muted">{card.error}</div> : null}
         </>
       ),
+    },
+    {
+      id: "version",
+      label: "Version",
+      cell: (card) => (card.version
+        ? <span className="mono">{card.version}</span>
+        : <span className="muted">{card.online ? t("Unknown") : "—"}</span>),
     },
     {
       id: "bots",
