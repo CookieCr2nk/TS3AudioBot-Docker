@@ -379,8 +379,7 @@ const de = {
   "{used} of {limit} bots are in use.": "{used} von {limit} Bots sind in Verwendung.",
   GitHub: "GitHub",
   "Channel commander": "Channel-Commander",
-  "Channel commander. Saved, and applied again on each connect.":
-    "Channel-Commander. Wird gespeichert und bei jedem Verbinden wieder gesetzt.",
+  "Marks the bot as channel commander in TeamSpeak. Saved, and applied again on each connect.": "Macht den Bot in TeamSpeak zum Channel Commander. Wird gespeichert und bei jeder Verbindung erneut gesetzt.",
   "Channel commander is saved. It turns on when this bot connects.":
     "Channel-Commander ist gespeichert. Er wird eingeschaltet, sobald dieser Bot verbunden ist.",
   "Channel commander is saved as off. The connected bot could not be changed.":
@@ -522,6 +521,13 @@ const de = {
   "No instance left": "Keine Instanz mehr",
   "Revoke this invite token?": "Dieses Einladungstoken widerrufen?",
   "Delete this invite token?": "Dieses Einladungstoken löschen?",
+  "The panel cannot reach this bot. Check that its container is running.": "Das Panel erreicht diesen Bot nicht. Bitte prüfen, ob sein Container läuft.",
+  "The bot is not on a TeamSpeak server. Start it under Connection.": "Der Bot ist auf keinem TeamSpeak-Server. Unter Verbindung starten.",
+  "Song, artist, or link": "Titel, Interpret oder Link",
+  "Media file": "Mediendatei",
+  "Create a bot on this server, or open your bots.": "Auf diesem Server einen Bot anlegen oder die eigenen Bots öffnen.",
+  "You have reached your bot limit ({count} of {limit}). Delete a bot or ask an administrator for a higher limit.": "Das Bot-Limit ist erreicht ({count} von {limit}). Einen Bot löschen oder einen Administrator um ein höheres Limit bitten.",
+  "The servers your bots run on. Go to Bots to play music.": "Die Server, auf denen deine Bots laufen. Musik spielst du unter Bots ab.",
 };
 
 export default de;

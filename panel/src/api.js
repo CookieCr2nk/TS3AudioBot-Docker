@@ -414,13 +414,17 @@ function chargedUserId(req, instance) {
   return req.user.id;
 }
 
-async function assertUserQuota(userId, exceptBotId = null) {
-  if (userId == null) return;
+// Null when no limit applies. Otherwise how many bots count against the limit.
+async function userQuota(userId, exceptBotId = null) {
+  if (userId == null) return null;
   const owner = await findUserById(userId);
-  if (!owner || owner.bot_limit == null) return;
-  const limit = Number(owner.bot_limit);
-  const count = await countOwnedBots(owner.id, exceptBotId);
-  if (count >= limit) throw new HttpError("Bot limit reached ({count}).", 403, { count: limit });
+  if (!owner || owner.bot_limit == null) return null;
+  return { limit: Number(owner.bot_limit), count: await countOwnedBots(owner.id, exceptBotId) };
+}
+
+async function assertUserQuota(userId, exceptBotId = null) {
+  const quota = await userQuota(userId, exceptBotId);
+  if (quota && quota.count >= quota.limit) throw new HttpError("Bot limit reached ({count}).", 403, { count: quota.limit });
 }
 
 async function assertNewBot(instanceId, name) {
@@ -440,6 +444,7 @@ api.get(
       instance: publicInstance(access.instance, admin),
       canManage: access.canManage,
       canCreate: access.canManage || Boolean(req.user.canCreateBots),
+      quota: await userQuota(chargedUserId(req, access.instance)),
       users,
       grants,
     });

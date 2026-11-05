@@ -4,7 +4,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed
+- **Breaking:** the panel no longer converts a database with the migration history from before `001_schema` (release 1.0 and the images right after it, with rows such as `001_baseline`). Startup now stops with a message. Run an older panel image once to convert such a database, or back it up and start with an empty one. Databases that already show `001_schema` are not affected
+
 ### Changed
+- On phones, tables show each row as a card with the column names, so nothing hides behind the row buttons
+- Playback and the player bar disable seek, stop, clear, jump, and the player buttons while the bot cannot be reached or is not on a server, and say why. The search field says what to type, and the sources are named YouTube, SoundCloud, Twitch, and Media file
+- Connection names an unreachable bot API once in the server card instead of on every row
+- An instance page tells an account at its bot limit that the limit is reached instead of offering a form that fails. Overview and instance texts for normal accounts no longer talk about containers
 - The panel has a new look: calmer colours, larger type, cards with headers, status pills with a dot, and clearer focus and disabled states. Help text sits in the card it belongs to
 - Playback shows the current song in a card with a progress bar. The seek steps are one button group
 - Connection puts server and channel commander side by side, shows status as label and value rows, and makes Whisper or Voice a toggle. The TeamSpeak ID sits in the server card

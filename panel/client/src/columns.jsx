@@ -150,7 +150,7 @@ export function ColumnTable({ columns, rows, rowKey, rowClass, tableClass, extra
           <Fragment key={rowKey(row, index)}>
             <tr className={rowClass ? rowClass(row, index) || undefined : undefined}>
               {columns.map((col) => (
-                <td key={col.id} className={col.cellClass} title={col.cellTitle ? col.cellTitle(row) : undefined}>
+                <td key={col.id} className={col.cellClass} title={col.cellTitle ? col.cellTitle(row) : undefined} data-label={col.label ? t(col.label) : ""}>
                   {col.cell(row, index)}
                 </td>
               ))}

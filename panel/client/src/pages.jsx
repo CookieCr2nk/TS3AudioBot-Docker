@@ -397,7 +397,7 @@ export function Overview() {
       <div className="page-head">
         <div>
           <h1>{t("Overview")}</h1>
-          <p className="muted">{t("One row is one container. Open it to add TeamSpeak bots.")}</p>
+          <p className="muted">{user.role === "admin" ? t("One row is one container. Open it to add TeamSpeak bots.") : t("The servers your bots run on. Go to Bots to play music.")}</p>
         </div>
         <span className="inline">
           {user.role === "admin" ? <AddInstance /> : null}
@@ -773,7 +773,7 @@ export function InstancePage() {
       <div className="page-head">
         <div>
           <h1>{instance.name}</h1>
-          <p className="muted">{t("Bots in this container. Start the container outside the panel.")}</p>
+          <p className="muted">{user.role === "admin" ? t("Bots in this container. Start the container outside the panel.") : t("Create a bot on this server, or open your bots.")}</p>
           {instance.baseUrl ? <p className="mono">{instance.baseUrl}</p> : null}
         </div>
         <Link className="btn" to={`/bots?instance=${id}`}>{t("Open in Bots")}</Link>
@@ -782,7 +782,12 @@ export function InstancePage() {
 
       {data.canCreate || data.canManage ? (
       <div className="pair">
-      {data.canCreate ? (
+      {data.canCreate && user.role !== "admin" && data.quota && data.quota.count >= data.quota.limit ? (
+        <section className="card">
+          <h2>{t("Create a bot")}</h2>
+          <p className="hint">{t("You have reached your bot limit ({count} of {limit}). Delete a bot or ask an administrator for a higher limit.", { count: data.quota.count, limit: data.quota.limit })}</p>
+        </section>
+      ) : data.canCreate ? (
         <form className="card" onSubmit={(event) => {
           event.preventDefault();
           const name = new FormData(event.currentTarget).get("name");
@@ -957,7 +962,14 @@ export function Playback() {
   const unreachable = Boolean(status?.unreachable);
   const headline = !sameBot && player?.botError
     ? player.botError
-    : unreachable ? t("Status unreachable") : offline ? t("Offline") : song?.title || t("Nothing is playing.");
+    : unreachable || offline ? t("Nothing is playing.") : song?.title || t("Nothing is playing.");
+  // Seek, stop, and clear do nothing while the bot cannot be reached or is not on a server.
+  const live = canControl && !unreachable && !offline;
+  const stateHint = unreachable
+    ? t("The panel cannot reach this bot. Check that its container is running.")
+    : offline
+      ? t("The bot is not on a TeamSpeak server. Start it under Connection.")
+      : "";
   let pill = t("Not playing");
   let pillClass = "";
   if (offline) {
@@ -995,7 +1007,7 @@ export function Playback() {
       locked: "end",
       headerClass: "fit-action",
       cell: (item) => (
-        <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "jump", index: item.index })}>{t("Jump")}</button>
+        <button className="btn" type="button" disabled={!live} onClick={() => act({ op: "jump", index: item.index })}>{t("Jump")}</button>
       ),
     },
   ]);
@@ -1014,6 +1026,7 @@ export function Playback() {
           </div>
           <span className={`pill ${pillClass}`}>{pill}</span>
         </div>
+        {stateHint ? <p className="hint">{stateHint}</p> : null}
         {song?.length ? (
           <div className="now-progress">
             <span className="mono muted">{song.positionLabel || "0:00"}</span>
@@ -1026,14 +1039,14 @@ export function Playback() {
         <div className="now-tools">
           <div className="segmented" role="group" aria-label={t("Position")}>
             {[-30, -10, 10, 30].map((delta) => (
-              <button key={delta} className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "nudge", delta })}>
+              <button key={delta} className="btn" type="button" disabled={!live} onClick={() => act({ op: "nudge", delta })}>
                 {delta > 0 ? `+${delta}` : delta}s
               </button>
             ))}
           </div>
           <div className="transport">
-            <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "stop" })}>{t("Stop")}</button>
-            <button className="btn btn-danger" type="button" disabled={!canControl} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
+            <button className="btn" type="button" disabled={!live} onClick={() => act({ op: "stop" })}>{t("Stop")}</button>
+            <button className="btn btn-danger" type="button" disabled={!live} onClick={() => window.confirm(t("Clear the queue?")) && act({ op: "clear" })}>{t("Clear")}</button>
           </div>
         </div>
       </section>
@@ -1077,14 +1090,14 @@ export function Playback() {
         <Notice error={searchError} />
         <div className="split">
           <label className="grow">{t("Search term")}
-            <input value={query} onChange={(event) => setQuery(event.target.value)} required placeholder="https://" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} required placeholder={t("Song, artist, or link")} />
           </label>
           <label>{t("Source")}
             <select value={factory} onChange={(event) => setFactory(event.target.value)}>
-              <option value="youtube">youtube</option>
-              <option value="soundcloud">soundcloud</option>
-              <option value="twitch">twitch</option>
-              <option value="media">media</option>
+              <option value="youtube">YouTube</option>
+              <option value="soundcloud">SoundCloud</option>
+              <option value="twitch">Twitch</option>
+              <option value="media">{t("Media file")}</option>
             </select>
           </label>
           {/^https?:\/\//i.test(query.trim()) ? (
@@ -1406,6 +1419,9 @@ export function Connection() {
     return pageId.current === id && result;
   }
   const onServer = data?.connection?.status === "connected" || data?.connection?.status === "connecting";
+  // When the bot API cannot be reached, the server card says so once. The rows below only show Unknown.
+  const apiDown = Boolean(data?.connection?.error);
+  const rowError = (text) => (text && !apiDown ? <span className="muted"> {text}</span> : null);
   // A full page load already carries fresh lists.
   useEffect(() => {
     setLive(null);
@@ -1480,12 +1496,12 @@ export function Connection() {
         <div className="card-head">
           <div>
             <h2>{t("Channel commander")}</h2>
-            <p className="hint">{t("Channel commander. Saved, and applied again on each connect.")}</p>
+            <p className="hint">{t("Marks the bot as channel commander in TeamSpeak. Saved, and applied again on each connect.")}</p>
           </div>
         </div>
         <dl className="facts">
-          <div><dt>{t("Next connect")}</dt><dd>{data?.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{data?.commanderSavedError ? <span className="muted"> {data.commanderSavedError}</span> : null}</dd></div>
-          <div><dt>{t("Right now")}</dt><dd>{data?.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{data?.commanderError ? <span className="muted"> {data.commanderError}</span> : null}</dd></div>
+          <div><dt>{t("Next connect")}</dt><dd>{data?.commanderSaved == null ? t("Unknown") : data.commanderSaved ? t("On") : t("Off")}{rowError(data?.commanderSavedError)}</dd></div>
+          <div><dt>{t("Right now")}</dt><dd>{data?.commander == null ? t("Unknown") : data.commander ? t("On") : t("Off")}{rowError(data?.commanderError)}</dd></div>
         </dl>
         <div className="card-foot">
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (kept(result)) reload(); })}>{t("Turn on")}</button>
@@ -1505,8 +1521,8 @@ export function Connection() {
           </div>
         </div>
         <dl className="facts">
-          <div><dt>{t("Next song")}</dt><dd>{sendModeLabel(data?.sendMode, t)}{data?.sendModeError ? <span className="muted"> {data.sendModeError}</span> : null}</dd></div>
-          <div><dt>{t("Right now")}</dt><dd>{whisperLabel(w.whisper, t)}{w.whisperError ? <span className="muted"> {w.whisperError}</span> : null}</dd></div>
+          <div><dt>{t("Next song")}</dt><dd>{sendModeLabel(data?.sendMode, t)}{rowError(data?.sendModeError)}</dd></div>
+          <div><dt>{t("Right now")}</dt><dd>{whisperLabel(w.whisper, t)}{rowError(w.whisperError)}</dd></div>
         </dl>
         {data?.sendMode === "custom" ? <p className="hint">{t("A custom command is saved. Whisper or Voice replaces it.")}</p> : null}
         {onServer ? (
