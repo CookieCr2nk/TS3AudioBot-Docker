@@ -7,6 +7,7 @@ import { hostingChanges } from "./hostingForm.js";
 import { useAuth } from "./auth.jsx";
 import { LanguageSelect } from "./language.jsx";
 import { usePlayer } from "./player.jsx";
+import { startPolling } from "./poll.js";
 
 function useLoad(path) {
   const [data, setData] = useState(null);
@@ -59,12 +60,29 @@ function useToastDock() {
   return dock;
 }
 
+const NOTE_MS = 6000;
+
+// Errors stay until they are closed or replaced. A success note closes itself after a few seconds.
 export function Notice({ error, note }) {
+  const { t } = useAuth();
   const dock = useToastDock();
-  if (!error && !note) return null;
-  const node = error
-    ? <p className="flash flash-error" role="alert">{error}</p>
-    : <p className="flash flash-ok" role="status">{note}</p>;
+  const text = error || note || "";
+  const [hidden, setHidden] = useState("");
+  useEffect(() => {
+    if (!text) setHidden("");
+  }, [text]);
+  useEffect(() => {
+    if (error || !note) return undefined;
+    const timer = window.setTimeout(() => setHidden(note), NOTE_MS);
+    return () => window.clearTimeout(timer);
+  }, [error, note]);
+  if (!text || hidden === text) return null;
+  const node = (
+    <div className={error ? "flash flash-error" : "flash flash-ok"} role={error ? "alert" : "status"}>
+      <span>{text}</span>
+      <button className="flash-close" type="button" aria-label={t("Dismiss")} onClick={() => setHidden(text)}>×</button>
+    </div>
+  );
   return dock ? createPortal(node, dock) : node;
 }
 
@@ -75,6 +93,7 @@ export function AddBot({ instanceId = "" }) {
   const [instances, setInstances] = useState(null);
   const [error, setError] = useState("");
   const [picked, setPicked] = useState(String(instanceId || ""));
+  const [busy, setBusy] = useState(false);
   const choices = (instances || []).filter((item) => item.canCreate);
 
   useEffect(() => {
@@ -109,12 +128,17 @@ export function AddBot({ instanceId = "" }) {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       const target = String(form.get("instanceId") || picked);
+      if (busy) return;
       setError("");
+      setBusy(true);
       try {
         const result = await api(`/api/instances/${target}/bots`, { method: "POST", body: { name: form.get("name") } });
+        setOpen(false);
         navigate(`/bots/${result.botId}`);
       } catch (err) {
         setError(err.message);
+      } finally {
+        setBusy(false);
       }
     }}>
       <h2>{t("Create a bot")}</h2>
@@ -126,7 +150,7 @@ export function AddBot({ instanceId = "" }) {
       </label>
       <div className="split">
         <label className="grow">{t("Name")}<input name="name" required maxLength={120} placeholder="bot" /></label>
-        <button className="btn btn-primary" type="submit" disabled={!choices.length}>{t("Create")}</button>
+        <button className="btn btn-primary" type="submit" disabled={!choices.length || busy}>{busy ? t("Working…") : t("Create")}</button>
         <button className="btn" type="button" onClick={() => setOpen(false)}>{t("Cancel")}</button>
       </div>
     </form>
@@ -176,13 +200,17 @@ export function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   async function submit(event) {
     event.preventDefault();
+    if (busy) return;
     setError("");
+    setBusy(true);
     try {
       await signIn(username, password);
     } catch (err) {
       setError(err.message);
+      setBusy(false);
     }
   }
   return (
@@ -203,7 +231,7 @@ export function Login() {
         <label>{t("Password")}
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
         </label>
-        <button className="btn btn-primary" type="submit">{t("Sign in")}</button>
+        <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? t("Working…") : t("Sign in")}</button>
         <p className="login-alt"><Link to="/register">{t("Register with an invite")}</Link></p>
       </form>
     </main>
@@ -435,11 +463,14 @@ export function BotsPage() {
   for (const bot of bots) {
     if (!instances.some((item) => item.id === bot.instanceId)) instances.push({ id: bot.instanceId, name: bot.instanceName || t("Instance") });
   }
+  const needle = query.trim().toLowerCase();
   const filtered = bots.filter((bot) => {
     if (instanceId && String(bot.instanceId) !== instanceId) return false;
-    if (query && !bot.name.toLowerCase().includes(query.trim().toLowerCase())) return false;
-    return true;
+    if (!needle) return true;
+    return [bot.name, bot.address, bot.instanceName, bot.ownerName, bot.playback?.server]
+      .some((value) => String(value || "").toLowerCase().includes(needle));
   });
+  const filteredKey = filtered.map((bot) => bot.id).join(",");
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -463,6 +494,16 @@ export function BotsPage() {
   useEffect(() => {
     setPage(1);
   }, [query, instanceId, pageSize]);
+
+  // A bot the filter hides is no longer selected, so bulk start and stop act only on rows the list shows.
+  useEffect(() => {
+    if (!data?.bots) return;
+    const shownIds = new Set(filtered.map((bot) => bot.id));
+    setSelected((current) => {
+      const next = current.filter((id) => shownIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [filteredKey]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -911,15 +952,18 @@ function useBotAction(botId, onDone) {
   onDoneRef.current = onDone;
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [boundId, setBoundId] = useState(botId);
   if (boundId !== botId) {
     setBoundId(botId);
     setNote("");
     setError("");
+    setBusy(false);
   }
   async function act(body) {
     setError("");
     setNote("");
+    setBusy(true);
     try {
       const result = await api(`/api/bots/${botId}/action`, { method: "POST", body });
       if (result.redirect) navigate(result.redirect);
@@ -930,9 +974,11 @@ function useBotAction(botId, onDone) {
     } catch (err) {
       setError(err.message);
       return null;
+    } finally {
+      setBusy(false);
     }
   }
-  return { note, error, act, setNote, setError };
+  return { note, error, busy, act, setNote, setError };
 }
 
 export function Playback() {
@@ -943,6 +989,7 @@ export function Playback() {
   const [factory, setFactory] = useState("youtube");
   const [results, setResults] = useState([]);
   const [searchError, setSearchError] = useState("");
+  const [searching, setSearching] = useState(false);
   const [loadedId, setLoadedId] = useState(id);
   const searchBot = useRef(id);
   searchBot.current = id;
@@ -952,6 +999,7 @@ export function Playback() {
     setFactory("youtube");
     setResults([]);
     setSearchError("");
+    setSearching(false);
   }
   const sameBot = String(player?.bot?.id || "") === String(id);
   const status = sameBot ? player.status : null;
@@ -1063,22 +1111,26 @@ export function Playback() {
       ) : null}
       <form className="card" onSubmit={async (event) => {
         event.preventDefault();
+        if (searching) return;
         const botId = id;
         setSearchError("");
         const value = query.trim();
-        if (/^https?:\/\//i.test(value)) {
-          setResults([]);
-          await act({ op: "play", resource: value });
-          return;
-        }
+        setSearching(true);
         try {
-          const data = await api(`/api/bots/${botId}/search?q=${encodeURIComponent(value)}&factory=${factory}`);
+          if (/^https?:\/\//i.test(value)) {
+            setResults([]);
+            await act({ op: "play", resource: value });
+            return;
+          }
+          const data = await api(`/api/bots/${botId}/search?q=${encodeURIComponent(value)}&factory=${encodeURIComponent(factory)}`);
           if (searchBot.current !== botId) return;
           setResults(data.results || []);
         } catch (err) {
           if (searchBot.current !== botId) return;
           setResults([]);
           setSearchError(err.message);
+        } finally {
+          if (searchBot.current === botId) setSearching(false);
         }
       }}>
         <div className="card-head">
@@ -1102,10 +1154,10 @@ export function Playback() {
           </label>
           {/^https?:\/\//i.test(query.trim()) ? (
             <>
-              <button className="btn btn-primary" type="submit" disabled={!canControl}>{t("Play")}</button>
-              <button className="btn" type="button" disabled={!canControl} onClick={() => act({ op: "add", resource: query.trim() })}>{t("Add to queue")}</button>
+              <button className="btn btn-primary" type="submit" disabled={!canControl || searching}>{t("Play")}</button>
+              <button className="btn" type="button" disabled={!canControl || searching} onClick={() => act({ op: "add", resource: query.trim() })}>{t("Add to queue")}</button>
             </>
-          ) : <button className="btn btn-primary" type="submit">{t("Search")}</button>}
+          ) : <button className="btn btn-primary" type="submit" disabled={!canControl || searching}>{searching ? t("Working…") : t("Search")}</button>}
         </div>
         {results.length ? (
           <div className="result-list">
@@ -1402,8 +1454,9 @@ export function Connection() {
   const { t } = useAuth();
   const { data, error, reload } = useLoad(`/api/bots/${id}/connection`);
   const player = usePlayer();
-  const { note, error: actionError, act, setError, setNote } = useBotAction(id, player?.refresh);
+  const { note, error: actionError, busy, act, setError, setNote } = useBotAction(id, player?.refresh);
   const [localNote, setLocalNote] = useState("");
+  const [saving, setSaving] = useState(false);
   const [moveTick, setMoveTick] = useState(0);
   const [seenId, setSeenId] = useState(id);
   const pageId = useRef(id);
@@ -1438,11 +1491,10 @@ export function Connection() {
         /* Keep the last list. The next pull tries again. */
       }
     }
-    if (liveTick) pull();
-    const timer = window.setInterval(pull, 10000);
+    const end = startPolling(pull, 10000, { immediate: Boolean(liveTick) });
     return () => {
       stop = true;
-      window.clearInterval(timer);
+      end();
     };
   }, [id, onServer, liveTick]);
   const w = live || data || {};
@@ -1450,11 +1502,22 @@ export function Connection() {
     // Subscribing also saves whisper as the send mode, so the whole page is read again.
     if (kept(result)) reload();
   }
-  if (!data && !error) return <div className="page"><h1>{t("Connection")}</h1></div>;
+  if (!data && !error) {
+    return (
+      <div className="page">
+        <h1>{t("Connection")}</h1>
+        <p className="hint" role="status">{t("Loading…")}</p>
+      </div>
+    );
+  }
+  // An account whose grant has no control right sees the settings but cannot change them.
+  const readOnly = Boolean(data?.bot && !data.bot.canControl);
   return (
     <div className="page">
       <h1>{t("Connection")}</h1>
       <Notice error={error || actionError} note={note || localNote} />
+      {readOnly ? <p className="hint">{t("Read only")}</p> : null}
+      <fieldset className="page-fieldset" disabled={busy || saving || readOnly} aria-busy={busy || saving}>
       <div className="pair">
       {data?.connection ? (
         <section className="card">
@@ -1488,7 +1551,11 @@ export function Connection() {
           <div className="card-foot">
             {data.connection.status !== "connected" && data.connection.status !== "connecting" ? <button className="btn btn-primary" type="button" onClick={() => act({ op: "connect", name: data.connection.name }).then((result) => { if (kept(result)) reload(); })}>{t("Start")}</button> : null}
             {data.connection.id != null ? <button className="btn btn-danger" type="button" onClick={() => act({ op: "disconnect", instanceId: data.connection.id }).then((result) => { if (kept(result)) reload(); })}>{t("Disconnect")}</button> : null}
-            {data.teamspeakId && onServer ? <button className="btn" type="button" onClick={() => navigator.clipboard?.writeText(data.teamspeakId)}>{t("Copy")}</button> : null}
+            {data.teamspeakId && onServer ? <button className="btn" type="button" onClick={() => {
+              navigator.clipboard?.writeText(data.teamspeakId)
+                .then(() => setLocalNote(t("Copied.")))
+                .catch((err) => setError(err.message));
+            }}>{t("Copy")}</button> : null}
           </div>
         </section>
       ) : null}
@@ -1584,12 +1651,15 @@ export function Connection() {
         setNote("");
         setLocalNote("");
         if (labelChanged) {
+          setSaving(true);
           try {
             const renamed = await api(`/api/bots/${id}/label`, { method: "POST", body: { name: label } });
             if (pageId.current === id) setLocalNote(renamed.message || "");
           } catch (err) {
             setError(err.message);
             return;
+          } finally {
+            setSaving(false);
           }
         }
         if (!Object.keys(patch).length) {
@@ -1674,6 +1744,7 @@ export function Connection() {
           <button className="btn" type="submit">{t("Move")}</button>
         </form>
       </section>
+      </fieldset>
     </div>
   );
 }
@@ -2149,6 +2220,7 @@ export function Account() {
   const { data, error: loadError } = useLoad("/api/account");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const limitText = !data ? "" : data.botLimit == null
     ? t("No bot limit. {count} bots are in use.", { count: data.botCount })
     : t("{used} of {limit} bots are in use.", { used: data.botCount, limit: data.botLimit });
@@ -2179,7 +2251,9 @@ export function Account() {
         event.preventDefault();
         const formElement = event.currentTarget;
         const form = new FormData(formElement);
+        if (busy) return;
         setError("");
+        setBusy(true);
         try {
           const result = await api("/api/account/password", {
             method: "POST",
@@ -2189,6 +2263,8 @@ export function Account() {
           formElement.reset();
         } catch (err) {
           setError(err.message);
+        } finally {
+          setBusy(false);
         }
       }}>
         <h2>{t("Password")}</h2>
@@ -2196,7 +2272,7 @@ export function Account() {
         <label>{t("New password")}<input name="password" type="password" required minLength={10} autoComplete="new-password" /></label>
         <label>{t("Confirm")}<input name="confirm" type="password" required minLength={10} autoComplete="new-password" /></label>
         <div className="card-foot">
-          <button className="btn btn-primary" type="submit">{t("Change password")}</button>
+          <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? t("Working…") : t("Change password")}</button>
         </div>
       </form>
       </div>

@@ -35,10 +35,12 @@ import {
   listGrantIds,
   listGrants,
   listAccessibleBots,
+  listApiHosts,
   listInstances,
   listInstancesForUser,
   listStreams,
   listUsers,
+  newSessionExpiry,
   publicBot,
   deleteInvite,
   registerWithInvite,
@@ -95,6 +97,7 @@ import {
 } from "./present.js";
 import { callBot, scope, statusParts } from "./ts3ab.js";
 import {
+  assertStreamTarget,
   parseBotLimit,
   parseGrants,
   parseInstanceForm,
@@ -110,6 +113,7 @@ import {
   parseUsername,
 } from "./validate.js";
 import { toFormBody } from "./form.js";
+import { weakTokenKey } from "./config.js";
 
 export const api = Router();
 
@@ -158,6 +162,16 @@ function sessionPayload(req) {
 
 api.get("/session", (req, res) => ok(res, sessionPayload(req)));
 
+export const LOGIN_PER_IP = 30;
+const UNKNOWN_LOGIN_AUDIT = 100;
+
+// A failed login for a known account is always written. Unknown names share one budget,
+// so random names cannot fill the audit log.
+export function auditFailedLogin(user, now = Date.now()) {
+  if (user) return true;
+  return rateLimit("login-audit-unknown", UNKNOWN_LOGIN_AUDIT, 15 * 60 * 1000, 1, now);
+}
+
 export function loginDecision({ user, valid }) {
   if (!user || !valid) return "invalid";
   if (user.suspended) return "suspended";
@@ -176,10 +190,10 @@ export function signedInUser(user) {
 async function startSession(req, res, user) {
   const token = randomBytes(32).toString("base64url");
   const csrf = newCsrf();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = newSessionExpiry();
   await createSession({ id: sha256(token), userId: user.id, csrf, expiresAt });
   await touchLogin(user.id);
-  res.cookie("ts3panel", token, cookieOptions());
+  res.cookie("ts3panel", token, cookieOptions(req));
   req.user = signedInUser(user);
   req.csrf = csrf;
 }
@@ -189,6 +203,10 @@ api.post(
   wrap(async (req, res) => {
     const username = String(req.body.username || "").trim().slice(0, 32);
     const password = String(req.body.password || "");
+    // One address may try many names, but not without bound. The per-name limit stays 8.
+    if (!rateLimit(`login-ip:${req.ip}`, LOGIN_PER_IP, 15 * 60 * 1000)) {
+      throw new HttpError("Too many attempts. Try again later.", 429);
+    }
     if (!rateLimit(`login:${req.ip}:${username.toLowerCase()}`, 8, 15 * 60 * 1000)) {
       throw new HttpError("Too many attempts. Try again later.", 429);
     }
@@ -196,11 +214,13 @@ api.post(
     const valid = await verifyPassword(password, user?.password_hash);
     const decision = loginDecision({ user, valid });
     if (decision === "invalid") {
-      await addAudit({
-        userId: user?.id ?? null,
-        action: "login-failed",
-        detail: req.t("Login failed for {name} from {ip}", { name: username || req.t("unknown"), ip: req.ip }),
-      });
+      if (auditFailedLogin(user)) {
+        await addAudit({
+          userId: user?.id ?? null,
+          action: "login-failed",
+          detail: req.t("Login failed for {name} from {ip}", { name: username || req.t("unknown"), ip: req.ip }),
+        });
+      }
       throw new HttpError("Username or password is wrong.", 401);
     }
     if (decision === "suspended") throw new HttpError("This account is suspended.", 401);
@@ -472,8 +492,14 @@ api.post(
     const template = randomUUID().replaceAll("-", "");
     const charged = chargedUserId(req, access.instance);
     await assertUserQuota(charged);
-    await callBot(instanceClient(access.instance), ["settings", "create", template]);
-    const botId = await ensureTsBot(access.instance.id, template, display, charged);
+    // The row comes first, inside the limit check. A failed create removes it again, so neither side keeps an orphan.
+    const botId = await ensureTsBot(access.instance.id, template, display, charged, { quotaUserId: charged });
+    try {
+      await callBot(instanceClient(access.instance), ["settings", "create", template]);
+    } catch (err) {
+      await deleteTsBotByName(access.instance.id, template);
+      throw err;
+    }
     await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-create", detail: display });
     ok(res, { message: req.t("Bot created."), botId });
   }),
@@ -495,7 +521,7 @@ api.post(
     }
     const charged = chargedUserId(req, access.instance);
     await assertUserQuota(charged);
-    const botId = await ensureTsBot(access.instance.id, name, name, charged);
+    const botId = await ensureTsBot(access.instance.id, name, name, charged, { quotaUserId: charged });
     const visible = await accessToBot(req.user, botId);
     if (!visible) throw new HttpError("That bot is already registered.", 409);
     await addAudit({ userId: req.user.id, botId, instanceId: access.instance.id, action: "bot-attach", detail: name });
@@ -693,8 +719,7 @@ api.post(
       username = account.username;
     }
     const charged = userId ?? (row.owner_user_id == null ? null : Number(row.owner_user_id));
-    await assertUserQuota(charged, id);
-    await setBotAssignee(id, userId);
+    await setBotAssignee(id, userId, { quotaUserId: charged });
     await addAudit({
       userId: req.user.id,
       botId: id,
@@ -786,6 +811,14 @@ api.get(
   }),
 );
 
+// The bot keeps one result list per bot, and search-play picks by position in it. After another
+// account searched on the same bot, a position would pick from that account's results.
+const lastSearch = new Map();
+
+export function searchStillOwn(searches, botId, userId) {
+  return searches.get(botId) === userId;
+}
+
 api.get(
   "/bots/:id/search",
   wrap(async (req, res) => {
@@ -796,6 +829,7 @@ api.get(
     const factory = ["youtube", "soundcloud", "twitch", "media"].includes(req.query.factory) ? req.query.factory : "youtube";
     if (!query) return ok(res, { results: [] });
     const { data } = await runAction(access.bot, "search", { query, factory }, authOf(req, access));
+    lastSearch.set(access.bot.id, req.user.id);
     ok(res, { results: presentSearch(data, req.t) });
   }),
 );
@@ -821,7 +855,8 @@ api.post(
       const picked = parseUseInstance(req.body);
       if (picked.mode !== "template") throw new ValidationError("This instance has no usable name");
       await assertNewBot(access.bot.instanceId, picked.ref);
-      const tsBotId = await ensureTsBot(access.bot.instanceId, picked.ref, picked.ref, access.bot.ownerUserId ?? null);
+      const owner = access.bot.ownerUserId ?? null;
+      const tsBotId = await ensureTsBot(access.bot.instanceId, picked.ref, picked.ref, owner, { quotaUserId: owner });
       await addAudit({
         userId: req.user.id,
         botId: tsBotId,
@@ -831,12 +866,22 @@ api.post(
       });
       return ok(res, { message: req.t("This bot is ready."), botId: tsBotId });
     }
+    if ((op === "search-play" || op === "search-add") && !searchStillOwn(lastSearch, access.bot.id, req.user.id)) {
+      throw new HttpError("The search results changed. Search again.", 409);
+    }
     if (op === "template-create") await assertNewBot(access.bot.instanceId, parseTemplateName(req.body.name));
-    if (op === "template-hosting") await useStartupStation(req);
+    if (op === "template-hosting") {
+      await useStartupStation(req);
+      if (String(req.body.startup ?? "").trim()) await guardStream(parseStreamUrl(req.body.startup));
+    }
+    if (op === "play" || op === "add") await guardStream(parseStreamUrl(req.body.resource));
     const { action, args, data } = await runAction(access.bot, op, req.body, authOf(req, access));
     if (op === "template-hosting" || op === "template-address") await saveBotSettings(access.bot.id, settingsRecord(args));
     let botId = access.bot.id;
-    if (op === "template-create") botId = await ensureTsBot(access.bot.instanceId, args.name, args.name, access.bot.ownerUserId ?? null);
+    if (op === "template-create") {
+      const owner = access.bot.ownerUserId ?? null;
+      botId = await ensureTsBot(access.bot.instanceId, args.name, args.name, owner, { quotaUserId: owner });
+    }
     else if (op === "template-delete") await deleteTsBotByName(access.bot.instanceId, args.name);
     if (action.audit) {
       await addAudit({
@@ -882,6 +927,7 @@ api.post(
     if (!rateLimit(`action:${req.user.id}`, 60, 60_000)) throw new HttpError("Too many actions. Wait a moment.", 429);
     const name = parseTitle(req.body.name, "Name");
     const url = parseStreamUrl(req.body.url);
+    await guardStream(url);
     const notes = parseNotes(req.body.notes);
     const shared = req.user.role === "admin" && (req.body.shared === true || req.body.shared === "on" || req.body.shared === "1");
     await insertStream({ name, url, notes, shared, ownerUserId: req.user.id });
@@ -900,6 +946,7 @@ api.post(
     const stream = streamId ? await getStream(streamId, req.user) : null;
     if (!stream) throw new HttpError("That stream does not exist.", 404);
     const queue = req.body.op === "add";
+    await guardStream(stream.url);
     await runAction(access.bot, queue ? "add" : "play", { resource: stream.url }, authOf(req, access));
     await addAudit({
       userId: req.user.id,
@@ -927,27 +974,39 @@ api.delete(
   }),
 );
 
+// The reads below do not depend on each other, so they run together. A slow bot API then costs
+// one timeout instead of the sum of all of them.
+function settled(result, t, read) {
+  if (result.status === "fulfilled") return { value: read(result.value), error: null };
+  return { value: null, error: errorText(result.reason, t) };
+}
+
 api.get(
   "/bots/:id/connection",
   wrap(async (req, res) => {
     const access = await openBot(req);
-    const template = access.bot.instanceMode === "template" ? access.bot.instanceRef : "";
-    let live = null;
-    let listError = null;
-    try {
-      const data = await callBot(access.bot, ["bot", "list"], { timeoutMs: 15000 });
-      live = presentBotList(data, req.t).find((item) => item.name === template) || null;
-    } catch (err) {
-      listError = errorText(err, req.t);
-    }
-    let storedAddress = access.bot.connectAddress || "";
-    if (template && !live?.server) {
-      try {
-        const fromBot = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "connect.address"], { timeoutMs: 4000 }));
-        if (fromBot) storedAddress = fromBot;
-      } catch {
-        /* The panel copy still shows what was saved here. */
-      }
+    const bot = access.bot;
+    const template = bot.instanceMode === "template" ? bot.instanceRef : "";
+    const setting = (path) => (template
+      ? callBot(bot, ["settings", "bot", "get", template, path], { timeoutMs: 4000 })
+      : Promise.reject(new Error("no template")));
+    const [listed, address, onConnect, commanderNow, sendModeStored, identity, streams] = await Promise.allSettled([
+      callBot(bot, ["bot", "list"], { timeoutMs: 15000 }),
+      setting("connect.address"),
+      setting("events.onconnect"),
+      callBot(bot, scope(bot, ["bot", "commander"]), { timeoutMs: 4000 }),
+      setting("audio.send_mode"),
+      readIdentity(bot, req.t),
+      listStreams(req.user),
+    ]);
+    if (streams.status === "rejected") throw streams.reason;
+    const list = settled(listed, req.t, (data) => presentBotList(data, req.t).find((item) => item.name === template) || null);
+    const live = list.value;
+    const listError = list.error;
+    let storedAddress = bot.connectAddress || "";
+    if (template && !live?.server && address.status === "fulfilled") {
+      const fromBot = presentSetting(address.value);
+      if (fromBot) storedAddress = fromBot;
     }
     const status = live?.status || (listError ? "unknown" : "offline");
     const botConnection = template
@@ -960,52 +1019,29 @@ api.get(
           error: listError,
         }
       : null;
-    let commanderSavedValue = null;
-    let commanderSavedError = null;
-    if (template) {
-      try {
-        const stored = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "events.onconnect"], { timeoutMs: 4000 }));
-        commanderSavedValue = commanderSaved(stored);
-      } catch (err) {
-        commanderSavedError = errorText(err, req.t);
-      }
-    }
-    let commander = null;
-    let commanderError = null;
-    try {
-      commander = presentCommander(await callBot(access.bot, scope(access.bot, ["bot", "commander"]), { timeoutMs: 4000 }));
-    } catch (err) {
-      commanderError = errorText(err, req.t);
-    }
-    let sendMode = null;
-    let sendModeError = null;
-    if (template) {
-      try {
-        const stored = presentSetting(await callBot(access.bot, ["settings", "bot", "get", template, "audio.send_mode"], { timeoutMs: 4000 }));
-        sendMode = presentSendMode(stored);
-      } catch (err) {
-        sendModeError = errorText(err, req.t);
-      }
-    }
+    const saved = template ? settled(onConnect, req.t, (data) => commanderSaved(presentSetting(data))) : { value: null, error: null };
+    const commander = settled(commanderNow, req.t, presentCommander);
+    const sendMode = template ? settled(sendModeStored, req.t, (data) => presentSendMode(presentSetting(data))) : { value: null, error: null };
     const onServer = status === "connected" || status === "connecting";
-    const whisperLive = await whisperState(access.bot, req.t, onServer);
-    const streams = await listStreams(req.user);
-    const hosting = hostingFromBot(access.bot);
+    const who = identity.value;
+    const whisperLive = { ...who.state, ...(onServer ? await readWhisperLists(bot, req.t, who.ownClientId) : emptyWhisperLists()) };
+    const stations = streams.value;
+    const hosting = hostingFromBot(bot);
     const startupMatches = hosting.startup
-      ? streams.filter((stream) => displayStreamUrl(stream.url) === hosting.startup)
+      ? stations.filter((stream) => displayStreamUrl(stream.url) === displayStreamUrl(hosting.startup))
       : [];
     hosting.startupStreamId = startupMatches.length === 1 ? startupMatches[0].id : null;
     ok(res, {
       connection: botConnection,
       bot: botView(access, req.user.role === "admin"),
       hosting,
-      stations: streams.map((stream) => ({ id: stream.id, name: stream.name, url: displayStreamUrl(stream.url) })),
-      commander,
-      commanderError,
-      commanderSaved: commanderSavedValue,
-      commanderSavedError,
-      sendMode,
-      sendModeError,
+      stations: stations.map((stream) => ({ id: stream.id, name: stream.name, url: displayStreamUrl(stream.url) })),
+      commander: commander.value,
+      commanderError: commander.error,
+      commanderSaved: saved.value,
+      commanderSavedError: saved.error,
+      sendMode: sendMode.value,
+      sendModeError: sendMode.error,
       ...whisperLive,
     });
   }),
@@ -1016,30 +1052,21 @@ api.get(
   "/bots/:id/whisper",
   wrap(async (req, res) => {
     const access = await openBot(req);
-    let status = "offline";
-    try {
-      const data = await callBot(access.bot, ["bot", "list"], { timeoutMs: 8000 });
-      status = presentBotList(data).find((item) => item.name === access.bot.instanceRef)?.status || "offline";
-    } catch {
-      status = "unknown";
-    }
-    const onServer = status === "connected" || status === "connecting";
-    ok(res, { status, ...(await whisperState(access.bot, req.t, onServer)) });
+    const [listed, who] = await Promise.all([
+      callBot(access.bot, ["bot", "list"], { timeoutMs: 8000 })
+        .then((data) => presentBotList(data).find((item) => item.name === access.bot.instanceRef)?.status || "offline")
+        .catch(() => "unknown"),
+      readIdentity(access.bot, req.t),
+    ]);
+    const onServer = listed === "connected" || listed === "connecting";
+    const lists = onServer ? await readWhisperLists(access.bot, req.t, who.ownClientId) : emptyWhisperLists();
+    ok(res, { status: listed, ...who.state, ...lists });
   }),
 );
 
-async function whisperState(bot, t, onServer) {
-  const state = {
-    whisper: null,
-    whisperError: null,
-    whisperClients: [],
-    whisperChannels: [],
-    channels: [],
-    clients: [],
-    treeError: null,
-    teamspeakId: "",
-    teamspeakError: null,
-  };
+// Never rejects. A failure becomes teamspeakError.
+async function readIdentity(bot, t) {
+  const state = { teamspeakId: "", teamspeakError: null };
   let ownClientId = null;
   try {
     const identity = presentTsIdentity(await callBot(bot, scope(bot, ["bot", "info", "client"]), { timeoutMs: 4000 }));
@@ -1049,7 +1076,23 @@ async function whisperState(bot, t, onServer) {
   } catch (err) {
     state.teamspeakError = errorText(err, t);
   }
-  if (!onServer) return state;
+  return { state, ownClientId };
+}
+
+function emptyWhisperLists() {
+  return {
+    whisper: null,
+    whisperError: null,
+    whisperClients: [],
+    whisperChannels: [],
+    channels: [],
+    clients: [],
+    treeError: null,
+  };
+}
+
+async function readWhisperLists(bot, t, ownClientId) {
+  const state = emptyWhisperLists();
   const [listed, tree] = await Promise.allSettled([
     callBot(bot, scope(bot, ["whisper", "list"]), { timeoutMs: 4000 }),
     callBot(bot, scope(bot, ["server", "tree"]), { timeoutMs: 8000 }),
@@ -1071,6 +1114,12 @@ async function whisperState(bot, t, onServer) {
     state.treeError = errorText(tree.reason, t);
   }
   return state;
+}
+
+// A stream the bot fetches must not reach a bot API. parseStreamUrl already refuses loopback and port 58913.
+async function guardStream(url) {
+  if (!url) return;
+  assertStreamTarget(url, await listApiHosts());
 }
 
 async function useStartupStation(req) {
@@ -1113,7 +1162,7 @@ api.post(
   "/admin/instances",
   wrap(async (req, res) => {
     const users = (await listUsers()).filter((account) => account.role !== "admin");
-    const fields = parseInstanceForm(toFormBody(req.body));
+    const fields = parseInstanceForm(toFormBody(req.body), { weakKey: weakTokenKey() });
     fields.ownerUserId = await assertOwner(fields.ownerUserId);
     const grants = parseGrants(toFormBody(req.body), users).filter((grant) => grant.userId !== fields.ownerUserId);
     const id = await insertInstance(fields);
@@ -1129,7 +1178,7 @@ api.post(
     const existing = await getInstanceRow(numericId(req.params.id));
     if (!existing) throw new HttpError("Instance not found.", 404);
     const users = (await listUsers()).filter((account) => account.role !== "admin");
-    const fields = parseInstanceForm(toFormBody(req.body), { keepExisting: true });
+    const fields = parseInstanceForm(toFormBody(req.body), { keepExisting: true, weakKey: weakTokenKey() });
     fields.ownerUserId = await assertOwner(fields.ownerUserId);
     await updateInstanceRecord(existing.id, fields);
     await replaceGrants(existing.id, parseGrants(toFormBody(req.body), users).filter((grant) => grant.userId !== fields.ownerUserId));
@@ -1266,6 +1315,10 @@ api.post(
     const role = parseRole(req.body.role);
     if (user.role === "admin" && role !== "admin" && !user.suspended && (await countActiveAdmins()) <= 1) {
       throw new HttpError("The last administrator cannot be demoted.", 400);
+    }
+    if (role !== "admin") {
+      const grants = (await listGrantIds()).filter((grant) => grant.userId === Number(user.id));
+      await assertInstanceMembership({ role }, grants.map((grant) => grant.instanceId));
     }
     await setRole(user.id, role);
     await addAudit({ userId: req.user.id, action: "user-role", detail: `${user.username} → ${role}` });

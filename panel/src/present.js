@@ -62,16 +62,33 @@ export function formatSeconds(value) {
   return `${minutes}:${sec}`;
 }
 
+// Query parameters that usually carry a secret. Their values are hidden in every address the panel shows.
+const SECRET_PARAM = /^(auth|authorization|token|access_token|api_?key|key|pass|passwd|password|pwd|secret|sig|signature|session|sid)$/i;
+
 export function displayStreamUrl(value) {
   try {
     const url = new URL(String(value));
     if (url.protocol !== "http:" && url.protocol !== "https:") return "";
     url.username = "";
     url.password = "";
+    const secret = [...url.searchParams.keys()].filter((key) => SECRET_PARAM.test(key));
+    for (const key of new Set(secret)) {
+      const count = url.searchParams.getAll(key).length;
+      url.searchParams.delete(key);
+      for (let index = 0; index < count; index += 1) url.searchParams.append(key, "***");
+    }
     return url.href;
   } catch {
     return "";
   }
+}
+
+// The bot reports the address it plays as source, and as title when the stream has none.
+// That address can hold the credentials of a saved station, so an http address is shown without them.
+export function hideStreamSecrets(value) {
+  const text = String(value ?? "");
+  if (!/^https?:\/\//i.test(text.trim())) return text;
+  return displayStreamUrl(text.trim()) || text;
 }
 
 export function safeHttpUrl(value) {
@@ -106,10 +123,12 @@ function presentSong(value, t) {
   const length = Number(value.Length);
   const position = Number(value.Position);
   const hasLength = Number.isFinite(length) && length > 0;
+  const source = hideStreamSecrets(value.Source || value.Link || "");
   return {
-    title: value.Title || t("Unknown title"),
-    source: value.Source || value.Link || "",
-    sourceHref: safeHttpUrl(value.Source || value.Link || ""),
+    title: value.Title ? hideStreamSecrets(value.Title) : t("Unknown title"),
+    source,
+    // A hidden query value would make the link useless, so such a source is shown as text only.
+    sourceHref: source.includes("=***") ? null : safeHttpUrl(source),
     position: Number.isFinite(position) ? position : null,
     length: hasLength ? length : null,
     positionLabel: formatSeconds(position),
@@ -128,8 +147,8 @@ function presentQueue(value, t) {
     count: Number.isFinite(Number(value.SongCount)) ? Number(value.SongCount) : value.Items.length,
     items: value.Items.slice(0, 40).map((item, index) => ({
       index: offset + index,
-      title: item.Title || item.Link || t("Untitled"),
-      link: item.Link || "",
+      title: hideStreamSecrets(item.Title || item.Link || "") || t("Untitled"),
+      link: hideStreamSecrets(item.Link || ""),
       audioType: item.AudioType || "",
     })),
   };

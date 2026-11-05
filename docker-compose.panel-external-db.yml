@@ -48,11 +48,12 @@ services:
       TOKEN_KEY: ${PANEL_TOKEN_KEY:-dev-only-token-key}
       ADMIN_USER: ${PANEL_ADMIN_USER:-admin}
       ADMIN_PASSWORD: ${PANEL_ADMIN_PASSWORD:-}
-      COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-false}
+      COOKIE_SECURE: ${PANEL_COOKIE_SECURE:-auto}
       TRUST_PROXY: ${PANEL_TRUST_PROXY:-0}
+      SESSION_IDLE_HOURS: ${PANEL_SESSION_IDLE_HOURS:-24}
       PORT: "8080"
     ports:
-      - "${PANEL_PORT:-8080}:8080"
+      - "${PANEL_BIND:-0.0.0.0}:${PANEL_PORT:-8080}:8080"
     read_only: true
     tmpfs:
       - /tmp:mode=1777,size=64m

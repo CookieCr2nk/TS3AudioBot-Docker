@@ -6,6 +6,10 @@ import { HttpError } from "./errors.js";
 
 const hits = new Map();
 const RATE_KEEP_MS = 15 * 60 * 1000;
+// Expired entries go first. Only a flood of fresh keys pushes out the oldest ones.
+const RATE_PRUNE_AT = 5000;
+const RATE_MAX_KEYS = 50000;
+let lastPrune = 0;
 
 export function wrap(fn) {
   return (req, res, next) => {
@@ -17,21 +21,26 @@ export function wantsJson(req) {
   return req.get("accept")?.includes("application/json") || req.get("x-requested-with") === "fetch";
 }
 
-function cookieBase() {
+export function secureCookie(req, setting = config.cookieSecure) {
+  if (setting === "auto") return Boolean(req?.secure);
+  return Boolean(setting);
+}
+
+function cookieBase(req) {
   return {
     httpOnly: true,
     sameSite: "lax",
-    secure: config.cookieSecure,
+    secure: secureCookie(req),
     path: "/",
   };
 }
 
-export function cookieOptions() {
-  return { ...cookieBase(), maxAge: 7 * 24 * 60 * 60 * 1000 };
+export function cookieOptions(req) {
+  return { ...cookieBase(req), maxAge: 7 * 24 * 60 * 60 * 1000 };
 }
 
 export function clearSessionCookie(res) {
-  res.clearCookie("ts3panel", cookieBase());
+  res.clearCookie("ts3panel", cookieBase(res.req));
 }
 
 export function numericId(value) {
@@ -46,17 +55,19 @@ function pruneRateLimits(now) {
     if (!fresh.length) hits.delete(entry);
     else if (fresh.length !== times.length) hits.set(entry, fresh);
   }
-  while (hits.size > 4000) {
+  while (hits.size > RATE_MAX_KEYS) {
     const oldest = hits.keys().next().value;
     if (oldest === undefined) break;
     hits.delete(oldest);
   }
 }
 
-export function rateLimit(key, limit, windowMs, cost = 1) {
-  const now = Date.now();
+export function rateLimit(key, limit, windowMs, cost = 1, now = Date.now()) {
   const slots = Math.max(1, Math.trunc(Number(cost)) || 1);
-  if (hits.size > 1000) pruneRateLimits(now);
+  if (hits.size > RATE_PRUNE_AT && now - lastPrune > 1000) {
+    lastPrune = now;
+    pruneRateLimits(now);
+  }
   const fresh = (hits.get(key) || []).filter((time) => now - time < windowMs);
   if (fresh.length + slots > limit) {
     if (fresh.length) hits.set(key, fresh);

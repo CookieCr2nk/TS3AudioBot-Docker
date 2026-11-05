@@ -1,4 +1,4 @@
-FROM node:lts-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -6,7 +6,7 @@ COPY vite.config.js ./
 COPY client ./client
 RUN npm run build
 
-FROM node:lts-bookworm-slim
+FROM node:26-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production \
     HOME=/tmp \

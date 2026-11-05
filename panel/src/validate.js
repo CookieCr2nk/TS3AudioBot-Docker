@@ -110,6 +110,42 @@ function isBlockedHost(hostname) {
   return false;
 }
 
+// The bot API answers on loopback inside its own container. A stream the bot fetches must not point there.
+export const BOT_API_PORT = "58913";
+
+function loopbackHost(hostname) {
+  const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "").split("%")[0].replace(/\.$/, "");
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  const match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (match) return Number(match[1]) === 127;
+  if (!host.includes(":")) return false;
+  const parts = expandIpv6(host);
+  if (!parts) return false;
+  const zeros = (count) => parts.slice(0, count).every((part) => part === 0);
+  if (zeros(7) && parts[7] === 1) return true;
+  return zeros(5) && parts[5] === 0xffff && (parts[6] >> 8) === 127;
+}
+
+function streamPort(url) {
+  return url.port || (url.protocol === "https:" ? "443" : "80");
+}
+
+// Rejects a stream that would reach a registered bot API. `apiHosts` holds those host names.
+export function assertStreamTarget(value, apiHosts = []) {
+  let url;
+  try {
+    url = new URL(String(value));
+  } catch {
+    throw new ValidationError("Stream address is not a valid URL");
+  }
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  const known = new Set([...apiHosts].map((item) => String(item).toLowerCase().replace(/\.$/, "")));
+  if (loopbackHost(host) || streamPort(url) === BOT_API_PORT || known.has(host)) {
+    throw new ValidationError("This stream address is not allowed");
+  }
+  return url.href;
+}
+
 export function assertBaseUrl(value) {
   let url;
   try {
@@ -194,7 +230,7 @@ export function parseStreamUrl(value) {
   }
   if (url.href.length > 500) throw new ValidationError("Stream address is missing or too long");
   if (url.href.includes("\\")) throw new ValidationError("This stream address is not allowed");
-  return url.href;
+  return assertStreamTarget(url.href);
 }
 
 export function parseBotNick(value) {
@@ -311,11 +347,15 @@ export function parseUseInstance(body) {
   throw new ValidationError("This instance has no usable name");
 }
 
-export function parseInstanceForm(body, { keepExisting = false } = {}) {
+export function parseInstanceForm(body, { keepExisting = false, weakKey = false } = {}) {
   const credential = splitApiCredential(body.apiUser, body.apiToken, {
     keepExisting,
     clear: body.clearToken === "on",
   });
+  // A token encrypted with the public default key is as good as plain text.
+  if (credential.secret && weakKey) {
+    throw new ValidationError("Set TOKEN_KEY to a long random value before you store an API token.");
+  }
   const ownerRaw = clean(body.ownerUserId);
   let ownerUserId = null;
   if (ownerRaw) {

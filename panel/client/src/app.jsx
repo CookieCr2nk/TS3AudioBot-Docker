@@ -5,6 +5,7 @@ import { useAuth } from "./auth.jsx";
 import { LanguageSelect } from "./language.jsx";
 import { Account, AddBot, Audit, BotsPage, Connection, InstancePage, Login, Notice, Overview, Playback, Radio, Register, Users } from "./pages.jsx";
 import { PlayerBar, PlayerProvider } from "./player.jsx";
+import { startPolling } from "./poll.js";
 
 export function App() {
   const { ready, user } = useAuth();
@@ -46,15 +47,50 @@ function Shell() {
   const playerBotId = routeBotId;
   const inBot = Boolean(routeBotId);
 
+  const menuToggleRef = useRef(null);
+  const wasOpen = useRef(false);
+  const closedByRoute = useRef(false);
   useEffect(() => {
+    closedByRoute.current = true;
     setOpen(false);
     document.getElementById("content")?.scrollTo(0, 0);
   }, [location.pathname]);
 
+  // The open menu takes the focus, keeps Tab inside, and gives the focus back to Menu when it closes.
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      // After a link in the menu the page changes, and the focus stays with the new page.
+      if (wasOpen.current && !closedByRoute.current) menuToggleRef.current?.focus();
+      wasOpen.current = false;
+      closedByRoute.current = false;
+      return undefined;
+    }
+    closedByRoute.current = false;
+    wasOpen.current = true;
+    const sidebar = document.getElementById("sidebar");
+    const focusable = () => [...(sidebar?.querySelectorAll("a[href], button:not([disabled]), select, input") || [])]
+      .filter((node) => node.offsetParent !== null);
+    focusable()[0]?.focus();
     function onKey(event) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!sidebar?.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -65,8 +101,9 @@ function Shell() {
     document.title = `${label} · TS-Bot Panel`;
   }, [location.pathname, t, inBot]);
 
-  const rosterScope = routeBotId ? "bot" : location.pathname;
+  // The switcher is only shown on bot pages. Entering that area loads the roster once.
   useEffect(() => {
+    if (!inBot) return undefined;
     let stop = false;
     api("/api/bots?status=0")
       .then((data) => {
@@ -78,7 +115,7 @@ function Shell() {
     return () => {
       stop = true;
     };
-  }, [rosterScope]);
+  }, [inBot]);
 
   useEffect(() => {
     if (!playerBotId) {
@@ -130,11 +167,10 @@ function Shell() {
         }
       }
     }
-    pull();
-    const timer = window.setInterval(pull, 4000);
+    const end = startPolling(pull, 4000);
     return () => {
       stop = true;
-      window.clearInterval(timer);
+      end();
     };
   }, [bot?.id, playerBotId, tick]);
 
@@ -217,6 +253,7 @@ function Shell() {
         <div className="workspace">
           <header className="topbar">
             <button
+              ref={menuToggleRef}
               className="btn menu-toggle"
               type="button"
               aria-expanded={open}
@@ -302,6 +339,9 @@ function BotSwitch({ current, options, onPick }) {
   }
   const flat = groups.flatMap((group) => group.items);
   const currentItem = options.find((item) => String(item.id) === current) || options[0];
+  const listId = "bot-switch-list";
+  const optionId = (item) => `bot-switch-option-${item.id}`;
+  const activeId = open && flat[active] ? optionId(flat[active]) : undefined;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -366,7 +406,7 @@ function BotSwitch({ current, options, onPick }) {
         <span className="bot-switch-caret" aria-hidden="true">▾</span>
       </button>
       {open ? (
-        <div className="bot-switch-panel" ref={panelRef} tabIndex={-1} onKeyDown={onKey}>
+        <div className="bot-switch-panel" ref={panelRef} tabIndex={-1} onKeyDown={onKey} aria-activedescendant={searchable ? undefined : activeId}>
           {searchable ? (
             <input
               ref={searchRef}
@@ -375,6 +415,11 @@ function BotSwitch({ current, options, onPick }) {
               value={query}
               placeholder={t("Search bots")}
               aria-label={t("Search bots")}
+              role="combobox"
+              aria-expanded="true"
+              aria-controls={listId}
+              aria-autocomplete="list"
+              aria-activedescendant={activeId}
               autoComplete="off"
               spellCheck={false}
               onChange={(event) => {
@@ -383,7 +428,7 @@ function BotSwitch({ current, options, onPick }) {
               }}
             />
           ) : null}
-          <div className="bot-switch-list" role="listbox" aria-label={t("Switch bot")}>
+          <div className="bot-switch-list" id={listId} role="listbox" aria-label={t("Switch bot")}>
             {groups.map((group) => (
               <div className="bot-switch-group" role="group" aria-label={group.name || t("Instances")} key={group.name}>
                 {groups.length > 1 || group.name ? <div className="bot-switch-heading">{group.name || t("Instances")}</div> : null}
@@ -394,6 +439,7 @@ function BotSwitch({ current, options, onPick }) {
                   return (
                     <div
                       key={item.id}
+                      id={optionId(item)}
                       role="option"
                       aria-selected={selected}
                       data-index={at}

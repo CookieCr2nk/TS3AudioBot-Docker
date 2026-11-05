@@ -200,14 +200,14 @@ export async function setCanCreateBots(id, allowed) {
   await pool.query("UPDATE users SET can_create_bots = ? WHERE id = ?", [allowed ? 1 : 0, id]);
 }
 
-export async function countOwnedBots(userId, exceptBotId = null) {
+async function countBotsWith(runner, userId, exceptBotId = null) {
   const params = [userId];
   let extra = "";
   if (exceptBotId != null) {
     extra = " AND t.id <> ?";
     params.push(exceptBotId);
   }
-  const [rows] = await pool.query(
+  const [rows] = await runner.query(
     `SELECT COUNT(*) AS total
      FROM ts_bots t
      JOIN instances i ON i.id = t.instance_id
@@ -215,6 +215,34 @@ export async function countOwnedBots(userId, exceptBotId = null) {
     params,
   );
   return Number(rows[0].total);
+}
+
+export async function countOwnedBots(userId, exceptBotId = null) {
+  return countBotsWith(pool, userId, exceptBotId);
+}
+
+// Runs `write` in one transaction after it locks the charged account and checks its bot limit.
+// Two requests for the same account wait for each other, so they cannot both pass the limit.
+async function withinQuota(chargedUserId, exceptBotId, write) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    if (chargedUserId != null) {
+      const [users] = await connection.query("SELECT bot_limit FROM users WHERE id = ? FOR UPDATE", [chargedUserId]);
+      const limit = users[0]?.bot_limit;
+      if (limit != null && (await countBotsWith(connection, chargedUserId, exceptBotId)) >= Number(limit)) {
+        throw new HttpError("Bot limit reached ({count}).", 403, { count: Number(limit) });
+      }
+    }
+    const result = await write(connection);
+    await connection.commit();
+    return result;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function setPassword(id, passwordHash) {
@@ -272,16 +300,43 @@ export async function createSession({ id, userId, csrf, expiresAt }) {
   ]);
 }
 
+// A session ends after SESSION_IDLE_HOURS without a request, and always after 7 days.
+export const SESSION_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_TOUCH_MS = 5 * 60 * 1000;
+
+export function sessionIdleMs() {
+  return config.sessionIdleHours * 60 * 60 * 1000;
+}
+
+// The first deadline of a new session.
+export function newSessionExpiry(now = Date.now()) {
+  return new Date(now + Math.min(sessionIdleMs(), SESSION_MAX_MS));
+}
+
+// A later idle deadline, or null when the stored one is still fresh enough to keep.
+export function sessionDeadline(createdAt, expiresAt, now = Date.now()) {
+  const cap = new Date(createdAt).getTime() + SESSION_MAX_MS;
+  const next = Math.min(now + sessionIdleMs(), cap);
+  if (next - new Date(expiresAt).getTime() < SESSION_TOUCH_MS) return null;
+  return new Date(next);
+}
+
 export async function getSession(id) {
   const [rows] = await pool.query(
-    `SELECT s.csrf_token, u.id AS user_id, u.username, u.role, u.can_create_bots
+    `SELECT s.csrf_token, s.expires_at, s.created_at, u.id AS user_id, u.username, u.role, u.can_create_bots
      FROM sessions s
      JOIN users u ON u.id = s.user_id
-     WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP(3) AND u.suspended = 0
+     WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP(3)
+       AND s.created_at > CURRENT_TIMESTAMP(3) - INTERVAL ? SECOND
+       AND u.suspended = 0
      LIMIT 1`,
-    [id],
+    [id, Math.floor(SESSION_MAX_MS / 1000)],
   );
   if (!rows[0]) return null;
+  const extended = sessionDeadline(rows[0].created_at, rows[0].expires_at);
+  if (extended) {
+    await pool.query("UPDATE sessions SET expires_at = ? WHERE id = ?", [extended, id]);
+  }
   return {
     csrf: rows[0].csrf_token,
     userId: Number(rows[0].user_id),
@@ -433,6 +488,20 @@ export async function updateInstanceRecord(id, fields) {
   await pool.query(sql, params);
 }
 
+// Host names of every registered bot API. A stream must not point at one of them.
+export async function listApiHosts() {
+  const [rows] = await pool.query("SELECT base_url FROM instances");
+  const hosts = new Set();
+  for (const row of rows) {
+    try {
+      hosts.add(new URL(row.base_url).hostname.toLowerCase());
+    } catch {
+      /* A broken address cannot be reached either. */
+    }
+  }
+  return [...hosts];
+}
+
 export async function deleteInstance(id) {
   await pool.query("DELETE FROM instances WHERE id = ?", [id]);
 }
@@ -441,6 +510,18 @@ export function canDeleteBot(user, bot) {
   if (!user || !bot) return false;
   if (user.role === "admin") return true;
   return bot.assigneeUserId != null && Number(bot.assigneeUserId) === Number(user.id);
+}
+
+// A normal account opens a bot only while it is assigned to that account and the account still
+// owns the instance or holds a grant on it. The grant's control flag decides whether it may act.
+export function userBotAccess(user, bot, grant) {
+  if (!user || !bot) return null;
+  if (user.role === "admin") return { canControl: true, canManage: true, canDelete: true };
+  if (!bot.enabled || !canDeleteBot(user, bot)) return null;
+  const owner = bot.ownerUserId != null && bot.ownerUserId === Number(user.id);
+  if (!owner && !grant) return null;
+  const canControl = owner || Boolean(grant.canControl);
+  return { canControl, canManage: owner, canDelete: canControl };
 }
 
 export async function listAccessibleBots(user, { token = true } = {}) {
@@ -453,21 +534,21 @@ export async function listAccessibleBots(user, { token = true } = {}) {
     return rows.map((row) => ({ bot: mapBot(row, { token }), canControl: true, canManage: true, canDelete: true }));
   }
   const [rows] = await pool.query(
-    `SELECT ${TS_BOT_COLUMNS}
+    `SELECT ${TS_BOT_COLUMNS}, g.user_id AS grant_user_id, g.can_control AS grant_can_control
      FROM ${TS_BOT_FROM}
-     WHERE i.enabled = 1 AND t.assignee_user_id = ?
+     LEFT JOIN instance_grants g ON g.instance_id = i.id AND g.user_id = ?
+     WHERE i.enabled = 1 AND t.assignee_user_id = ? AND (i.owner_user_id = ? OR g.user_id IS NOT NULL)
      ORDER BY i.name, t.name`,
-    [user.id],
+    [user.id, user.id, user.id],
   );
-  return rows.map((row) => {
+  const out = [];
+  for (const row of rows) {
     const bot = mapBot(row, { token });
-    return {
-      bot,
-      canControl: true,
-      canManage: bot.ownerUserId != null && bot.ownerUserId === user.id,
-      canDelete: canDeleteBot(user, bot),
-    };
-  });
+    const grant = row.grant_user_id == null ? null : { canControl: Boolean(row.grant_can_control) };
+    const access = userBotAccess(user, bot, grant);
+    if (access) out.push({ bot, ...access });
+  }
+  return out;
 }
 
 export async function getTsBotRow(id) {
@@ -489,17 +570,20 @@ export async function findTsBotId(instanceId, template) {
   return rows[0] ? Number(rows[0].id) : null;
 }
 
-export async function ensureTsBot(instanceId, template, displayName, assigneeUserId = null) {
+// A new row counts for `quotaUserId` when one is given. An existing row is returned as it is.
+export async function ensureTsBot(instanceId, template, displayName, assigneeUserId = null, { quotaUserId = null } = {}) {
   const existing = await findTsBotId(instanceId, template);
   if (existing) return existing;
   const display = displayName || template;
   const name = String(display).slice(0, 64);
   try {
-    const [result] = await pool.query(
-      "INSERT INTO ts_bots (instance_id, name, label, template, assignee_user_id) VALUES (?, ?, ?, ?, ?)",
-      [instanceId, name, display, template, assigneeUserId],
-    );
-    return Number(result.insertId);
+    return await withinQuota(quotaUserId, null, async (connection) => {
+      const [result] = await connection.query(
+        "INSERT INTO ts_bots (instance_id, name, label, template, assignee_user_id) VALUES (?, ?, ?, ?, ?)",
+        [instanceId, name, display, template, assigneeUserId],
+      );
+      return Number(result.insertId);
+    });
   } catch (err) {
     if (err.code !== "ER_DUP_ENTRY") throw err;
     return findTsBotId(instanceId, template);
@@ -510,8 +594,10 @@ export async function deleteTsBotByName(instanceId, template) {
   await pool.query("DELETE FROM ts_bots WHERE instance_id = ? AND template = ?", [instanceId, template]);
 }
 
-export async function setBotAssignee(botId, userId) {
-  await pool.query("UPDATE ts_bots SET assignee_user_id = ? WHERE id = ?", [userId, botId]);
+export async function setBotAssignee(botId, userId, { quotaUserId = null } = {}) {
+  await withinQuota(quotaUserId, botId, (connection) => (
+    connection.query("UPDATE ts_bots SET assignee_user_id = ? WHERE id = ?", [userId, botId])
+  ));
 }
 
 export async function setBotLabel(botId, label) {
@@ -571,15 +657,9 @@ export async function accessToBot(user, botId) {
   const row = await getTsBotRow(botId);
   if (!row) return null;
   const bot = mapBot(row, { token: true });
-  if (user.role === "admin") return { bot, canControl: true, canManage: true, canDelete: true };
-  if (!row.enabled) return null;
-  if (!canDeleteBot(user, bot)) return null;
-  return {
-    bot,
-    canControl: true,
-    canManage: bot.ownerUserId != null && bot.ownerUserId === user.id,
-    canDelete: true,
-  };
+  const grant = user.role === "admin" ? null : await getGrant(bot.instanceId, user.id);
+  const access = userBotAccess(user, bot, grant);
+  return access ? { bot, ...access } : null;
 }
 
 export async function getGrant(instanceId, userId) {
