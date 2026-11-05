@@ -981,68 +981,76 @@ function settled(result, t, read) {
   return { value: null, error: errorText(result.reason, t) };
 }
 
+// Every bot API read of the Connection page. All of them start at once. The whisper list and the server tree are
+// used only when the bot is on a server, but waiting for the bot list before asking for them made the page wait
+// for two bot API answers in a row.
+export async function readConnectionLive(bot, t) {
+  const template = bot.instanceMode === "template" ? bot.instanceRef : "";
+  const setting = (path) => (template
+    ? callBot(bot, ["settings", "bot", "get", template, path], { timeoutMs: 4000 })
+    : Promise.reject(new Error("no template")));
+  const whisperReads = startWhisperReads(bot);
+  const [listed, address, onConnect, commanderNow, sendModeStored, identity] = await Promise.allSettled([
+    callBot(bot, ["bot", "list"], { timeoutMs: 15000 }),
+    setting("connect.address"),
+    setting("events.onconnect"),
+    scopedCall(bot, ["bot", "commander"], 4000),
+    setting("audio.send_mode"),
+    readIdentity(bot, t),
+  ]);
+  const list = settled(listed, t, (data) => presentBotList(data, t).find((item) => item.name === template) || null);
+  const live = list.value;
+  const listError = list.error;
+  let storedAddress = bot.connectAddress || "";
+  if (template && !live?.server && address.status === "fulfilled") {
+    const fromBot = presentSetting(address.value);
+    if (fromBot) storedAddress = fromBot;
+  }
+  const status = live?.status || (listError ? "unknown" : "offline");
+  const connection = template
+    ? {
+        id: live?.id ?? null,
+        name: template,
+        server: live?.server || storedAddress,
+        status,
+        statusLabel: live?.statusLabel || (listError ? t("Unknown") : t("Offline")),
+        error: listError,
+      }
+    : null;
+  const saved = template ? settled(onConnect, t, (data) => commanderSaved(presentSetting(data))) : { value: null, error: null };
+  const commander = settled(commanderNow, t, presentCommander);
+  const sendMode = template ? settled(sendModeStored, t, (data) => presentSendMode(presentSetting(data))) : { value: null, error: null };
+  const onServer = status === "connected" || status === "connecting";
+  const who = identity.value;
+  return {
+    connection,
+    commander: commander.value,
+    commanderError: commander.error,
+    commanderSaved: saved.value,
+    commanderSavedError: saved.error,
+    sendMode: sendMode.value,
+    sendModeError: sendMode.error,
+    ...who.state,
+    ...(onServer ? whisperListsFrom(await whisperReads, t, who.ownClientId) : emptyWhisperLists()),
+  };
+}
+
 api.get(
   "/bots/:id/connection",
   wrap(async (req, res) => {
     const access = await openBot(req);
     const bot = access.bot;
-    const template = bot.instanceMode === "template" ? bot.instanceRef : "";
-    const setting = (path) => (template
-      ? callBot(bot, ["settings", "bot", "get", template, path], { timeoutMs: 4000 })
-      : Promise.reject(new Error("no template")));
-    const [listed, address, onConnect, commanderNow, sendModeStored, identity, streams] = await Promise.allSettled([
-      callBot(bot, ["bot", "list"], { timeoutMs: 15000 }),
-      setting("connect.address"),
-      setting("events.onconnect"),
-      callBot(bot, scope(bot, ["bot", "commander"]), { timeoutMs: 4000 }),
-      setting("audio.send_mode"),
-      readIdentity(bot, req.t),
-      listStreams(req.user),
-    ]);
-    if (streams.status === "rejected") throw streams.reason;
-    const list = settled(listed, req.t, (data) => presentBotList(data, req.t).find((item) => item.name === template) || null);
-    const live = list.value;
-    const listError = list.error;
-    let storedAddress = bot.connectAddress || "";
-    if (template && !live?.server && address.status === "fulfilled") {
-      const fromBot = presentSetting(address.value);
-      if (fromBot) storedAddress = fromBot;
-    }
-    const status = live?.status || (listError ? "unknown" : "offline");
-    const botConnection = template
-      ? {
-          id: live?.id ?? null,
-          name: template,
-          server: live?.server || storedAddress,
-          status,
-          statusLabel: live?.statusLabel || (listError ? req.t("Unknown") : req.t("Offline")),
-          error: listError,
-        }
-      : null;
-    const saved = template ? settled(onConnect, req.t, (data) => commanderSaved(presentSetting(data))) : { value: null, error: null };
-    const commander = settled(commanderNow, req.t, presentCommander);
-    const sendMode = template ? settled(sendModeStored, req.t, (data) => presentSendMode(presentSetting(data))) : { value: null, error: null };
-    const onServer = status === "connected" || status === "connecting";
-    const who = identity.value;
-    const whisperLive = { ...who.state, ...(onServer ? await readWhisperLists(bot, req.t, who.ownClientId) : emptyWhisperLists()) };
-    const stations = streams.value;
+    const [live, stations] = await Promise.all([readConnectionLive(bot, req.t), listStreams(req.user)]);
     const hosting = hostingFromBot(bot);
     const startupMatches = hosting.startup
       ? stations.filter((stream) => displayStreamUrl(stream.url) === displayStreamUrl(hosting.startup))
       : [];
     hosting.startupStreamId = startupMatches.length === 1 ? startupMatches[0].id : null;
     ok(res, {
-      connection: botConnection,
+      ...live,
       bot: botView(access, req.user.role === "admin"),
       hosting,
       stations: stations.map((stream) => ({ id: stream.id, name: stream.name, url: displayStreamUrl(stream.url) })),
-      commander: commander.value,
-      commanderError: commander.error,
-      commanderSaved: saved.value,
-      commanderSavedError: saved.error,
-      sendMode: sendMode.value,
-      sendModeError: sendMode.error,
-      ...whisperLive,
     });
   }),
 );
@@ -1052,6 +1060,7 @@ api.get(
   "/bots/:id/whisper",
   wrap(async (req, res) => {
     const access = await openBot(req);
+    const whisperReads = startWhisperReads(access.bot);
     const [listed, who] = await Promise.all([
       callBot(access.bot, ["bot", "list"], { timeoutMs: 8000 })
         .then((data) => presentBotList(data).find((item) => item.name === access.bot.instanceRef)?.status || "offline")
@@ -1059,7 +1068,7 @@ api.get(
       readIdentity(access.bot, req.t),
     ]);
     const onServer = listed === "connected" || listed === "connecting";
-    const lists = onServer ? await readWhisperLists(access.bot, req.t, who.ownClientId) : emptyWhisperLists();
+    const lists = onServer ? whisperListsFrom(await whisperReads, req.t, who.ownClientId) : emptyWhisperLists();
     ok(res, { status: listed, ...who.state, ...lists });
   }),
 );
@@ -1069,7 +1078,7 @@ async function readIdentity(bot, t) {
   const state = { teamspeakId: "", teamspeakError: null };
   let ownClientId = null;
   try {
-    const identity = presentTsIdentity(await callBot(bot, scope(bot, ["bot", "info", "client"]), { timeoutMs: 4000 }));
+    const identity = presentTsIdentity(await scopedCall(bot, ["bot", "info", "client"], 4000));
     state.teamspeakId = identity.uid || identity.clientId || "";
     ownClientId = numericId(identity.clientId);
     if (!state.teamspeakId) state.teamspeakError = t("Unknown");
@@ -1091,12 +1100,21 @@ function emptyWhisperLists() {
   };
 }
 
-async function readWhisperLists(bot, t, ownClientId) {
-  const state = emptyWhisperLists();
-  const [listed, tree] = await Promise.allSettled([
-    callBot(bot, scope(bot, ["whisper", "list"]), { timeoutMs: 4000 }),
-    callBot(bot, scope(bot, ["server", "tree"]), { timeoutMs: 8000 }),
+// A scoped call that rejects instead of throwing, so one bad read cannot fail a whole Promise.allSettled batch.
+function scopedCall(bot, parts, timeoutMs) {
+  return Promise.resolve().then(() => callBot(bot, scope(bot, parts), { timeoutMs }));
+}
+
+// Starts the whisper list and the server tree together. Never rejects. whisperListsFrom reads the result.
+export function startWhisperReads(bot) {
+  return Promise.allSettled([
+    scopedCall(bot, ["whisper", "list"], 4000),
+    scopedCall(bot, ["server", "tree"], 8000),
   ]);
+}
+
+export function whisperListsFrom([listed, tree], t, ownClientId) {
+  const state = emptyWhisperLists();
   if (listed.status === "fulfilled") {
     state.whisper = presentWhisper(listed.value);
     const targets = presentWhisperTargets(listed.value);

@@ -196,7 +196,7 @@ p { margin: 0; }
   font-size: 0.85rem;
   overflow: hidden;
   text-overflow: ellipsis;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .github-mark { width: 1rem; height: 1rem; fill: currentColor; flex: none; margin-right: 0.5rem; }
 
@@ -210,7 +210,7 @@ p { margin: 0; }
   gap: 0.8rem;
   padding: 0 1.5rem;
 }
-.crumb { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; var(--on-dark)-space: nowrap; }
+.crumb { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crumb strong { color: var(--text); font-weight: 650; }
 .crumb a { color: var(--muted); font-weight: 600; text-decoration: none; }
 .crumb a:hover { color: var(--text); }
@@ -336,7 +336,7 @@ th {
   text-transform: uppercase;
   color: var(--muted);
   background: var(--subtle);
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: var(--row-hover); }
@@ -391,7 +391,7 @@ select[multiple] option { padding: 0.3rem 0.45rem; border-radius: 4px; }
 .field { display: grid; gap: 0.3rem; }
 .bot-limit { width: 7rem; }
 .owner-select { width: 11rem; max-width: 100%; }
-td.owner { var(--on-dark)-space: nowrap; }
+td.owner { white-space: nowrap; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -408,7 +408,7 @@ td.owner { var(--on-dark)-space: nowrap; }
   line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 .btn:hover { background: var(--subtle); border-color: var(--line-hover); text-decoration: none; }
@@ -448,7 +448,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   line-height: 1.5;
   background: var(--pill);
   color: var(--pill-text);
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .pill-ok, .pill-warn, .pill-bad { padding-left: 0.5rem; }
 .pill-ok::before, .pill-warn::before, .pill-bad::before {
@@ -557,7 +557,7 @@ tr.user-edit-row > td { background: var(--subtle); }
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .check-group { border: 0; margin: 0; padding: 0; display: grid; gap: 0.4rem; min-width: 0; }
 .check-group legend { padding: 0; margin-bottom: 0.3rem; font-size: 0.9rem; font-weight: 550; color: var(--text); }
@@ -578,6 +578,33 @@ tr.user-edit-row > td { background: var(--subtle); }
 }
 input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; border: 0; padding: 0; box-shadow: none; }
 
+/* Placeholder cards while a page loads. */
+.skeleton {
+  display: block;
+  height: 0.85rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--meter) 25%, var(--subtle) 50%, var(--meter) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shine 1.4s ease-in-out infinite;
+}
+.skeleton-title { width: 38%; height: 1.1rem; margin-bottom: 0.2rem; }
+.skeleton-line { width: 88%; }
+.skeleton-line:nth-child(odd) { width: 64%; }
+@keyframes skeleton-shine {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* Shown until the session is known. It fades in late, so a fast answer never shows it. */
+.boot { min-height: 100%; display: grid; place-items: center; background: var(--page); }
+.boot img { width: 56px; height: 56px; opacity: 0; animation: boot-in 0.3s ease 0.35s forwards; }
+@keyframes boot-in { to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .boot img { animation: none; opacity: 1; }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -586,7 +613,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
   border: 0;
 }
 .skip {
@@ -623,7 +650,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   font-weight: 550;
   text-decoration: none;
   border-bottom: 2px solid transparent;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .tab-link:hover { color: var(--text); text-decoration: none; }
 .tab-link.active { color: var(--accent-dark); border-bottom-color: var(--accent); font-weight: 650; }
@@ -647,7 +674,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
 .bot-switch-toggle:hover { border-color: var(--accent); }
 .bot-switch-text { display: grid; min-width: 0; flex: 1; line-height: 1.25; }
 .bot-switch-text strong,
-.bot-switch-text span { overflow: hidden; text-overflow: ellipsis; var(--on-dark)-space: nowrap; }
+.bot-switch-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bot-switch-text strong { font-weight: 600; }
 .bot-switch-text span { color: var(--muted); font-size: 0.8rem; }
 .bot-switch-caret { color: var(--muted); font-size: 0.8rem; }
@@ -694,13 +721,13 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
 /* ---------- Bot table ---------- */
 .bot-table { width: 100%; }
 .bot-table th,
-.bot-table td { var(--on-dark)-space: nowrap; }
+.bot-table td { white-space: nowrap; }
 .bot-table .bot-playing {
   width: 13rem;
   max-width: 13rem;
   overflow: hidden;
 }
-.bot-table .bot-volume { var(--on-dark)-space: nowrap; }
+.bot-table .bot-volume { white-space: nowrap; }
 .bot-table .bot-name a { font-weight: 600; }
 .bot-server { margin-left: 0.5rem; font-size: 0.85rem; }
 .bot-clip {
@@ -709,13 +736,13 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: bottom;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .bot-table .bot-playing .bot-clip { display: block; max-width: 13rem; }
 .bot-table td.bot-actions .inline { flex-wrap: nowrap; }
 .bot-table .owner-select { width: 9rem; min-height: 34px; padding-block: 0.3rem; }
 /* The cell carries the .inline class. A flex cell would wrap its buttons and stretch the row. */
-.bot-table td.bot-actions { display: table-cell; var(--on-dark)-space: nowrap; }
+.bot-table td.bot-actions { display: table-cell; white-space: nowrap; }
 .bot-table td.bot-actions > * + * { margin-left: 0.4rem; }
 .bot-table td.bot-actions form { display: inline-flex; }
 /* The row actions stay in view while the table scrolls sideways. */
@@ -731,20 +758,20 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
 .fit-table td.clip-cell {
   overflow: hidden;
   text-overflow: ellipsis;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .fit-table .btn { min-height: 32px; padding: 0.25rem 0.7rem; }
 .clip-line {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
 }
 .song-title,
 .search-title,
 .audit-detail { overflow-wrap: anywhere; }
 .search-title { min-width: 0; }
-.nowrap { var(--on-dark)-space: nowrap; }
+.nowrap { white-space: nowrap; }
 .nowrap .pill { margin-left: 0.5rem; }
 
 /* ---------- Playback ---------- */
@@ -753,7 +780,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
 .now-head > div { display: grid; gap: 0.25rem; min-width: 0; }
 .now-label { color: var(--muted); font-size: 0.74rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
 .now-title { font-size: 1.3rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.now-source { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; var(--on-dark)-space: nowrap; }
+.now-source { font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now-progress { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.7rem; align-items: center; font-variant-numeric: tabular-nums; }
 .now-progress .meter { height: 8px; }
 .now-tools { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
@@ -799,7 +826,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
 .whisper-row:hover { background: var(--subtle); }
 .whisper-row:has(input:checked) { background: var(--accent-soft); }
 .whisper-row input { flex: none; }
-.whisper-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; var(--on-dark)-space: nowrap; }
+.whisper-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .whisper-row .muted { flex: none; font-size: 0.82rem; }
 .whisper-row .pill { flex: none; }
 .whisper-empty {
@@ -835,7 +862,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   color: var(--text);
   font-weight: 650;
   text-decoration: none;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -844,7 +871,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   margin: 0.1rem 0 0;
   color: var(--muted);
   font-size: 0.84rem;
-  var(--on-dark)-space: nowrap;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -922,10 +949,10 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   }
   .bot-table td.bot-actions,
   .bot-table th:last-child { position: static; box-shadow: none; background: transparent; }
-  .bot-table td.bot-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; var(--on-dark)-space: normal; padding-top: 0.2rem; }
+  .bot-table td.bot-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; white-space: normal; padding-top: 0.2rem; }
   .bot-table td.bot-actions > * + * { margin-left: 0; }
   .bot-table td.bot-actions > *, .bot-table td.bot-actions .btn { flex: 1 1 0; width: auto; }
   .table-wrap table:not(.fit-table) td > .user-instances { flex: 1 1 0; min-width: 0; }
-  .bot-table td { var(--on-dark)-space: normal; }
+  .bot-table td { white-space: normal; }
   .bot-clip, .bot-table .bot-playing .bot-clip { max-width: 100%; }
 }

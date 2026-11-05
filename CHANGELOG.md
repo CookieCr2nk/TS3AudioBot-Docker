@@ -18,6 +18,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Breaking:** the panel no longer converts a database with the migration history from before `001_schema` (release 1.0 and the images right after it, with rows such as `001_baseline`). Startup now stops with a message. Run an older panel image once to convert such a database, or back it up and start with an empty one. Databases that already show `001_schema` are not affected
 
 ### Changed
+- Connection loads faster: the whisper list and the server tree are read together with the other bot reads instead of after them. While a page loads it shows placeholder cards instead of an empty white area
+- The panel has a new logo: a bot with headphones
 - On phones, tables show each row as a card with the column names, so nothing hides behind the row buttons
 - Playback and the player bar disable seek, stop, clear, jump, and the player buttons while the bot cannot be reached or is not on a server, and say why. The search field says what to type, and the sources are named YouTube, SoundCloud, Twitch, and Media file
 - Connection names an unreachable bot API once in the server card instead of on every row
@@ -29,6 +31,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Radio lists stations next to the form for a new one. Instance, Account, Audit, and the sign-in page use the same layout
 
 ### Fixed
+- Text that should stay on one line (status pills, buttons, table cells, the breadcrumb, the bot switcher) no longer wraps. A colour token rename had broken every `white-space` rule
+- On Connection, turning channel commander off no longer reloads the page of a bot opened in the meantime, and a slow action no longer shows its note or error on the next bot
 - The seek and volume sliders follow the bot again after you drag them. Page Up and Page Down on a slider are sent too
 - Status and whisper polling wait for the previous answer and pause while the tab is hidden, so a slow bot no longer piles up requests or shows an older state
 - Connection loads its bot settings in parallel and shows that it is loading. While a save or another action runs, its controls are disabled

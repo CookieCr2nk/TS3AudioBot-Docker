@@ -3,7 +3,8 @@ import { after, describe, it } from "node:test";
 
 process.env.TOKEN_KEY = "test-token-key-value";
 
-const { LOGIN_PER_IP, auditFailedLogin, searchStillOwn } = await import("../src/api.js");
+const { createServer } = await import("node:http");
+const { LOGIN_PER_IP, auditFailedLogin, readConnectionLive, searchStillOwn, startWhisperReads, whisperListsFrom } = await import("../src/api.js");
 const { untrustedProxyHeader } = await import("../src/app.js");
 const { cookieSecureSetting, weakTokenKey } = await import("../src/config.js");
 const { SESSION_MAX_MS, pool, sessionDeadline, sessionIdleMs, userBotAccess } = await import("../src/db.js");
@@ -140,5 +141,53 @@ describe("sign-in limits", () => {
     assert.equal(searchStillOwn(searches, 7, 3), true);
     assert.equal(searchStillOwn(searches, 7, 4), false);
     assert.equal(searchStillOwn(searches, 8, 3), false);
+  });
+});
+
+describe("connection reads", () => {
+  it("asks for the server tree before the bot list has answered", { timeout: 5000 }, async () => {
+    let treeAsked;
+    const treeSeen = new Promise((resolve) => { treeAsked = resolve; });
+    const server = createServer(async (req, res) => {
+      const path = decodeURIComponent(req.url);
+      res.setHeader("content-type", "application/json");
+      // The bot list answers only after the server tree was requested. Reading them one after the other would hang.
+      if (path === "/api/bot/list") {
+        await treeSeen;
+        return res.end(JSON.stringify([{ Id: 4, Name: "default", Server: "ts.example.com", Status: "Connected" }]));
+      }
+      if (path.includes("server/tree")) {
+        treeAsked();
+        return res.end(JSON.stringify({
+          Channels: { 1: { Id: 1, Name: "Home", Parent: 0 } },
+          Clients: [{ Id: 3, Name: "Ann", Channel: 1, ClientType: 0 }, { Id: 9, Name: "bot", Channel: 1, ClientType: 0 }],
+        }));
+      }
+      if (path.includes("whisper/list")) return res.end(JSON.stringify({ SendMode: "Whisper", WhisperClients: [3] }));
+      if (path.includes("bot/info/client")) return res.end(JSON.stringify({ Uid: "abc=", ClientId: 9 }));
+      return res.end(JSON.stringify({ Value: "" }));
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const bot = { baseUrl: `http://127.0.0.1:${server.address().port}`, useInstance: true, instanceMode: "template", instanceRef: "default" };
+      const live = await readConnectionLive(bot, (key) => key);
+      assert.equal(live.connection.status, "connected");
+      assert.equal(live.whisper, "whisper");
+      assert.deepEqual(live.whisperClients, [3]);
+      assert.deepEqual(live.channels.map((item) => item.id), [1]);
+      assert.deepEqual(live.clients.map((item) => item.id), [3]);
+    } finally {
+      server.closeAllConnections();
+      server.close();
+    }
+  });
+
+  it("turns a bot without an instance name into two errors instead of a thrown request", async () => {
+    const results = await startWhisperReads({ baseUrl: "http://127.0.0.1:1", useInstance: true, instanceMode: "template", instanceRef: "" });
+    assert.deepEqual(results.map((item) => item.status), ["rejected", "rejected"]);
+    const lists = whisperListsFrom(results, (key) => key, null);
+    assert.ok(lists.whisperError);
+    assert.ok(lists.treeError);
+    assert.deepEqual(lists.clients, []);
   });
 });
