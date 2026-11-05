@@ -17,6 +17,13 @@ export function panelRoot(moduleFile, pathApi = path) {
 }
 
 const root = panelRoot(fileURLToPath(import.meta.url));
+
+// Behind a proxy without TRUST_PROXY, every client has the proxy address. Sign-in limits then hit everyone at once.
+export function untrustedProxyHeader(req, trustProxy) {
+  return !trustProxy && Boolean(req.get("x-forwarded-for"));
+}
+
+let proxyWarned = false;
 const dist = join(root, "dist");
 
 export function createApp({ startupError = null } = {}) {
@@ -46,6 +53,13 @@ export function createApp({ startupError = null } = {}) {
   );
   app.use(express.json({ limit: "32kb" }));
   app.use(cookieParser());
+  app.use((req, res, next) => {
+    if (!proxyWarned && untrustedProxyHeader(req, config.trustProxy)) {
+      proxyWarned = true;
+      console.warn("[panel] A request came through a proxy, but TRUST_PROXY is not 1. Sign-in limits then count every client as the proxy. Set TRUST_PROXY=1 behind a reverse proxy.");
+    }
+    next();
+  });
   app.use((req, res, next) => {
     res.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     next();

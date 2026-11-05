@@ -4,6 +4,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Security
+- Stream, radio, and startup addresses can no longer point at the bot API. `localhost`, `127.x`, `::1`, port 58913, and the host of every registered instance are refused, because the bot would fetch them with full API rights
+- The song source, title, and queue on Playback and in the player bar no longer show the user name and password of a saved station. Every shown address also hides the values of query parameters such as `token`, `key`, or `password`
+- Sign-in allows at most 30 attempts per 15 minutes from one address across all user names, on top of the 8 per name. Failed sign-ins with unknown names no longer fill the audit log. Behind a proxy without `PANEL_TRUST_PROXY=1` the panel logs a warning
+- **Breaking:** an assigned bot is hidden again once the account loses its grant on that instance, and a grant without control makes the bot read only. Before, assignment alone gave full control
+- A sign-in ends after 24 hours without a request (`PANEL_SESSION_IDLE_HOURS`) and always after 7 days
+- The sign-in cookie is marked secure on HTTPS by itself. `PANEL_COOKIE_SECURE` defaults to `auto`
+- The panel refuses to store a new API token while `PANEL_TOKEN_KEY` is the default or shorter than 16 characters
+- `PANEL_BIND` sets the host address of the panel port, for example `127.0.0.1`
+
 ### Removed
 - **Breaking:** the panel no longer converts a database with the migration history from before `001_schema` (release 1.0 and the images right after it, with rows such as `001_baseline`). Startup now stops with a message. Run an older panel image once to convert such a database, or back it up and start with an empty one. Databases that already show `001_schema` are not affected
 
@@ -19,6 +29,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Radio lists stations next to the form for a new one. Instance, Account, Audit, and the sign-in page use the same layout
 
 ### Fixed
+- The seek and volume sliders follow the bot again after you drag them. Page Up and Page Down on a slider are sent too
+- Status and whisper polling wait for the previous answer and pause while the tab is hidden, so a slow bot no longer piles up requests or shows an older state
+- Connection loads its bot settings in parallel and shows that it is loading. While a save or another action runs, its controls are disabled
+- Sign in, search, Create a bot, and Change password show that they are working and cannot be sent twice
+- Notices have a close button. Success notes close after a few seconds
+- Bulk start and stop on Bots act only on bots the filter shows. The filter also matches address, server, instance, and owner
+- Playing a search result is refused when another account searched on the same bot in the meantime, instead of playing that account's result
+- An administrator without an instance can no longer be demoted to a user account without an instance
+- Two parallel requests can no longer pass a bot limit. A bot whose creation failed on the bot API no longer stays in the panel
+- Copy on Connection confirms that the TeamSpeak ID was copied
+- The phone menu moves the focus into the menu, keeps Tab inside it, and returns the focus to Menu when it closes. The bot switcher tells screen readers which bot is highlighted
+- The bot roster is loaded only on bot pages
+- The panel image uses Node 26 instead of the moving LTS tag. All colours in the stylesheet are tokens
 - Default channel and Move now offer the channel list again. They used only the list from the first page load, so a server tree that was not ready then left a plain text field. They now use the list that Connection reads every 10 seconds, and a saved or picked channel stays selected when that list refreshes
 - Whisper: clients and channels are a list of checkboxes instead of a multi-select that needed Ctrl or Shift. Each row shows its id, long names are cut with the full name on hover, and subscribed targets are marked. After Subscribe or Remove, Next song shows the saved send mode
 - The bot switcher at the top right is a structured menu: bots are grouped by instance, each shows its name and saved server, the open bot is marked, and a search appears when there are more than six bots

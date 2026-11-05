@@ -143,7 +143,10 @@ docker compose -f docker-compose.panel.yml logs -f
 
 - The bot's control port (58913) is never published to your network. Only the panel can reach it, over an internal Docker network. Because of that the bot accepts every command from the panel without a token.
 - **Do not map port 58913 to the host.** Anyone who can reach it could control the bot. If you need that, first remove `isapi = true` from `rights.toml` on the bot volume and use an API token.
-- Put the panel behind HTTPS (for example a reverse proxy) if it is reachable from the internet. Then set `PANEL_COOKIE_SECURE=true` and, behind a proxy, `PANEL_TRUST_PROXY=1` in `.env`.
+- Put the panel behind HTTPS (for example a reverse proxy) if it is reachable from the internet. Behind a proxy, set `PANEL_TRUST_PROXY=1` in `.env`. Without it every visitor has the proxy's address, so a few wrong passwords lock everyone out of that account for 15 minutes, and the panel logs a warning. The sign-in cookie is marked secure on HTTPS by itself. `PANEL_COOKIE_SECURE=true` forces that.
+- To reach the panel only from the Docker host itself (for example behind a reverse proxy on the same machine), set `PANEL_BIND=127.0.0.1`.
+- Stream and radio addresses may not point at the bot API: `localhost`, `127.x`, `::1`, port 58913, and the host of any registered instance are refused.
+- Set `PANEL_TOKEN_KEY` before you store an API token. With the default key the panel refuses to save one.
 - The bot runs as an unprivileged user with a read-only file system. Details and how to report a problem: [SECURITY.md](SECURITY.md).
 
 ## Advanced
@@ -179,10 +182,12 @@ When MariaDB runs on the same machine as Docker, use `PANEL_DB_HOST=host.docker.
 | Setting | Default | Meaning |
 |---|---|---|
 | `PANEL_PORT` | `8080` | Port of the web panel on the host. |
+| `PANEL_BIND` | `0.0.0.0` | Host address the panel port listens on. `127.0.0.1` keeps it on the Docker host. |
 | `PANEL_ADMIN_USER` | `admin` | Name of the first account. |
 | `IMAGE_TAG` | `main` | `main` is the stable line. `develop` gets new features first. |
-| `PANEL_COOKIE_SECURE` | `false` | `true` when the panel is served over HTTPS. |
+| `PANEL_COOKIE_SECURE` | `auto` | `auto` marks the sign-in cookie secure when the request came over HTTPS. `true` or `false` forces it. |
 | `PANEL_TRUST_PROXY` | `0` | `1` when the panel runs behind a reverse proxy. |
+| `PANEL_SESSION_IDLE_HOURS` | `24` | A sign-in ends after this many hours without a request (1 to 168), and always after 7 days. |
 
 ### Where the data lives
 

@@ -15,12 +15,24 @@ export function databaseConfig() {
   };
 }
 
+// "true" and "false" force the flag. Anything else follows the request: HTTPS, or HTTPS at a trusted proxy.
+export function cookieSecureSetting(value) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return "auto";
+}
+
+export function weakTokenKey(key = tokenKey()) {
+  return key.startsWith("dev-only") || key.length < 16;
+}
+
 export const config = {
   port: integer(process.env.PORT, 8080, 1, 65535),
   trustProxy: process.env.TRUST_PROXY === "1" ? 1 : false,
-  cookieSecure: process.env.COOKIE_SECURE === "true",
+  cookieSecure: cookieSecureSetting(process.env.COOKIE_SECURE),
   adminUser: process.env.ADMIN_USER || "admin",
   adminPassword: process.env.ADMIN_PASSWORD || "",
+  sessionIdleHours: integer(process.env.SESSION_IDLE_HOURS, 24, 1, 168),
 };
 
 export function tokenKey() {
@@ -29,10 +41,9 @@ export function tokenKey() {
 
 export function runtimeWarnings() {
   const warnings = [];
-  const key = tokenKey();
-  if (key.startsWith("dev-only") || key.length < 16) {
+  if (weakTokenKey()) {
     warnings.push(
-      "TOKEN_KEY is weak. It is only needed when an optional API token is stored. Changing it later makes stored tokens unreadable.",
+      "TOKEN_KEY is weak. The panel refuses to store a new API token until it is set. Changing it later makes stored tokens unreadable.",
     );
   }
   return warnings;

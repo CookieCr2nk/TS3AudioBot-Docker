@@ -528,6 +528,11 @@ const de = {
   "Create a bot on this server, or open your bots.": "Auf diesem Server einen Bot anlegen oder die eigenen Bots öffnen.",
   "You have reached your bot limit ({count} of {limit}). Delete a bot or ask an administrator for a higher limit.": "Das Bot-Limit ist erreicht ({count} von {limit}). Einen Bot löschen oder einen Administrator um ein höheres Limit bitten.",
   "The servers your bots run on. Go to Bots to play music.": "Die Server, auf denen deine Bots laufen. Musik spielst du unter Bots ab.",
+  "The search results changed. Search again.": "Die Suchergebnisse haben sich geändert. Bitte erneut suchen.",
+  "Set TOKEN_KEY to a long random value before you store an API token.": "Setze TOKEN_KEY auf einen langen Zufallswert, bevor du ein API-Token speicherst.",
+  "Dismiss": "Schließen",
+  "Loading…": "Wird geladen…",
+  "Copied.": "Kopiert.",
 };
 
 export default de;
