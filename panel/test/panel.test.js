@@ -15,7 +15,7 @@ import { hashPassword, verifyPassword } from "../src/passwords.js";
 import { hashInviteToken, inviteAuditLabel, inviteState, newInviteToken, parseInviteForm, parseInviteToken, parseRegistration, presentInvite } from "../src/invites.js";
 import { catalogs, languageChoice, languageFromHeader, languages, resolveLanguage, translate, translator } from "../src/i18n.js";
 import { countRunningBots, displayStreamUrl, presentBotList, presentClientChannel, presentCommander, presentSearch, presentSendMode, presentServerTree, presentSetting, presentStatus, presentTsIdentity, presentVersion, presentWhisper, presentWhisperTargets } from "../src/present.js";
-import { applyMigrations, legacyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
+import { applyMigrations, loadMigrations, migrationFromSource } from "../src/schema.js";
 import { apiHeaders, buildApiPath, callBot, scope, statusParts } from "../src/ts3ab.js";
 import {
   assertBaseUrl,
@@ -459,23 +459,6 @@ describe("secrets and schema", () => {
     assert.match(schema, /fk_audit_ts_bot/);
     assert.equal(/CREATE TABLE IF NOT EXISTS bots\b/i.test(schema), false);
     assert.equal(/bot_admins/i.test(schema), false);
-    assert.deepEqual(
-      legacyMigrations().map((migration) => [migration.version, migration.checksum]),
-      [
-        ["001_baseline", "5f20be8d7a40ffbbb0da753cc316b6835fe74f3f31680438fa3f57b584001cdf"],
-        ["002_radio_streams", "2bcf7698fe793d3712063595415ff907d7570b8521a0c5a9dc21f9df66eaba32"],
-        ["003_hosting", "43812584c1a32fc2452fa692b0dc2270040c1b6ee7e740b1abf35055a3ad3e24"],
-        ["004_drop_legacy_bots", "0bfb87741a93580131781db6ef74602f65777ac2f268d85c78658542955b1b50"],
-        ["005_bot_limit", "5cb04c3a1cedaa1e88c8f6c15033f98050d9f4046f9c61dd14003df4defc5696"],
-        ["006_bot_access", "53411ea16d90980f6f17876de5303e92803d308a99b04b120781b60f3877a72a"],
-        ["007_bot_label", "28291370ba2c4f2daf8b1262bdc429a150bf88ff825793d47a098cda1f949216"],
-        ["008_bot_template", "4b8e55f16789cfb9860ca402bbaa1989c8363700c41b92dc14eddbbae104916e"],
-        ["009_bot_admins", "702e14886530ddedaaf4561cbb46a15bf4d3c6acf93d908bfb9f9856b3b690db"],
-        ["010_drop_bot_admins", "5d334e0a7ac000fc08d1c3390a4ad93945bb070107459002badce5e2dcfa14d2"],
-        ["011_bot_settings", "f205d3e0ef8d6765506cd310b816c99a7a2d29ca95eb6cadbba0dfa05b2610d0"],
-        ["012_bot_address", "b9f0c2adf881566b906efc68c2cf8ce1c6f73722eb9b09135ac84b75c2b1c470"],
-      ],
-    );
     const crlf = migrationFromSource("009_sample", "SELECT 1;\r\n");
     const lf = migrationFromSource("009_sample", "SELECT 1;\n");
     assert.equal(crlf.checksum, lf.checksum);
@@ -508,70 +491,21 @@ describe("secrets and schema", () => {
     );
   });
 
-  it("replaces a finished migration history without running the schema again", async () => {
+  it("refuses the migration history of an older panel without touching the database", async () => {
     const migrations = loadMigrations();
-    const { pool, applied, calls } = memoryPool(legacyRows(12), { transactional: true });
-    const lines = await captureLogs(() => applyMigrations(pool, migrations));
-    assert.equal(lines.includes("[panel] Replaced applied migration history with 001_schema"), true);
-    assert.equal(lines.some((line) => line.startsWith("[panel] Applying database migration 011_")), false);
-    assert.equal(calls.some((sql) => /CREATE TABLE IF NOT EXISTS ts_bots/i.test(sql)), false);
-    assert.equal(calls.includes("BEGIN"), true);
-    assert.equal(calls.includes("COMMIT"), true);
-    assert.deepEqual(applied.map((row) => row.version), ["001_schema", "002_invite_tokens"]);
-    assert.equal(applied[0].checksum, migrations[0].checksum);
-  });
-
-  it("adds the connection columns for a release 1.0 database and then replaces that history", async () => {
-    const migrations = loadMigrations();
-    const through010 = memoryPool(legacyRows(10), { transactional: true });
-    const lines010 = await captureLogs(() => applyMigrations(through010.pool, migrations));
-    assert.equal(lines010.includes("[panel] Applied database migration 011_bot_settings"), true);
-    assert.equal(lines010.includes("[panel] Applied database migration 012_bot_address"), true);
-    assert.equal(through010.calls.filter((sql) => /ADD COLUMN IF NOT EXISTS connect_/i.test(sql)).length, 9);
-    assert.deepEqual(through010.applied.map((row) => row.version), ["001_schema", "002_invite_tokens"]);
-
-    const through011 = memoryPool(legacyRows(11), { transactional: true });
-    const lines011 = await captureLogs(() => applyMigrations(through011.pool, migrations));
-    assert.equal(lines011.some((line) => line.startsWith("[panel] Applying database migration 011_")), false);
-    assert.equal(lines011.includes("[panel] Applied database migration 012_bot_address"), true);
-    assert.deepEqual(
-      through011.calls.filter((sql) => /ALTER TABLE/i.test(sql)),
-      ["ALTER TABLE ts_bots ADD COLUMN IF NOT EXISTS connect_address VARCHAR(200) NULL"],
-    );
-    assert.deepEqual(through011.applied.map((row) => row.version), ["001_schema", "002_invite_tokens"]);
-  });
-
-  it("refuses a migration history this panel cannot finish", async () => {
-    const migrations = loadMigrations();
-    const stopped = memoryPool(legacyRows(8));
+    const old = memoryPool([
+      { version: "001_baseline", checksum: "5f20be8d7a40ffbbb0da753cc316b6835fe74f3f31680438fa3f57b584001cdf" },
+      { version: "010_drop_bot_admins", checksum: "5d334e0a7ac000fc08d1c3390a4ad93945bb070107459002badce5e2dcfa14d2" },
+    ]);
     await assert.rejects(
-      () => applyMigrations(stopped.pool, migrations),
-      /history through 008_bot_template and this panel cannot finish it/,
+      () => applyMigrations(old.pool, migrations),
+      /migration history of an older panel \(001_baseline\)\. This panel no longer converts it/,
     );
-    assert.equal(stopped.calls.some((sql) => /ALTER TABLE|DELETE FROM schema_migrations/i.test(sql)), false);
-
-    const gap = legacyRows(10).concat(legacyRows(12).slice(11));
-    await assert.rejects(
-      () => applyMigrations(memoryPool(gap).pool, migrations),
-      /012_bot_address without the earlier panel migrations/,
-    );
-
-    const changed = legacyRows(12);
-    changed[0] = { ...changed[0], checksum: "0".repeat(64) };
-    await assert.rejects(
-      () => applyMigrations(memoryPool(changed).pool, migrations),
-      /001_baseline changed after it was applied/,
-    );
+    assert.equal(old.calls.some((sql) => /ALTER TABLE|CREATE TABLE IF NOT EXISTS users|INSERT INTO schema_migrations|DELETE FROM/i.test(sql)), false);
   });
 });
 
-function legacyRows(count) {
-  return legacyMigrations()
-    .slice(0, count)
-    .map((migration) => ({ version: migration.version, checksum: migration.checksum }));
-}
-
-function memoryPool(applied = [], { transactional = false } = {}) {
+function memoryPool(applied = []) {
   const calls = [];
   const pool = {
     async query(sql, params) {
@@ -579,35 +513,14 @@ function memoryPool(applied = [], { transactional = false } = {}) {
       if (/^SELECT version, checksum FROM schema_migrations/i.test(sql)) {
         return [applied.map((row) => ({ ...row }))];
       }
-      if (/INSERT( IGNORE)? INTO schema_migrations/i.test(sql)) {
+      if (/INSERT INTO schema_migrations/i.test(sql)) {
         if (!applied.some((row) => row.version === params[0])) {
           applied.push({ version: params[0], checksum: params[1] });
-        }
-      }
-      if (/DELETE FROM schema_migrations/i.test(sql)) {
-        const drop = new Set(params);
-        for (let index = applied.length - 1; index >= 0; index -= 1) {
-          if (drop.has(applied[index].version)) applied.splice(index, 1);
         }
       }
       return [{ affectedRows: 1 }];
     },
   };
-  if (transactional) {
-    pool.getConnection = async () => ({
-      async beginTransaction() {
-        calls.push("BEGIN");
-      },
-      async commit() {
-        calls.push("COMMIT");
-      },
-      async rollback() {
-        calls.push("ROLLBACK");
-      },
-      release() {},
-      query: (sql, params) => pool.query(sql, params),
-    });
-  }
   return { pool, applied, calls };
 }
 
