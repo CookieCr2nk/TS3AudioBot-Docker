@@ -851,3 +851,39 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-height: 0; b
   .facts > div { grid-template-columns: 1fr; gap: 0.1rem; }
   h1 { font-size: 1.4rem; }
 }
+
+/* ---------- Phones: table rows become cards ---------- */
+/* Each cell shows its column name from data-label. The queue keeps its fixed table. */
+@media (max-width: 640px) {
+  .table-wrap table:not(.fit-table),
+  .table-wrap table:not(.fit-table) tbody { display: block; width: 100%; }
+  .table-wrap table:not(.fit-table) thead { display: none; }
+  .table-wrap table:not(.fit-table) tr { display: grid; gap: 0.4rem; padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--line); }
+  .table-wrap table:not(.fit-table) tr:last-child { border-bottom: 0; }
+  .table-wrap table:not(.fit-table) td {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.6rem;
+    align-items: baseline;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .table-wrap table:not(.fit-table) td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    flex: 0 0 6.5rem;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 650;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .bot-table td.bot-actions,
+  .bot-table th:last-child { position: static; box-shadow: none; background: transparent; }
+  .bot-table td.bot-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; white-space: normal; padding-top: 0.2rem; }
+  .bot-table td.bot-actions > * + * { margin-left: 0; }
+  .bot-table td.bot-actions > *, .bot-table td.bot-actions .btn { flex: 1 1 0; width: auto; }
+  .table-wrap table:not(.fit-table) td > .user-instances { flex: 1 1 0; min-width: 0; }
+  .bot-table td { white-space: normal; }
+  .bot-clip, .bot-table .bot-playing .bot-clip { max-width: 100%; }
+}

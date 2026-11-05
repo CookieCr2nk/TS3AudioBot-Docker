@@ -55,7 +55,9 @@ export function PlayerBar() {
 
   if (!bot || !player) return null;
 
-  const canSeek = Boolean(player.canControl && song?.length);
+  // Controls do nothing while the bot API cannot be reached or the bot is not on a server.
+  const live = Boolean(player.canControl && !player.status?.unreachable && player.status?.online !== false);
+  const canSeek = Boolean(live && song?.length);
 
   return (
     <section className="player" aria-label={t("Playback")}>
@@ -70,17 +72,17 @@ export function PlayerBar() {
       </div>
       <div className="player-center">
         <div className="player-buttons">
-          <button className="btn player-icon" type="button" aria-label={t("Previous")} disabled={!player.canControl} onClick={() => player.act({ op: "previous" })}>⏮</button>
+          <button className="btn player-icon" type="button" aria-label={t("Previous")} disabled={!live} onClick={() => player.act({ op: "previous" })}>⏮</button>
           <button
             className="btn btn-primary player-play"
             type="button"
             aria-label={playing ? t("Pause") : t("Resume")}
-            disabled={!player.canControl}
+            disabled={!live}
             onClick={() => player.act({ op: playing ? "pause" : "resume" })}
           >
             {playing ? "❚❚" : "▶"}
           </button>
-          <button className="btn player-icon" type="button" aria-label={t("Skip")} disabled={!player.canControl} onClick={() => player.act({ op: "next" })}>⏭</button>
+          <button className="btn player-icon" type="button" aria-label={t("Skip")} disabled={!live} onClick={() => player.act({ op: "next" })}>⏭</button>
         </div>
         <div className="player-seek">
           <span className="mono">{song ? clock(position) : "0:00"}</span>
@@ -115,7 +117,7 @@ export function PlayerBar() {
           min="0"
           max="100"
           value={volume}
-          disabled={!player.canControl}
+          disabled={!live}
           aria-label={t("Volume")}
           onChange={(event) => setVolume(Number(event.target.value))}
           onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
