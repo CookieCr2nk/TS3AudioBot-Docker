@@ -37,6 +37,21 @@ function useLoad(path) {
 
 const PAGE_SIZES = [10, 25, 50, 100];
 
+// A grey card in the shape of the one that is still loading, so a slow bot API does not leave the page empty.
+function SkeletonCard({ rows = 3 }) {
+  return (
+    <div className="card skeleton-card" aria-hidden="true">
+      <span className="skeleton skeleton-title" />
+      {Array.from({ length: rows }, (_, index) => <span key={index} className="skeleton skeleton-line" />)}
+    </div>
+  );
+}
+
+function LoadingStatus() {
+  const { t } = useAuth();
+  return <p className="visually-hidden" role="status">{t("Loading…")}</p>;
+}
+
 // Page buttons under a table. The page size select sits in the toolbar above it.
 function Pager({ page, pages, onPage, total }) {
   const { t } = useAuth();
@@ -807,7 +822,15 @@ export function InstancePage() {
   }
 
   if (!instance && error) return <div className="page"><Notice error={error} /></div>;
-  if (!instance) return null;
+  if (!instance) {
+    return (
+      <div className="page" aria-busy="true">
+        <LoadingStatus />
+        <SkeletonCard rows={2} />
+        <SkeletonCard rows={5} />
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -954,28 +977,33 @@ function useBotAction(botId, onDone) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [boundId, setBoundId] = useState(botId);
+  const openId = useRef(botId);
+  openId.current = botId;
   if (boundId !== botId) {
     setBoundId(botId);
     setNote("");
     setError("");
     setBusy(false);
   }
+  // An answer that arrives after another bot was opened is not shown on that bot's page.
   async function act(body) {
+    const here = botId;
     setError("");
     setNote("");
     setBusy(true);
     try {
-      const result = await api(`/api/bots/${botId}/action`, { method: "POST", body });
+      const result = await api(`/api/bots/${here}/action`, { method: "POST", body });
+      if (openId.current !== here) return result;
       if (result.redirect) navigate(result.redirect);
-      else if (result.botId) navigate(`/bots/${result.botId}`);
+      else if (result.botId && String(result.botId) !== String(here)) navigate(`/bots/${result.botId}`);
       else setNote(result.message || "");
       onDoneRef.current?.();
       return result;
     } catch (err) {
-      setError(err.message);
+      if (openId.current === here) setError(err.message);
       return null;
     } finally {
-      setBusy(false);
+      if (openId.current === here) setBusy(false);
     }
   }
   return { note, error, busy, act, setNote, setError };
@@ -1504,9 +1532,15 @@ export function Connection() {
   }
   if (!data && !error) {
     return (
-      <div className="page">
+      <div className="page" aria-busy="true">
         <h1>{t("Connection")}</h1>
-        <p className="hint" role="status">{t("Loading…")}</p>
+        <LoadingStatus />
+        <div className="pair">
+          <SkeletonCard rows={3} />
+          <SkeletonCard rows={3} />
+        </div>
+        <SkeletonCard rows={2} />
+        <SkeletonCard rows={6} />
       </div>
     );
   }
@@ -1572,7 +1606,7 @@ export function Connection() {
         </dl>
         <div className="card-foot">
           <button className="btn btn-primary" type="button" onClick={() => act({ op: "commander", mode: "on" }).then((result) => { if (kept(result)) reload(); })}>{t("Turn on")}</button>
-          <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (result) reload(); })}>{t("Turn off")}</button>
+          <button className="btn" type="button" onClick={() => act({ op: "commander", mode: "off" }).then((result) => { if (kept(result)) reload(); })}>{t("Turn off")}</button>
         </div>
       </section>
       </div>

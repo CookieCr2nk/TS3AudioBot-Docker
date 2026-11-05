@@ -9,7 +9,14 @@ import { startPolling } from "./poll.js";
 
 export function App() {
   const { ready, user } = useAuth();
-  if (!ready) return null;
+  // No phrases are loaded yet, so the wait shows only the logo. It fades in late, so a fast answer shows nothing.
+  if (!ready) {
+    return (
+      <div className="boot" aria-busy="true">
+        <img src="/favicon.svg" alt="" />
+      </div>
+    );
+  }
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
