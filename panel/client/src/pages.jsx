@@ -1297,6 +1297,10 @@ function whisperLabel(mode, t) {
   return t("Unknown");
 }
 
+function isOnServer(status) {
+  return status === "connected" || status === "connecting";
+}
+
 function namedIds(ids, rows, channels) {
   if (!ids?.length) return "";
   return ids.map((id) => {
@@ -1499,7 +1503,9 @@ export function Connection() {
   function kept(result) {
     return pageId.current === id && result;
   }
-  const onServer = data?.connection?.status === "connected" || data?.connection?.status === "connecting";
+  const onServer = isOnServer(data?.connection?.status);
+  const loaded = useRef(data);
+  loaded.current = data;
   // When the bot API cannot be reached, the server card says so once. The rows below only show Unknown.
   const apiDown = Boolean(data?.connection?.error);
   const rowError = (text) => (text && !apiDown ? <span className="muted"> {text}</span> : null);
@@ -1507,14 +1513,18 @@ export function Connection() {
   useEffect(() => {
     setLive(null);
   }, [data]);
-  // Clients join, leave, and get a new id when they reconnect, so the whisper lists are read again while the page is open.
+  // Channels and clients come and go, and clients get a new id when they reconnect, so the server tree and the
+  // whisper lists are read again while the page is open. This runs whatever the status was when the page loaded,
+  // so a bot that connects or drops later is noticed. A change of that status reads the whole page again.
   useEffect(() => {
-    if (!onServer) return undefined;
     let stop = false;
     async function pull() {
+      if (!loaded.current?.connection) return;
       try {
         const next = await api(`/api/bots/${id}/whisper`);
-        if (!stop) setLive(next);
+        if (stop) return;
+        if (next.status !== "unknown" && isOnServer(next.status) !== isOnServer(loaded.current?.connection?.status)) reload();
+        else setLive(next);
       } catch {
         /* Keep the last list. The next pull tries again. */
       }
@@ -1524,7 +1534,7 @@ export function Connection() {
       stop = true;
       end();
     };
-  }, [id, onServer, liveTick]);
+  }, [id, liveTick]);
   const w = live || data || {};
   function afterTarget(result) {
     // Subscribing also saves whisper as the send mode, so the whole page is read again.
@@ -1769,7 +1779,10 @@ export function Connection() {
           const formElement = event.currentTarget;
           const channel = new FormData(formElement).get("channel");
           act({ op: "move", channel }).then((result) => {
-            if (kept(result)) setMoveTick((value) => value + 1);
+            if (!kept(result)) return;
+            setMoveTick((value) => value + 1);
+            // The bot is in another channel now. Read the tree again instead of waiting for the next pull.
+            setLiveTick((value) => value + 1);
           });
         }}>
           <div className="grow">

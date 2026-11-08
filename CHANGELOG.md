@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Radio lists stations next to the form for a new one. Instance, Account, Audit, and the sign-in page use the same layout
 
 ### Fixed
+- Connection picks up new channels and clients sooner. The channel list for Move now, Default channel, and Whisper is read again as soon as the browser window gets the focus back and right after a move, not only every 10 seconds. A bot that was offline when the page opened, or that connects or drops later, now gets its lists and status without reloading the page
 - Text that should stay on one line (status pills, buttons, table cells, the breadcrumb, the bot switcher) no longer wraps. A colour token rename had broken every `white-space` rule
 - On Connection, turning channel commander off no longer reloads the page of a bot opened in the meantime, and a slow action no longer shows its note or error on the next bot
 - The seek and volume sliders follow the bot again after you drag them. Page Up and Page Down on a slider are sent too
