@@ -68,4 +68,18 @@ describe("polling", () => {
     stop();
     assert.ok(calls >= 2, String(calls));
   });
+
+  it("pulls at once when the window gets the focus back", async () => {
+    let calls = 0;
+    const doc = fakeDocument();
+    const win = fakeDocument();
+    const stop = startPolling(async () => { calls += 1; }, 1000, { doc, win, immediate: false });
+    await wait(5);
+    assert.equal(calls, 0);
+    win.show();
+    await wait(1);
+    assert.equal(calls, 1);
+    stop();
+    assert.equal(win.listeners, 0);
+  });
 });

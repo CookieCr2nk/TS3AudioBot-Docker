@@ -1,7 +1,7 @@
 // Calls `pull` again `intervalMs` after the previous call has finished, so slow answers never overlap
 // and an older answer cannot arrive after a newer one. While the page is hidden nothing is fetched.
-// Showing the page again pulls at once. Returns a stop function.
-export function startPolling(pull, intervalMs, { doc = globalThis.document, immediate = true } = {}) {
+// Showing the page again, or focusing the window, pulls at once. Returns a stop function.
+export function startPolling(pull, intervalMs, { doc = globalThis.document, win = globalThis.window, immediate = true } = {}) {
   let timer = null;
   let running = false;
   let stopped = false;
@@ -36,6 +36,8 @@ export function startPolling(pull, intervalMs, { doc = globalThis.document, imme
   }
 
   doc?.addEventListener?.("visibilitychange", onVisibility);
+  // Switching back from the TeamSpeak client often leaves the tab visible the whole time, so focus counts too.
+  win?.addEventListener?.("focus", onVisibility);
   if (immediate) run();
   else schedule();
 
@@ -44,5 +46,6 @@ export function startPolling(pull, intervalMs, { doc = globalThis.document, imme
     if (timer != null) clearTimeout(timer);
     timer = null;
     doc?.removeEventListener?.("visibilitychange", onVisibility);
+    win?.removeEventListener?.("focus", onVisibility);
   };
 }
